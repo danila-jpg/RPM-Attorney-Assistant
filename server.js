@@ -118,7 +118,9 @@ app.get("/api/laws", async (req, res) => {
 app.put("/api/laws", async (req, res) => {
   try {
     if (!req.body || typeof req.body !== "object") {
-      return res.status(400).json({ error: "Некорректный формат законов." });
+      return res.status(400).json({
+        error: "Некорректный формат законов."
+      });
     }
 
     await writeJson(LAWS_FILE, req.body);
@@ -178,10 +180,12 @@ app.post("/api/cases", async (req, res) => {
 app.delete("/api/cases/:id", async (req, res) => {
   try {
     const cases = await readJson(CASES_FILE, []);
+
     await writeJson(
         CASES_FILE,
         cases.filter(c => c.id !== req.params.id)
     );
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -203,7 +207,9 @@ function normalize(value) {
 
 function getWords(value) {
   return [...new Set(
-      normalize(value).split(/\s+/).filter(word => word.length >= 3)
+      normalize(value)
+          .split(/\s+/)
+          .filter(word => word.length >= 3)
   )];
 }
 
@@ -307,7 +313,10 @@ function findRelevantArticles(documents, searchText) {
 
     return numbers.some(number => {
       const escaped = number.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(title);
+
+      return new RegExp(
+          `(?:^|\\s)${escaped}(?:$|\\s)`
+      ).test(title);
     });
   });
 
@@ -316,7 +325,9 @@ function findRelevantArticles(documents, searchText) {
   );
 
   const ranked = articles
-      .filter(a => !exactKeys.has(normalize(a.document + a.title + a.text)))
+      .filter(a => !exactKeys.has(
+          normalize(a.document + a.title + a.text)
+      ))
       .map(article => {
         const title = normalize(article.title);
         const document = normalize(article.document);
@@ -367,15 +378,12 @@ function prepareLawsForAI(articles) {
 }
 
 // =====================================================
-// ИНСТРУКЦИИ ИИ
+// ОБЩИЕ ИНСТРУКЦИИ ИИ
 // =====================================================
 
 function createInstructions({ mode, caseData, officerAnswer, lawsForAI }) {
   const analysisFormat = `
-ОСОБОЕ ТРЕБОВАНИЕ ДЛЯ РЕЖИМА ANALYZE:
-
-Верни результат строго в формате JSON без Markdown и без
-текстовых пояснений до или после JSON.
+Верни результат строго в JSON без Markdown.
 
 Структура:
 
@@ -389,7 +397,7 @@ function createInstructions({ mode, caseData, officerAnswer, lawsForAI }) {
       "evidence": ["Конкретное подтверждающее доказательство"],
       "missingEvidence": ["Каких сведений не хватает"],
       "defenseArguments": ["Аргумент защиты"],
-      "exceptions": ["Примечания и исключения из текста закона"],
+      "exceptions": ["Примечания и исключения из закона"],
       "conclusion": "Подтверждено"
     }
   ]
@@ -401,65 +409,42 @@ function createInstructions({ mode, caseData, officerAnswer, lawsForAI }) {
 - "Недостаточно данных"
 - "Не применимо"
 
-ПРАВИЛА ДЛЯ legalReasoning:
-
-1. Включай только статьи, текст которых действительно присутствует
-   в предоставленной базе законов.
-2. Не создавай номера статей самостоятельно.
-3. Если статья не подходит к обстоятельствам, укажи
-   "Не применимо" и объясни причину.
-4. Не называй факт подтверждённым, если он основан только
-   на предположении или словах одной стороны.
-5. В evidence включай только реально предоставленные материалы.
-6. Если доказательств нет, оставь массив пустым.
-7. В missingEvidence указывай конкретные недостающие сведения.
-8. Обязательно проверяй примечания и специальные исключения.
-9. Если исключение применимо, объясни его значение.
-10. Не смешивай незаконность задержания с незаконностью обыска.
-11. Если статья не найдена, не выдумывай её ради заполнения карточки.
-12. Если подходящих статей нет, верни пустой массив legalReasoning.
-13. Не делай вывод о виновности человека только по факту обвинения.
-14. Не представляй аргументы защиты как доказанные факты.
-15. В answer обязательно объясни ограничения анализа.
+Правила:
+1. Используй только реально переданные статьи.
+2. Не придумывай номера и содержание статей.
+3. Разделяй факты и предположения.
+4. В evidence включай только предоставленные материалы.
+5. Проверяй примечания и исключения.
+6. Не смешивай незаконность задержания с незаконностью обыска.
+7. Если подходящих статей нет, верни пустой legalReasoning.
+8. Не делай вывод о виновности только по обвинению.
+9. Объясняй ограничения анализа.
 `;
 
   return `
 Ты — RPM Attorney Assistant, помощник адвоката
 в ролевом проекте RPM.
 
-Твоя задача — анализировать игровые правовые ситуации
-исключительно на основании переданных нормативных документов RPM.
+Анализируй игровые правовые ситуации исключительно
+на основании переданных нормативных документов RPM.
 
 ОБЩИЕ ПРАВИЛА:
 
 1. Используй только предоставленные законы RPM и материалы дела.
-2. Не используй реальные законы РФ, Латвии, США или других стран.
+2. Не используй законодательство реальных стран.
 3. Не придумывай статьи, части, пункты, сроки, полномочия и санкции.
-4. Не приписывай статье содержание, которого нет в её тексте.
-5. Разделяй подтверждённые факты, предположения и заявления участников.
-6. Не объявляй человека виновным до достаточного подтверждения.
-7. Не считай отсутствие ответа сотрудника доказательством нарушения.
-8. Не гарантируй освобождение или удовлетворение ходатайства.
-9. Если нужной нормы нет, прямо сообщи об этом.
-10. Проверяй статью полностью, включая примечания и исключения.
-
-ПРОВЕРКА ЗАКОНОВ:
-
-- Проверяй специальные нормы и исключения.
-- Не игнорируй примечания к статьям.
-- Не смешивай незаконность задержания и незаконность обыска.
-- Не считай любое процессуальное нарушение автоматическим
-  основанием для исключения всех доказательств.
-- Если нормы кажутся противоречивыми, объясни это.
-- Не утверждай, что доказательство недопустимо, не проверив
-  способ его получения и применимые исключения.
-- Если информации недостаточно, укажи, что нужно установить.
+4. Разделяй подтверждённые факты и предположения.
+5. Не объявляй человека виновным без достаточных оснований.
+6. Отсутствие ответа сотрудника не является доказательством нарушения.
+7. Не гарантируй освобождение или удовлетворение ходатайства.
+8. Если нужной нормы нет, прямо сообщи об этом.
+9. Проверяй примечания и исключения.
 
 ПРАВИЛА ЗАДЕРЖАНИЯ:
 
 Различай:
 А) сотрудник не смог назвать статью;
-Б) статья отсутствует в материалах;
+Б) статья отсутствует в переданных материалах;
 В) законного основания задержания не существовало.
 
 Это разные обстоятельства.
@@ -477,7 +462,7 @@ function createInstructions({ mode, caseData, officerAnswer, lawsForAI }) {
 - Что именно оно подтверждает.
 - Кто его предоставил.
 - При каких обстоятельствах оно получено.
-- Есть ли сведения о его подлинности и полноте.
+- Есть ли сведения о подлинности и полноте.
 - Соблюдались ли процессуальные требования.
 - Есть ли применимое исключение.
 - Какие сомнения остаются.
@@ -498,8 +483,7 @@ ${lawsForAI}
 ${mode === "analyze" ? analysisFormat : ""}
 
 Если режим evaluate_answer:
-Проведи предметную проверку ответа сотрудника.
-Используй структуру:
+Проведи предметную проверку ответа сотрудника:
 1. Оценка ответа.
 2. Что установлено.
 3. Чего не хватает.
@@ -509,7 +493,6 @@ ${mode === "analyze" ? analysisFormat : ""}
 
 Если режим followup:
 Предложи следующие вопросы и действия с учётом материалов дела.
-Каждый вопрос должен помогать получить конкретную информацию.
 
 Если режим questions:
 Составь сложные, но корректные вопросы сотруднику.
@@ -524,19 +507,105 @@ ${mode === "analyze" ? analysisFormat : ""}
 }
 
 // =====================================================
-// ПАРСИНГ СТРУКТУРИРОВАННОГО ОТВЕТА
+// НОВАЯ ФУНКЦИЯ: ПРОВЕРКА ДЕЙСТВИЙ ПОЛИЦИИ
 // =====================================================
 
-function parseAIAnalysis(raw) {
-  const text = String(raw || "").trim();
+function createPoliceCheckInstructions({ caseData, lawsForAI }) {
+  return `
+Ты — RPM Attorney Assistant.
 
-  const cleaned = text
+Твоя задача — проверить действия сотрудников полиции
+в рамках ролевого проекта RPM.
+
+Используй исключительно предоставленные нормы RPM.
+Не используй законодательство реальных стран.
+Не придумывай статьи, полномочия, сроки и требования.
+
+МАТЕРИАЛЫ ДЕЛА:
+${JSON.stringify(caseData, null, 2)}
+
+НАЙДЕННЫЕ НОРМЫ RPM:
+${lawsForAI}
+
+ВЕРНИ СТРОГО JSON БЕЗ MARKDOWN:
+
+{
+  "answer": "Общий вывод по ситуации",
+  "checks": [
+    {
+      "topic": "Основание задержания",
+      "status": "Недостаточно данных",
+      "legalBasis": [],
+      "establishedFacts": [],
+      "missingFacts": [],
+      "explanation": "Объяснение",
+      "questions": []
+    }
+  ]
+}
+
+ПРОВЕРЬ СЛЕДУЮЩИЕ НАПРАВЛЕНИЯ:
+
+1. Основание задержания.
+2. Законность проникновения в помещение.
+3. Законность проведения обыска.
+4. Применение физической силы и специальных средств.
+5. Соблюдение прав задержанного.
+6. Соблюдение процессуальных сроков.
+7. Наличие и сохранность видеозаписей.
+8. Допустимость полученных доказательств.
+
+Допустимые значения status:
+- "Нарушение не выявлено"
+- "Возможное нарушение"
+- "Недостаточно данных"
+- "Не применимо"
+
+ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА:
+
+1. Указывай только нормы, действительно присутствующие
+   в переданных материалах.
+2. Не выдумывай номера статей и содержание законодательства.
+3. Для каждой нормы объясняй, почему она относится к ситуации.
+4. Разделяй установленные факты и предположения.
+5. Если информации недостаточно, указывай, что именно нужно выяснить.
+6. Не считай отсутствие ответа сотрудника доказательством нарушения.
+7. Не делай вывод о незаконности задержания только потому,
+   что сотрудник не назвал статью.
+8. Не смешивай основания задержания с основаниями проникновения.
+9. Само наличие основания для задержания не доказывает
+   наличие полномочия на проникновение в помещение.
+10. Проверяй примечания, исключения и специальные правила.
+11. Не объявляй доказательства недопустимыми без анализа
+    порядка их получения и применимых исключений.
+12. Если в переданных документах нет нормы по вопросу,
+    прямо сообщи об этом.
+13. Не заполняй карточки выдуманными сведениями.
+14. Вопросы должны помогать установить конкретные обстоятельства.
+15. Если подходящих норм нет, оставляй legalBasis пустым.
+16. Не выдавай предположение за установленное нарушение.
+
+Отвечай на русском языке.
+`;
+}
+
+// =====================================================
+// ПАРСИНГ АНАЛИЗА ДЕЛА
+// =====================================================
+
+function cleanJSON(raw) {
+  return String(raw || "")
+      .trim()
       .replace(/^```(?:json)?\s*/i, "")
       .replace(/\s*```$/i, "")
       .trim();
+}
+
+function parseAIAnalysis(raw) {
+  const text = cleanJSON(raw);
 
   try {
-    const parsed = JSON.parse(cleaned);
+    const parsed = JSON.parse(text);
 
     return {
       answer: String(parsed.answer || "Анализ не получен."),
@@ -545,15 +614,20 @@ function parseAIAnalysis(raw) {
             article: String(item.article || "Статья не указана"),
             whyApplied: String(item.whyApplied || ""),
             establishedElements: Array.isArray(item.establishedElements)
-                ? item.establishedElements.map(String) : [],
+                ? item.establishedElements.map(String)
+                : [],
             evidence: Array.isArray(item.evidence)
-                ? item.evidence.map(String) : [],
+                ? item.evidence.map(String)
+                : [],
             missingEvidence: Array.isArray(item.missingEvidence)
-                ? item.missingEvidence.map(String) : [],
+                ? item.missingEvidence.map(String)
+                : [],
             defenseArguments: Array.isArray(item.defenseArguments)
-                ? item.defenseArguments.map(String) : [],
+                ? item.defenseArguments.map(String)
+                : [],
             exceptions: Array.isArray(item.exceptions)
-                ? item.exceptions.map(String) : [],
+                ? item.exceptions.map(String)
+                : [],
             conclusion: [
               "Подтверждено",
               "Вероятно",
@@ -569,6 +643,64 @@ function parseAIAnalysis(raw) {
     return {
       answer: text || "ИИ не вернул ответ.",
       legalReasoning: []
+    };
+  }
+}
+
+// =====================================================
+// ПАРСИНГ ПРОВЕРКИ ПОЛИЦИИ
+// =====================================================
+
+function parsePoliceCheck(raw) {
+  const text = cleanJSON(raw);
+
+  const allowedStatuses = [
+    "Нарушение не выявлено",
+    "Возможное нарушение",
+    "Недостаточно данных",
+    "Не применимо"
+  ];
+
+  try {
+    const parsed = JSON.parse(text);
+
+    return {
+      answer: String(
+          parsed.answer || "Общий вывод не получен."
+      ),
+
+      checks: Array.isArray(parsed.checks)
+          ? parsed.checks.map(item => ({
+            topic: String(item.topic || "Проверка"),
+
+            status: allowedStatuses.includes(item.status)
+                ? item.status
+                : "Недостаточно данных",
+
+            legalBasis: Array.isArray(item.legalBasis)
+                ? item.legalBasis.map(String)
+                : [],
+
+            establishedFacts: Array.isArray(item.establishedFacts)
+                ? item.establishedFacts.map(String)
+                : [],
+
+            missingFacts: Array.isArray(item.missingFacts)
+                ? item.missingFacts.map(String)
+                : [],
+
+            explanation: String(item.explanation || ""),
+
+            questions: Array.isArray(item.questions)
+                ? item.questions.map(String)
+                : []
+          }))
+          : []
+    };
+  } catch {
+    return {
+      answer: text || "Не удалось обработать результат проверки.",
+      checks: []
     };
   }
 }
@@ -597,7 +729,8 @@ app.post("/api/attorney-assist", async (req, res) => {
       "evaluate_answer",
       "followup",
       "questions",
-      "reference"
+      "reference",
+      "police_check"
     ];
 
     if (!allowedModes.includes(mode)) {
@@ -613,6 +746,8 @@ app.post("/api/attorney-assist", async (req, res) => {
             : [];
 
     let searchText = [
+      caseData?.actionType,
+      caseData?.policeDescription,
       caseData?.suspectedArticle,
       caseData?.article,
       caseData?.title,
@@ -632,7 +767,11 @@ app.post("/api/attorney-assist", async (req, res) => {
       ].filter(Boolean).join(" ");
     }
 
-    const relevantArticles = findRelevantArticles(documents, searchText);
+    const relevantArticles = findRelevantArticles(
+        documents,
+        searchText
+    );
+
     const lawsForAI = prepareLawsForAI(relevantArticles);
 
     console.log("AI request:", {
@@ -642,31 +781,48 @@ app.post("/api/attorney-assist", async (req, res) => {
       selectedArticles: Math.min(relevantArticles.length, 18)
     });
 
-    const instructions = createInstructions({
-      mode,
-      caseData,
-      officerAnswer,
-      lawsForAI
-    });
+    const instructions = mode === "police_check"
+        ? createPoliceCheckInstructions({
+          caseData,
+          lawsForAI
+        })
+        : createInstructions({
+          mode,
+          caseData,
+          officerAnswer,
+          lawsForAI
+        });
 
     const completion = await client.chat.completions.create({
       model: MODEL,
       messages: [
-        { role: "system", content: instructions },
-        { role: "user", content: "Подготовь ответ по указанному режиму." }
+        {
+          role: "system",
+          content: instructions
+        },
+        {
+          role: "user",
+          content: "Подготовь ответ по указанному режиму."
+        }
       ],
       temperature: 0.2
     });
 
     const rawAnswer =
-        completion.choices?.[0]?.message?.content || "ИИ не вернул ответ.";
+        completion.choices?.[0]?.message?.content ||
+        "ИИ не вернул ответ.";
 
     if (mode === "analyze") {
-      const parsed = parseAIAnalysis(rawAnswer);
-      return res.json(parsed);
+      return res.json(parseAIAnalysis(rawAnswer));
     }
 
-    res.json({ answer: rawAnswer });
+    if (mode === "police_check") {
+      return res.json(parsePoliceCheck(rawAnswer));
+    }
+
+    return res.json({
+      answer: rawAnswer
+    });
 
   } catch (error) {
     console.error("AI error:", error);
