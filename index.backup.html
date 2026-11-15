@@ -1,0 +1,1511 @@
+﻿
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPM Attorney Assistant</title>
+
+  <style>
+    :root {
+      --bg:#090711;
+      --panel:#151121;
+      --panel2:#211832;
+      --border:#39294f;
+      --purple:#9865ed;
+      --purple2:#7044bd;
+      --text:#f1eafa;
+      --muted:#aa9cbd;
+      --green:#62d6a0;
+      --red:#ed647b;
+      --yellow:#f3ca68;
+      --blue:#82b7ff;
+      --violet:#c49aff;
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Segoe UI,Arial,sans-serif;
+    }
+
+    header{
+      padding:22px 30px;
+      background:linear-gradient(120deg,#211532,#100d1b);
+      border-bottom:1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:12px;
+    }
+
+    .logo{font-size:22px;font-weight:800}
+    .logo span{color:var(--purple)}
+    .status{font-size:13px;color:var(--muted)}
+
+    nav{
+      display:flex;
+      gap:7px;
+      padding:13px 20px;
+      background:#100d19;
+      border-bottom:1px solid var(--border);
+      overflow-x:auto;
+    }
+
+    nav button{
+      white-space:nowrap;
+      background:transparent;
+      color:var(--muted);
+      border:1px solid transparent;
+      padding:11px 14px;
+      border-radius:9px;
+      cursor:pointer;
+    }
+
+    nav button:hover,nav button.active{
+      color:white;
+      background:#291d40;
+      border-color:#67439a;
+    }
+
+    main{
+      max-width:1250px;
+      margin:25px auto;
+      padding:0 20px 50px;
+    }
+
+    .tab{display:none}
+    .tab.active{display:block}
+
+    h1{font-size:25px;margin:0 0 8px}
+    h2{font-size:19px;margin-top:0}
+    h3{font-size:16px}
+
+    .subtitle{
+      color:var(--muted);
+      margin-bottom:23px;
+      line-height:1.5;
+    }
+
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:13px;
+      padding:21px;
+      margin-bottom:17px;
+    }
+
+    label{
+      display:block;
+      margin:14px 0 7px;
+      color:#d9cbea;
+      font-size:14px;
+    }
+
+    input,textarea,select{
+      width:100%;
+      background:#0e0b17;
+      border:1px solid var(--border);
+      color:var(--text);
+      border-radius:8px;
+      padding:12px;
+      outline:none;
+      font:inherit;
+    }
+
+    input:focus,textarea:focus,select:focus{
+      border-color:var(--purple);
+    }
+
+    textarea{
+      min-height:110px;
+      resize:vertical;
+      line-height:1.5;
+    }
+
+    button{font:inherit}
+
+    button.primary{
+      background:linear-gradient(120deg,var(--purple2),var(--purple));
+      color:white;
+      border:0;
+      border-radius:8px;
+      padding:12px 18px;
+      margin-top:14px;
+      cursor:pointer;
+      font-weight:650;
+    }
+
+    button.secondary{
+      background:#292039;
+      border:1px solid var(--border);
+      color:var(--text);
+      border-radius:8px;
+      padding:10px 14px;
+      cursor:pointer;
+      margin:5px 5px 0 0;
+    }
+
+    button.danger{
+      background:#3b1926;
+      border:1px solid #773044;
+      color:#ffb5c1;
+      border-radius:8px;
+      padding:9px 12px;
+      cursor:pointer;
+    }
+
+    button:disabled{opacity:.5;cursor:wait}
+
+    .result{
+      margin-top:18px;
+      padding:18px;
+      border-radius:10px;
+      background:#100d19;
+      border:1px solid var(--border);
+      line-height:1.65;
+      overflow-wrap:anywhere;
+    }
+
+    .result-plain{white-space:pre-wrap;line-height:1.7}
+    .result-plain p{margin:5px 0}
+
+    .result-section{
+      padding:15px 17px;
+      margin:13px 0;
+      border-radius:10px;
+      border:1px solid;
+      line-height:1.65;
+    }
+
+    .result-section h3{margin:0 0 10px;font-size:14px}
+    .result-section p{margin:7px 0;white-space:pre-wrap}
+
+    .result-green{background:rgba(40,150,100,.10);border-color:#398c68}
+    .result-green h3,.highlight-green{color:var(--green)}
+
+    .result-red{background:rgba(200,55,80,.10);border-color:#a94359}
+    .result-red h3,.highlight-red{color:#ff788e}
+
+    .result-yellow{background:rgba(210,160,40,.10);border-color:#a78332}
+    .result-yellow h3,.highlight-yellow{color:var(--yellow)}
+
+    .result-blue{background:rgba(65,125,210,.10);border-color:#456eae}
+    .result-blue h3,.highlight-blue{color:var(--blue)}
+
+    .result-purple{background:rgba(145,90,220,.12);border-color:#8052bd}
+    .result-purple h3,.highlight-purple{color:var(--violet)}
+
+    .result-highlight{font-weight:700}
+
+    .result-legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:14px 0;
+    }
+
+    .legend-item{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 9px;
+      border-radius:7px;
+      background:#211832;
+      font-size:12px;
+    }
+
+    .legend-dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+    }
+
+    .hidden{display:none!important}
+    .muted{color:var(--muted);font-size:13px;line-height:1.5}
+
+    .case-item,.law-item,.question-card,.glossary-item{
+      background:var(--panel2);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:15px;
+      margin:11px 0;
+    }
+
+    .question-top{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .question-number{
+      min-width:37px;
+      height:37px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#302044;
+      color:#d8baff;
+      border-radius:9px;
+      font-weight:800;
+    }
+
+    .question-card h3{margin:0;line-height:1.4}
+    .question-card textarea{min-height:85px}
+
+    .glossary-item h3{
+      margin:0 0 8px;
+      color:#d3b5ff;
+    }
+
+    .glossary-item p{
+      line-height:1.6;
+      margin:0;
+    }
+
+    .badge{
+      display:inline-block;
+      padding:4px 9px;
+      border-radius:20px;
+      background:#302044;
+      color:#d8baff;
+      font-size:12px;
+    }
+
+    .law-document{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:12px;
+      margin:13px 0;
+      overflow:hidden;
+    }
+
+    .law-document>summary{
+      cursor:pointer;
+      list-style:none;
+      padding:18px;
+    }
+
+    .law-document>summary::-webkit-details-marker{display:none}
+    .law-document>summary:hover{background:var(--panel2)}
+    .law-content{padding:0 17px 17px}
+
+    .article{
+      background:#100d19;
+      border:1px solid var(--border);
+      border-radius:9px;
+      margin:10px 0;
+      overflow:hidden;
+    }
+
+    .article summary{
+      padding:13px 15px;
+      font-weight:650;
+      color:#e9dafa;
+      cursor:pointer;
+    }
+
+    .article-body{
+      padding:0 15px 15px;
+      line-height:1.65;
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+    }
+
+    .article-status{font-size:12px;color:var(--green);margin-bottom:10px}
+
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .stat-card{
+      background:#211832;
+      border:1px solid var(--border);
+      padding:13px;
+      border-radius:9px;
+    }
+
+    .stat-number{font-size:23px;font-weight:750;color:#c9a9ff}
+    .stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+
+    #toast{
+      position:fixed;
+      bottom:20px;
+      right:20px;
+      background:#281d3d;
+      border:1px solid var(--purple);
+      padding:13px 18px;
+      border-radius:9px;
+      display:none;
+      max-width:90%;
+      z-index:100;
+    }
+
+    @media(max-width:700px){
+      header{padding:18px}
+      nav{padding:10px}
+      main{padding:0 12px 35px}
+      .panel{padding:15px}
+      .result{padding:12px}
+      .question-top{align-items:flex-start}
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">RPM <span>ATTORNEY ASSISTANT</span></div>
+  <div class="status" id="systemStatus">Проверка сервера...</div>
+</header>
+
+<nav>
+  <button class="active" data-tab="analysis">Анализ дела</button>
+  <button data-tab="questions">Вопросы сотруднику</button>
+  <button data-tab="reference">Справочник адвоката</button>
+  <button data-tab="glossary">Словарь терминов</button>
+  <button data-tab="history">История дел</button>
+  <button data-tab="laws">Все законы</button>
+</nav>
+
+<main>
+
+  <!-- АНАЛИЗ ДЕЛА -->
+
+  <section id="analysis" class="tab active">
+    <h1>Анализ дела</h1>
+    <p class="subtitle">Правовой анализ ситуации на основании законодательства RPM.</p>
+
+    <div class="panel">
+      <label>Название дела</label>
+      <input id="caseTitle" placeholder="Например: Задержание гражданина">
+
+      <label>Описание ситуации</label>
+      <textarea id="caseDescription" placeholder="Опишите известные обстоятельства дела..."></textarea>
+
+      <label>Доказательства и дополнительные материалы</label>
+      <textarea id="caseEvidence" placeholder="Видео, документы, показания..."></textarea>
+
+      <button class="primary" onclick="runAI('analyze')">Провести анализ</button>
+
+      <div class="result-legend">
+        <span class="legend-item">🟢 Разрешено</span>
+        <span class="legend-item">🔴 Возможное нарушение</span>
+        <span class="legend-item">🟡 Важно</span>
+        <span class="legend-item">🔵 Правовые основания</span>
+        <span class="legend-item">🟣 Рекомендация адвокату</span>
+      </div>
+
+      <div id="analysisResult" class="result hidden"></div>
+      <button class="secondary" onclick="saveCurrentCase()">Сохранить дело</button>
+    </div>
+
+    <div class="panel">
+      <h2>Оценка ответа сотрудника</h2>
+
+      <label>Ответ сотрудника</label>
+      <textarea id="officerAnswer" placeholder="Например: 9.7"></textarea>
+
+      <button class="primary" onclick="runAI('evaluate_answer')">Оценить ответ</button>
+      <div id="evaluationResult" class="result hidden"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Уточняющие вопросы</h2>
+      <button class="primary" onclick="runAI('followup')">Сформировать вопросы</button>
+      <div id="followupResult" class="result hidden"></div>
+    </div>
+  </section>
+
+  <!-- ВОПРОСЫ СОТРУДНИКУ -->
+
+  <section id="questions" class="tab">
+    <h1>Вопросы сотруднику</h1>
+    <p class="subtitle">Запиши ответы сотрудника полиции и проверь их по законам RPM.</p>
+
+    <div class="panel">
+      <h2>Информация для проверки</h2>
+
+      <p class="muted">
+        Описание обстоятельств необязательно. Можно указать только статью,
+        ответ сотрудника или другие известные сведения.
+      </p>
+
+      <label>Предполагаемая статья нарушения</label>
+      <input id="suspectedArticle" placeholder="Например: 9.7">
+
+      <label>Дополнительная информация (необязательно)</label>
+      <textarea id="questionsContext" placeholder="Любая известная информация. Можно оставить пустым."></textarea>
+    </div>
+
+    <div class="panel">
+      <h2>Опрос сотрудника</h2>
+      <p class="muted">Записывай ответы напротив каждого вопроса. Пустые поля можно оставить без изменений.</p>
+
+      <div id="policeQuestionsList"></div>
+
+      <button class="primary" onclick="evaluatePoliceAnswers()">Проверить ответы сотрудника</button>
+      <button class="secondary" onclick="clearPoliceAnswers()">Очистить ответы</button>
+
+      <div id="questionsResult" class="result hidden"></div>
+    </div>
+  </section>
+
+  <!-- СПРАВОЧНИК -->
+
+  <section id="reference" class="tab">
+    <h1>Справочник адвоката</h1>
+    <p class="subtitle">Поиск правовой информации в документах RPM.</p>
+
+    <div class="panel">
+      <label>Ваш вопрос</label>
+      <textarea id="referenceQuestion" placeholder="Например: Какие основания предусмотрены для задержания?"></textarea>
+      <button class="primary" onclick="runAI('reference')">Найти информацию</button>
+      <div id="referenceResult" class="result hidden"></div>
+    </div>
+  </section>
+
+  <!-- СЛОВАРЬ ТЕРМИНОВ -->
+
+  <section id="glossary" class="tab">
+    <h1>Словарь юридических терминов</h1>
+    <p class="subtitle">Простые объяснения слов, которые используются в работе адвоката.</p>
+
+    <div class="panel">
+      <label>Поиск термина</label>
+      <input id="glossarySearch" placeholder="Например: обстоятельства дела, доказательства...">
+      <p class="muted" id="glossaryCount"></p>
+    </div>
+
+    <div id="glossaryList"></div>
+  </section>
+
+  <!-- ИСТОРИЯ -->
+
+  <section id="history" class="tab">
+    <h1>История дел</h1>
+    <p class="subtitle">Сохранённые материалы дел.</p>
+    <button class="secondary" onclick="loadCases()">Обновить список</button>
+    <div id="casesList">Загрузка...</div>
+  </section>
+
+  <!-- ЗАКОНЫ -->
+
+  <section id="laws" class="tab">
+    <h1>Библиотека законодательства RPM</h1>
+    <p class="subtitle">Нормативные документы, статьи и правовые положения.</p>
+
+    <div class="panel">
+      <label>Поиск по законодательству</label>
+      <input id="lawSearch" placeholder="Название документа, статья или текст...">
+
+      <label>Тип документа</label>
+      <select id="lawTypeFilter">
+        <option value="all">Все документы</option>
+        <option value="code">Кодексы</option>
+        <option value="law">Законы</option>
+        <option value="other">Другие документы</option>
+      </select>
+
+      <div class="stats-grid" id="lawStats"></div>
+      <p class="muted" id="lawSearchInfo"></p>
+    </div>
+
+    <div id="lawsList">Загрузка...</div>
+
+    <div class="panel">
+      <button class="secondary" onclick="toggleLawEditor()">⚙ Редактор законодательства</button>
+
+      <div id="lawEditorPanel" class="hidden">
+        <label>JSON</label>
+        <textarea id="lawsEditor" style="min-height:300px"></textarea>
+        <button class="primary" onclick="saveLaws()">Сохранить изменения</button>
+        <button class="secondary" onclick="loadLaws()">Отменить изменения</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+  "use strict";
+
+  let lawsData={documents:[]};
+  let casesData=[];
+  let lastAnalysis="";
+  let toastTimer=null;
+
+  const $=id=>document.getElementById(id);
+
+  /* СЛОВАРЬ ТЕРМИНОВ */
+
+  const glossaryTerms=[
+    {
+      term:"Обстоятельства дела",
+      category:"Общие понятия",
+      description:"Это описание того, что произошло: кто участвовал, где и когда произошла ситуация, какие действия совершались и что известно о произошедшем.",
+      example:"Например: сотрудник полиции остановил гражданина, сообщил о нарушении статьи 9.7 и задержал его."
+    },
+    {
+      term:"Подзащитный",
+      category:"Участники процесса",
+      description:"Человек, интересы которого представляет адвокат в рамках защиты.",
+      example:"Если ты выступаешь адвокатом гражданина, этот гражданин является твоим подзащитным."
+    },
+    {
+      term:"Правовая квалификация",
+      category:"Правовые понятия",
+      description:"Определение того, какая статья и какая часть закона могут применяться к конкретному действию.",
+      example:"Сотрудник утверждает, что гражданин нарушил статью 9.7. Это и есть предложенная сотрудником квалификация."
+    },
+    {
+      term:"Доказательства",
+      category:"Доказательства",
+      description:"Материалы и сведения, которые помогают установить, что произошло на самом деле.",
+      example:"Видеозапись, показания свидетеля, документы, протокол или другие материалы."
+    },
+    {
+      term:"Состав правонарушения",
+      category:"Правовые понятия",
+      description:"Совокупность признаков, которые должны присутствовать, чтобы действие можно было признать определённым правонарушением.",
+      example:"Нужно проверить, соответствуют ли действия человека признакам, описанным в конкретной статье."
+    },
+    {
+      term:"Правовое основание",
+      category:"Правовые понятия",
+      description:"Конкретное правило закона, которое разрешает, требует или регулирует определённое действие.",
+      example:"Сотрудник должен объяснить, на основании какой нормы он провёл задержание."
+    },
+    {
+      term:"Процессуальное действие",
+      category:"Процедура",
+      description:"Официальное действие, которое проводится в рамках установленной процедуры.",
+      example:"Обыск, допрос, изъятие имущества или оформление протокола."
+    },
+    {
+      term:"Задержание",
+      category:"Процедура",
+      description:"Временное ограничение свободы человека в предусмотренном законом порядке.",
+      example:"Адвокату важно выяснить, какие основания и правила задержания предусмотрены законодательством RPM."
+    },
+    {
+      term:"Протокол",
+      category:"Документы",
+      description:"Официальный документ, в котором фиксируются определённые действия, обстоятельства и сведения.",
+      example:"Протокол задержания или протокол обыска."
+    },
+    {
+      term:"Умысел",
+      category:"Вина",
+      description:"Форма вины, при которой человек осознаёт характер своего действия и действует намеренно.",
+      example:"Нужно установить, подтверждается ли намеренное действие фактами."
+    },
+    {
+      term:"Неосторожность",
+      category:"Вина",
+      description:"Форма вины, при которой нарушение происходит без намерения, но при наличии предусмотренных законом признаков неосторожности.",
+      example:"Нужно выяснить, какие действия человека и какие нормы позволяют говорить о неосторожности."
+    },
+    {
+      term:"Мотив",
+      category:"Вина",
+      description:"Причина или побуждение, по которому человек совершил определённое действие.",
+      example:"Личная неприязнь, корыстный интерес или иная причина, если она имеет значение для статьи."
+    },
+    {
+      term:"Смягчающие обстоятельства",
+      category:"Обстоятельства ответственности",
+      description:"Обстоятельства, которые по правилам применимого законодательства могут уменьшить строгость ответственности.",
+      example:"Какие именно обстоятельства учитываются, необходимо проверять по соответствующему кодексу RPM."
+    },
+    {
+      term:"Отягчающие обстоятельства",
+      category:"Обстоятельства ответственности",
+      description:"Обстоятельства, которые по применимым правилам могут увеличить строгость ответственности.",
+      example:"Нельзя считать обстоятельство отягчающим только по предположению: необходимо найти основание в законодательстве."
+    },
+    {
+      term:"Санкция",
+      category:"Наказание",
+      description:"Часть нормы, в которой указано возможное наказание или мера ответственности за нарушение.",
+      example:"Если статья предусматривает определённый срок, штраф или другую меру, это указывается в санкции."
+    },
+    {
+      term:"Соразмерность",
+      category:"Правовые понятия",
+      description:"Соответствие применённой меры обстоятельствам ситуации и установленным правилам.",
+      example:"Следует выяснить, соответствовала ли применённая мера предусмотренным законом условиям."
+    },
+    {
+      term:"Допустимость доказательств",
+      category:"Доказательства",
+      description:"Вопрос о том, можно ли использовать конкретный материал в качестве доказательства с учётом установленных процедурных требований.",
+      example:"Нужно проверить, соблюдались ли правила получения и оформления доказательства."
+    },
+    {
+      term:"Свидетель",
+      category:"Участники процесса",
+      description:"Человек, который может сообщить сведения о произошедших событиях.",
+      example:"Очевидец, который видел действия сотрудника или гражданина."
+    },
+    {
+      term:"Потерпевший",
+      category:"Участники процесса",
+      description:"Лицо, которому предполагаемым нарушением причинён вред, если соответствующий статус предусмотрен правилами RPM.",
+      example:"Человек, заявивший о причинённом ему вреде."
+    },
+    {
+      term:"Ходатайство",
+      category:"Документы",
+      description:"Официальная просьба участника процесса совершить определённое процессуальное действие или рассмотреть вопрос.",
+      example:"Просьба приобщить видеозапись к материалам дела."
+    },
+    {
+      term:"Презумпция невиновности",
+      category:"Правовые принципы",
+      description:"Принцип, согласно которому человек не должен считаться виновным только на основании подозрения или обвинения. Конкретные правила применения необходимо проверять по законодательству RPM.",
+      example:"Само утверждение сотрудника о нарушении не заменяет проверку доказательств."
+    },
+    {
+      term:"Адвокат",
+      category:"Участники процесса",
+      description:"Представитель защиты, который помогает защищать права и интересы подзащитного в рамках правил проекта.",
+      example:"Адвокат анализирует материалы, задаёт вопросы и проверяет основания действий сотрудников."
+    },
+    {
+      term:"Правонарушение",
+      category:"Правовые понятия",
+      description:"Действие или бездействие, которое соответствует признакам нарушения, установленным применимой нормой.",
+      example:"Нужно установить не просто факт конфликта, а соответствие действий конкретной статье."
+    },
+    {
+      term:"Недостаточность доказательств",
+      category:"Доказательства",
+      description:"Ситуация, когда имеющихся материалов недостаточно для уверенного подтверждения определённого факта.",
+      example:"Сотрудник назвал статью, но не объяснил, какие действия гражданина соответствуют её признакам."
+    },
+    {
+      term:"Обвинение",
+      category:"Процесс",
+      description:"Утверждение о том, что определённое лицо совершило правонарушение или преступление.",
+      example:"Адвокат проверяет, подтверждается ли обвинение материалами и нормами."
+    },
+    {
+      term:"Рапорт",
+      category:"Документы",
+      description:"Служебный документ, в котором сотрудник излагает информацию о событии или выполненных действиях.",
+      example:"Рапорт может описывать основания задержания, если такой документ предусмотрен правилами RPM."
+    },
+    {
+      term:"Срок задержания",
+      category:"Процедура",
+      description:"Период времени, в течение которого допускается удержание человека в соответствии с применимыми правилами.",
+      example:"Необходимо проверить начало отсчёта, допустимую продолжительность и исключения."
+    },
+    {
+      term:"Нарушение процедуры",
+      category:"Процедура",
+      description:"Несоблюдение установленного порядка выполнения процессуального действия.",
+      example:"Нужно выяснить, какое конкретное правило было нарушено и какие последствия это имеет по законам RPM."
+    }
+  ];
+
+  function renderGlossary(){
+    const list=$("glossaryList");
+    const query=normalizeSearch($("glossarySearch").value);
+
+    list.replaceChildren();
+
+    const filtered=glossaryTerms.filter(item=>
+            normalizeSearch(
+                    item.term+" "+item.category+" "+item.description+" "+item.example
+            ).includes(query)
+    );
+
+    $("glossaryCount").textContent="Найдено терминов: "+filtered.length;
+
+    if(!filtered.length){
+      list.textContent="Термины не найдены.";
+      return;
+    }
+
+    filtered.forEach(item=>{
+      const card=document.createElement("div");
+      card.className="glossary-item";
+
+      card.appendChild(makeElement("div","badge",item.category));
+      card.appendChild(makeElement("h3","",item.term));
+      card.appendChild(makeElement("p","",item.description));
+
+      const example=makeElement("p","muted","Пример: "+item.example);
+      example.style.marginTop="10px";
+
+      card.appendChild(example);
+      list.appendChild(card);
+    });
+  }
+
+  /* ВОПРОСЫ СОТРУДНИКУ */
+
+  const policeQuestions=[
+    {
+      title:"Какую статью нарушил мой подзащитный?",
+      description:"Уточните точную правовую квалификацию деяния."
+    },
+    {
+      title:"Чем вы руководствовались при выборе этой статьи?",
+      description:"Почему применена именно эта норма?"
+    },
+    {
+      title:"Какие конкретные действия подзащитного стали основанием для обвинения?",
+      description:"Попросите описать факты, а не общие предположения."
+    },
+    {
+      title:"Какая норма разрешала произвести задержание?",
+      description:"Попросите назвать документ, статью и пункт."
+    },
+    {
+      title:"Какова была цель задержания?",
+      description:"Уточните, для чего требовалось задержание."
+    },
+    {
+      title:"Какие доказательства подтверждают причастность подзащитного?",
+      description:"Видео, свидетели, документы и другие материалы."
+    },
+    {
+      title:"Проверяли ли вы достоверность доказательств?",
+      description:"Как именно проверялись источники информации?"
+    },
+    {
+      title:"Какие процессуальные действия были проведены?",
+      description:"Например: обыск, допрос, изъятие."
+    },
+    {
+      title:"На каком основании проводилось каждое действие?",
+      description:"Попросите отдельно назвать правовую норму."
+    },
+    {
+      title:"Разъяснялись ли подзащитному его права?",
+      description:"Какие права и когда были разъяснены?"
+    },
+    {
+      title:"Какая форма вины была установлена?",
+      description:"Попросите объяснить, почему сделан такой вывод."
+    },
+    {
+      title:"Как установлен мотив деяния?",
+      description:"Какие материалы подтверждают мотив?"
+    },
+    {
+      title:"Проверялись ли смягчающие и отягчающие обстоятельства?",
+      description:"Какие именно обстоятельства были установлены?"
+    },
+    {
+      title:"Соблюдалась ли соразмерность применённых мер?",
+      description:"Почему выбранная мера соответствовала ситуации?"
+    },
+    {
+      title:"Какие документы подтверждают ваши действия?",
+      description:"Протоколы, постановления, рапорты и записи."
+    }
+  ];
+
+  function renderPoliceQuestions(){
+    const container=$("policeQuestionsList");
+    container.replaceChildren();
+
+    policeQuestions.forEach((question,index)=>{
+      const card=makeElement("div","question-card");
+      const top=makeElement("div","question-top");
+
+      const number=makeElement("div","question-number",String(index+1).padStart(2,"0"));
+      const title=makeElement("h3","",question.title);
+
+      top.append(number,title);
+
+      const description=makeElement("p","muted",question.description);
+      const label=makeElement("label","","Ответ сотрудника");
+
+      const textarea=document.createElement("textarea");
+      textarea.id="policeAnswer"+index;
+      textarea.placeholder="Запишите ответ сотрудника...";
+      textarea.dataset.question=question.title;
+
+      card.append(top,description,label,textarea);
+      container.appendChild(card);
+    });
+  }
+
+  async function evaluatePoliceAnswers(){
+    const context=$("questionsContext").value.trim();
+    const article=$("suspectedArticle").value.trim();
+
+    const answers=policeQuestions.map((question,index)=>{
+      const field=$("policeAnswer"+index);
+      return {
+        number:index+1,
+        question:question.title,
+        answer:field.value.trim()||"Сотрудник не ответил."
+      };
+    });
+
+    const answered=answers.filter(
+            item=>item.answer!=="Сотрудник не ответил."
+    );
+
+    if(!article&&!answered.length){
+      toast("Укажи статью или хотя бы один ответ сотрудника.");
+      return;
+    }
+
+    const officerAnswer=[
+      "ЗАДАНИЕ: Проведи подробную правовую проверку ответов сотрудника.",
+      "ВАЖНО: описание обстоятельств дела необязательно и может отсутствовать.",
+      "Если пользователь указал только номер статьи и ответ сотрудника, всё равно выполни проверку.",
+      "Не требуй от пользователя самостоятельно знать фактические обстоятельства дела.",
+      "",
+      "ПРЕДПОЛАГАЕМАЯ СТАТЬЯ:",
+      article||"Не указана.",
+      "",
+      "ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ:",
+      context||"Пользователь не предоставил дополнительные обстоятельства.",
+      "",
+      "ПРОВЕРКА ОТВЕТОВ:",
+      ...answers.map(item=>
+              "\nВОПРОС "+item.number+": "+item.question+
+              "\nОТВЕТ: "+item.answer
+      ),
+      "",
+      "Для каждого ответа укажи:",
+      "1. Оценку: достаточный, частичный, недостаточный или отсутствует.",
+      "2. Что именно установлено.",
+      "3. Чего не хватает для обоснования.",
+      "4. Какие нормы законодательства RPM применимы.",
+      "5. Какой дополнительный вопрос следует задать.",
+      "",
+      "Если пользователь указал статью, проверь её содержание по переданной базе законов.",
+      "Если сотрудник назвал ту же статью, объясни, подтверждает ли это только номер статьи или также правильность квалификации.",
+      "Не делай вывод о виновности только по номеру статьи.",
+      "Не придумывай нормы, наказания и содержание статей.",
+      "Если в базе нет нужной статьи, прямо сообщи об этом.",
+      "Не считай отсутствие ответа автоматическим доказательством нарушения.",
+      "В конце составь общий вывод и рекомендации адвокату."
+    ].join("\n");
+
+    showResult("questionsResult","Проверяю ответы по законодательству RPM...");
+
+    const button=document.querySelector('#questions button.primary');
+    button.disabled=true;
+
+    try{
+      const data=await api("/api/attorney-assist",{
+        method:"POST",
+        body:JSON.stringify({
+          mode:"evaluate_answer",
+          caseData:{
+            title:"Проверка ответов сотрудника",
+            description:context||"Обстоятельства дела пользователем не предоставлены. Проверить доступные сведения и ответы сотрудника.",
+            evidence:article
+                    ?"Предполагаемая статья: "+article
+                    :"Дополнительные сведения отсутствуют."
+          },
+          laws:lawsData,
+          officerAnswer
+        })
+      });
+
+      showResult("questionsResult",data.answer||data.message||"Ответ не получен.");
+
+    }catch(error){
+      showResult("questionsResult","Ошибка: "+error.message);
+    }finally{
+      button.disabled=false;
+    }
+  }
+
+  function clearPoliceAnswers(){
+    policeQuestions.forEach((q,index)=>{
+      $("policeAnswer"+index).value="";
+    });
+
+    $("suspectedArticle").value="";
+    $("questionsContext").value="";
+
+    $("questionsResult").replaceChildren();
+    $("questionsResult").classList.add("hidden");
+
+    toast("Данные опроса очищены.");
+  }
+
+  /* API */
+
+  async function api(url,options={}){
+    const response=await fetch(url,{
+      ...options,
+      headers:{
+        "Content-Type":"application/json",
+        ...(options.headers||{})
+      }
+    });
+
+    const data=await response.json().catch(()=>({}));
+
+    if(!response.ok){
+      throw new Error(data.error||data.message||"Ошибка сервера: "+response.status);
+    }
+
+    return data;
+  }
+
+  function toast(message){
+    const el=$("toast");
+    el.textContent=message;
+    el.style.display="block";
+
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>el.style.display="none",3000);
+  }
+
+  /* ЦВЕТА РЕЗУЛЬТАТОВ */
+
+  function categoryByName(name){
+    const categories={
+      green:{name:"РАЗРЕШЕНО / ЗАКОННО",className:"result-green"},
+      red:{name:"ВОЗМОЖНОЕ НАРУШЕНИЕ",className:"result-red"},
+      yellow:{name:"ВАЖНО / ТРЕБУЕТ ВНИМАНИЯ",className:"result-yellow"},
+      blue:{name:"ПРАВОВЫЕ ОСНОВАНИЯ",className:"result-blue"},
+      purple:{name:"РЕКОМЕНДАЦИЯ АДВОКАТУ",className:"result-purple"}
+    };
+    return categories[name]||null;
+  }
+
+  function normalizeMarkdownLine(line){
+    return String(line||"")
+            .replace(/^\s*\\(?=#{1,6})\s*/,"")
+            .replace(/\\\*\*/g,"**")
+            .replace(/\\\*/g,"*")
+            .trim();
+  }
+
+  function getHeadingCategory(line){
+    let clean=normalizeMarkdownLine(line)
+            .replace(/^#{1,6}\s*/,"")
+            .replace(/^\*\*/,"")
+            .replace(/\*\*$/,"")
+            .replace(/^\d+[\.\)]\s*/,"")
+            .replace(/^[-*]\s*/,"")
+            .replace(/:$/,"")
+            .trim();
+
+    if(!clean||clean.length>150)return null;
+
+    const patterns=[
+      ["purple",/рекомендац|совет адвокат|действия адвокат|ходатайств|тактика защит|позиция защит/],
+      ["blue",/правовые основан|нормативн|законодательств|применимая стать|правовая норм|правовые положения|применимые нормы/],
+      ["red",/запрещено|нарушени|незакон|противоправ|состав правонарушен|возможная ответственность/],
+      ["green",/разрешено|законно|правомерно|имеет право|допускается|законные действия/],
+      ["yellow",/важно|внимани|не подтвержден|не установлено|недостаточно данных|требует провер|сомнительн|спорные вопросы/]
+    ];
+
+    for(const [name,regex] of patterns){
+      if(regex.test(clean)){
+        return {category:categoryByName(name),heading:clean};
+      }
+    }
+
+    return null;
+  }
+
+  function appendFormattedText(container,text){
+    const value=String(text||"");
+    const patterns=[
+      {regex:/\b(?:статья|статьи|ст\.?)\s*\d+(?:\.\d+)?/gi,cls:"highlight-blue"},
+      {regex:/\b(?:возможно|предположительно|не установлено|не подтверждено|требует проверки)\b/gi,cls:"highlight-yellow"},
+      {regex:/\b(?:рекомендуется|рекомендую|следует запросить|целесообразно)\b/gi,cls:"highlight-purple"}
+    ];
+
+    const matches=[];
+
+    patterns.forEach(p=>{
+      let m;
+      while((m=p.regex.exec(value))!==null){
+        matches.push({
+          start:m.index,
+          end:m.index+m[0].length,
+          text:m[0],
+          cls:p.cls
+        });
+      }
+    });
+
+    matches.sort((a,b)=>a.start-b.start);
+
+    let pos=0;
+
+    matches.forEach(m=>{
+      if(m.start<pos)return;
+
+      container.appendChild(document.createTextNode(value.slice(pos,m.start)));
+
+      const span=document.createElement("span");
+      span.className="result-highlight "+m.cls;
+      span.textContent=m.text;
+      container.appendChild(span);
+
+      pos=m.end;
+    });
+
+    container.appendChild(document.createTextNode(value.slice(pos)));
+  }
+
+  function showResult(id,text){
+    const el=$(id);
+    if(!el)return;
+
+    el.replaceChildren();
+    el.classList.remove("hidden");
+
+    const lines=String(text||"Ответ не получен.").split(/\r?\n/);
+    let current=null;
+
+    lines.forEach(original=>{
+      let line=normalizeMarkdownLine(original);
+      const trimmed=line.trim();
+
+      if(!trimmed||/^[-_]{3,}$/.test(trimmed)){
+        current=null;
+        return;
+      }
+
+      const info=getHeadingCategory(trimmed);
+
+      if(info){
+        current=makeElement("div","result-section "+info.category.className);
+        current.appendChild(makeElement("h3","",info.category.name));
+
+        if(info.heading){
+          current.appendChild(makeElement("p","",info.heading));
+        }
+
+        el.appendChild(current);
+        return;
+      }
+
+      line=line.replace(/^#{1,6}\s*/,"");
+
+      if(!current){
+        current=makeElement("div","result-plain");
+        el.appendChild(current);
+      }
+
+      const p=document.createElement("p");
+      appendFormattedText(p,line);
+      current.appendChild(p);
+    });
+  }
+
+  /* РАБОТА С ЗАКОНАМИ */
+
+  function getDocuments(){
+    if(Array.isArray(lawsData))return lawsData;
+    if(Array.isArray(lawsData.documents))return lawsData.documents;
+    return [];
+  }
+
+  function makeElement(tag,className,text){
+    const el=document.createElement(tag);
+    if(className)el.className=className;
+    if(text!==undefined)el.textContent=String(text);
+    return el;
+  }
+
+  function normalizeSearch(value){
+    return String(value??"").toLowerCase().replace(/ё/g,"е").trim();
+  }
+
+  function getArticleText(article){
+    return article.text||article.content||article.fullText||"Текст статьи отсутствует.";
+  }
+
+  function getDocumentType(doc){
+    const name=normalizeSearch((doc.name||doc.title||"")+" "+(doc.category||""));
+    if(name.includes("кодекс"))return "code";
+    if(name.includes("закон")||name.includes("положение"))return "law";
+    return "other";
+  }
+
+  async function loadLaws(){
+    try{
+      lawsData=await api("/api/laws");
+      $("lawsEditor").value=JSON.stringify(lawsData,null,2);
+      renderLaws();
+    }catch(error){
+      $("lawsList").textContent="Ошибка загрузки: "+error.message;
+    }
+  }
+
+  function toggleLawEditor(){
+    $("lawEditorPanel").classList.toggle("hidden");
+  }
+
+  function renderLaws(){
+    const list=$("lawsList");
+    const query=normalizeSearch($("lawSearch").value);
+    const type=$("lawTypeFilter").value;
+    const documents=getDocuments();
+
+    list.replaceChildren();
+
+    let total=0;
+
+    documents.forEach(doc=>{
+      total+=(doc.articles||[]).length;
+    });
+
+    const stats=$("lawStats");
+    stats.replaceChildren();
+
+    [
+      ["Документов",documents.length],
+      ["Статей",total]
+    ].forEach(([name,value])=>{
+      const card=makeElement("div","stat-card");
+      card.appendChild(makeElement("div","stat-number",value));
+      card.appendChild(makeElement("div","stat-label",name));
+      stats.appendChild(card);
+    });
+
+    const filtered=documents.map(doc=>{
+      if(type!=="all"&&getDocumentType(doc)!==type)return null;
+
+      const articles=Array.isArray(doc.articles)?doc.articles:[];
+      const name=doc.name||doc.title||doc.id||"Документ";
+
+      const matches=articles.filter(article=>
+              normalizeSearch(
+                      (article.number||"")+" "+
+                      (article.title||"")+" "+
+                      getArticleText(article)
+              ).includes(query)
+      );
+
+      if(!query||normalizeSearch(name).includes(query))return {doc,articles};
+      if(matches.length)return {doc,articles:matches};
+
+      return null;
+    }).filter(Boolean);
+
+    $("lawSearchInfo").textContent="Найдено документов: "+filtered.length;
+
+    if(!filtered.length){
+      list.textContent="Ничего не найдено.";
+      return;
+    }
+
+    filtered.forEach(({doc,articles})=>{
+      const details=makeElement("details","law-document");
+      const summary=makeElement("summary");
+
+      summary.appendChild(makeElement("h2","",doc.name||doc.title||"Документ"));
+      summary.appendChild(makeElement("div","muted",doc.category||"Нормативный документ"));
+      summary.appendChild(makeElement("span","badge",articles.length+" статей"));
+
+      const content=makeElement("div","law-content");
+
+      articles.forEach(article=>{
+        const articleBox=makeElement("details","article");
+        const articleSummary=makeElement(
+                "summary",
+                "",
+                "Статья "+(article.number??"—")+". "+(article.title||"Без названия")
+        );
+
+        const body=makeElement("div","article-body");
+
+        body.appendChild(makeElement(
+                "div",
+                "article-status",
+                "Статус: "+(article.status||"не указан")
+        ));
+
+        body.appendChild(makeElement("div","",getArticleText(article)));
+
+        if(article.penalty){
+          body.appendChild(makeElement("strong","","Наказание / санкция"));
+          body.appendChild(makeElement("div","",formatLawValue(article.penalty)));
+        }
+
+        articleBox.append(articleSummary,body);
+        content.appendChild(articleBox);
+      });
+
+      details.append(summary,content);
+      list.appendChild(details);
+    });
+  }
+
+  function formatLawValue(value){
+    if(value===null||value===undefined||value==="")return "Не предусмотрено";
+    if(Array.isArray(value))return value.map(formatLawValue).join("; ");
+    if(typeof value==="object"){
+      return Object.entries(value).map(([k,v])=>k+": "+formatLawValue(v)).join("\n");
+    }
+    return String(value);
+  }
+
+  async function saveLaws(){
+    try{
+      const parsed=JSON.parse($("lawsEditor").value);
+
+      if(!Array.isArray(parsed)&&!Array.isArray(parsed.documents)){
+        throw new Error("Не найден массив documents.");
+      }
+
+      await api("/api/laws",{
+        method:"PUT",
+        body:JSON.stringify(parsed)
+      });
+
+      lawsData=parsed;
+      renderLaws();
+      toast("Законы сохранены.");
+
+    }catch(error){
+      toast("Ошибка: "+error.message);
+    }
+  }
+
+  /* АНАЛИЗ ИИ */
+
+  function getCaseData(){
+    return {
+      title:$("caseTitle").value.trim(),
+      description:$("caseDescription").value.trim(),
+      evidence:$("caseEvidence").value.trim()
+    };
+  }
+
+  async function runAI(mode){
+    const targets={
+      analyze:"analysisResult",
+      evaluate_answer:"evaluationResult",
+      followup:"followupResult",
+      reference:"referenceResult"
+    };
+
+    const target=targets[mode];
+    if(!target)return;
+
+    const caseData=getCaseData();
+
+    if(mode==="reference"){
+      caseData.description=$("referenceQuestion").value.trim();
+
+      if(!caseData.description){
+        toast("Напиши вопрос.");
+        return;
+      }
+    }
+
+    if(mode==="analyze"||mode==="followup"){
+      if(!caseData.description){
+        toast("Заполни описание ситуации.");
+        return;
+      }
+    }
+
+    if(mode==="evaluate_answer"){
+      if(!$("officerAnswer").value.trim()){
+        toast("Вставь ответ сотрудника.");
+        return;
+      }
+
+      if(!caseData.description){
+        caseData.description="Дополнительные обстоятельства дела не предоставлены.";
+      }
+    }
+
+    showResult(target,"ИИ анализирует материалы...");
+
+    const buttons=[...document.querySelectorAll("button.primary")];
+    buttons.forEach(b=>b.disabled=true);
+
+    try{
+      const data=await api("/api/attorney-assist",{
+        method:"POST",
+        body:JSON.stringify({
+          mode,
+          caseData,
+          laws:lawsData,
+          officerAnswer:$("officerAnswer").value.trim()
+        })
+      });
+
+      const answer=data.answer||data.message||"Ответ не получен.";
+      showResult(target,answer);
+
+      if(mode==="analyze")lastAnalysis=answer;
+
+    }catch(error){
+      showResult(target,"Ошибка: "+error.message);
+    }finally{
+      buttons.forEach(b=>b.disabled=false);
+    }
+  }
+
+  /* СОХРАНЕНИЕ ДЕЛ */
+
+  async function saveCurrentCase(){
+    const data=getCaseData();
+
+    if(!data.description){
+      toast("Заполни описание дела.");
+      return;
+    }
+
+    try{
+      await api("/api/cases",{
+        method:"POST",
+        body:JSON.stringify({
+          title:data.title||"Новое дело",
+          data:{...data,analysis:lastAnalysis}
+        })
+      });
+
+      toast("Дело сохранено.");
+      loadCases();
+
+    }catch(error){
+      toast("Ошибка: "+error.message);
+    }
+  }
+
+  async function loadCases(){
+    const list=$("casesList");
+    list.textContent="Загрузка...";
+
+    try{
+      const data=await api("/api/cases");
+      casesData=Array.isArray(data)?data:(data.cases||[]);
+      list.replaceChildren();
+
+      if(!casesData.length){
+        list.textContent="Сохранённых дел пока нет.";
+        return;
+      }
+
+      casesData.forEach(item=>{
+        const card=makeElement("div","case-item");
+        card.appendChild(makeElement("h3","",item.title||"Без названия"));
+
+        const open=makeElement("button","secondary","Открыть");
+        open.onclick=()=>openCase(item);
+
+        const remove=makeElement("button","danger","Удалить");
+        remove.onclick=()=>deleteCase(item.id);
+
+        card.append(open,remove);
+        list.appendChild(card);
+      });
+
+    }catch(error){
+      list.textContent="Ошибка загрузки: "+error.message;
+    }
+  }
+
+  function openCase(item){
+    const data=item.data||{};
+
+    $("caseTitle").value=item.title||data.title||"";
+    $("caseDescription").value=data.description||"";
+    $("caseEvidence").value=data.evidence||"";
+
+    lastAnalysis=data.analysis||"";
+
+    if(lastAnalysis)showResult("analysisResult",lastAnalysis);
+
+    activateTab("analysis");
+    toast("Дело загружено.");
+  }
+
+  async function deleteCase(id){
+    if(!id)return;
+    if(!confirm("Удалить это дело?"))return;
+
+    try{
+      await api("/api/cases/"+encodeURIComponent(id),{
+        method:"DELETE"
+      });
+
+      toast("Дело удалено.");
+      loadCases();
+
+    }catch(error){
+      toast("Ошибка удаления: "+error.message);
+    }
+  }
+
+  /* СЕРВЕР */
+
+  async function checkHealth(){
+    try{
+      const data=await api("/api/health");
+
+      $("systemStatus").textContent=data.aiConfigured
+              ?"ИИ подключён · Сервер работает"
+              :"Сервер работает · ИИ не настроен";
+
+    }catch(error){
+      $("systemStatus").textContent="Сервер недоступен";
+    }
+  }
+
+  /* ВКЛАДКИ */
+
+  function activateTab(id){
+    if(!$ (id))return;
+
+    document.querySelectorAll("nav button[data-tab]").forEach(button=>{
+      button.classList.toggle("active",button.dataset.tab===id);
+    });
+
+    document.querySelectorAll("main .tab").forEach(tab=>{
+      tab.classList.toggle("active",tab.id===id);
+    });
+  }
+
+  document.querySelectorAll("nav button[data-tab]").forEach(button=>{
+    button.addEventListener("click",()=>activateTab(button.dataset.tab));
+  });
+
+  $("lawSearch").addEventListener("input",renderLaws);
+  $("lawTypeFilter").addEventListener("change",renderLaws);
+  $("glossarySearch").addEventListener("input",renderGlossary);
+
+  /* ЗАПУСК */
+
+  async function init(){
+    renderPoliceQuestions();
+    renderGlossary();
+
+    await Promise.allSettled([
+      checkHealth(),
+      loadLaws(),
+      loadCases()
+    ]);
+  }
+
+  init();
+
+</script>
+</body>
+</html>

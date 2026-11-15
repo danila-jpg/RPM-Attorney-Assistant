@@ -1,0 +1,1030 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPM Attorney Assistant</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        :root {
+            --bg: #0b0d14;
+            --panel: #141824;
+            --panel2: #1b2130;
+            --border: #30364a;
+            --text: #eef1fa;
+            --muted: #929bb0;
+            --accent: #8b70ff;
+            --danger: #e45c70;
+            --success: #63d6a5;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            padding: 24px 5%;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+        }
+
+        header h1 { margin: 0; }
+        header p { color: var(--muted); }
+
+        main {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 22px;
+        }
+
+        .panel {
+            background: var(--panel);
+            padding: 22px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #aab2c6;
+            margin: 16px 0 7px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            background: var(--bg);
+            color: white;
+            border: 1px solid #343b50;
+            border-radius: 8px;
+            padding: 12px;
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 11px 16px;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+            font: inherit;
+        }
+
+        button:hover { filter: brightness(1.12); }
+
+        button.secondary {
+            background: var(--panel2);
+            border: 1px solid var(--border);
+        }
+
+        button.danger { background: var(--danger); }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .hidden { display: none !important; }
+
+        .status { color: var(--success); }
+
+        .result {
+            white-space: pre-wrap;
+            line-height: 1.65;
+            background: var(--bg);
+            padding: 16px;
+            border-radius: 8px;
+            min-height: 100px;
+            overflow-wrap: anywhere;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin: 15px 0;
+        }
+
+        .toolbar input { flex: 1; min-width: 180px; }
+
+        .article {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        .article h3 { margin-top: 0; }
+
+        .article p {
+            white-space: pre-wrap;
+            line-height: 1.55;
+            color: #cbd2e2;
+            overflow-wrap: anywhere;
+        }
+
+        .article-meta {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .editor {
+            border: 1px solid var(--accent);
+            background: var(--panel2);
+            padding: 18px;
+            border-radius: 10px;
+            margin-top: 18px;
+        }
+
+        .empty {
+            color: var(--muted);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .small-note {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .generation-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 12px 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .generation-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            margin-right: 7px;
+        }
+
+        .generating {
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            50% { opacity: .3; }
+        }
+
+        .result:empty::after {
+            content: "Ожидание результата...";
+            color: var(--muted);
+        }
+
+        @media (max-width: 600px) {
+            .panel { padding: 15px; }
+            header { padding: 20px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>⚖ RPM Attorney Assistant</h1>
+    <p>Система анализа RP-дел и управления законодательством RPM</p>
+</header>
+
+<main>
+
+    <nav class="tabs">
+        <button class="tab active" data-tab="analysis">Анализ дела</button>
+        <button class="tab secondary" data-tab="legislation">Законодательство</button>
+    </nav>
+
+    <section id="analysis">
+
+        <div class="panel">
+            <h2>Материалы дела</h2>
+
+            <label>Имя клиента</label>
+            <input id="client" placeholder="Имя и фамилия">
+
+            <label>Стадия процесса</label>
+            <select id="stage">
+                <option>Задержание</option>
+                <option>Допрос</option>
+                <option>Арест</option>
+                <option>Суд</option>
+                <option>Апелляция</option>
+            </select>
+
+            <label>Обвинение</label>
+            <textarea id="charge"></textarea>
+
+            <label>Обстоятельства дела</label>
+            <textarea id="facts"></textarea>
+
+            <label>Доказательства</label>
+            <textarea id="evidence"></textarea>
+
+            <label>Дополнительные законы</label>
+            <textarea id="laws" placeholder="Дополнительные нормы, если они нужны..."></textarea>
+
+            <p class="small-note">
+                Статьи из базы RPM будут автоматически добавляться к материалам анализа.
+            </p>
+
+            <button id="analyze">Анализировать дело</button>
+        </div>
+
+        <div class="panel">
+            <h2>Ответ сотрудника</h2>
+
+            <textarea id="answer"
+                      placeholder="Вставь ответ сотрудника FBI или CPD"></textarea>
+
+            <button id="followup">Сформировать уточняющие вопросы</button>
+        </div>
+
+        <div class="panel">
+            <h2>Результат</h2>
+
+            <p id="status" class="status">Ожидание запроса</p>
+
+            <div class="generation-info">
+                <span id="generationState">Генерация не запущена</span>
+                <span id="generationTime">Время: —</span>
+            </div>
+
+            <div id="result" class="result">
+                Здесь появится результат анализа.
+            </div>
+
+            <div class="toolbar">
+                <button id="stopGeneration" class="danger hidden">
+                    Остановить генерацию
+                </button>
+
+                <button id="copyResult" class="secondary">
+                    Копировать результат
+                </button>
+            </div>
+        </div>
+
+    </section>
+
+    <section id="legislation" class="hidden">
+
+        <div class="panel">
+            <h2>База законодательства RPM</h2>
+
+            <p class="small-note">
+                Управление нормативными актами, главами и статьями.
+                Все изменения сохраняются в laws.json.
+            </p>
+
+            <p id="lawStatus" class="status">Загрузка базы...</p>
+
+            <label>Нормативный акт</label>
+            <select id="documentSelect"></select>
+
+            <div class="toolbar">
+                <input id="lawSearch"
+                       placeholder="Поиск по номеру, названию или тексту">
+                <button id="addArticle">+ Добавить статью</button>
+            </div>
+
+            <div id="articlesList"></div>
+
+            <div id="articleEditor" class="editor hidden">
+
+                <h3 id="editorTitle">Новая статья</h3>
+
+                <label>Номер статьи</label>
+                <input id="articleNumber" placeholder="Например: 9.1">
+
+                <label>Название статьи</label>
+                <input id="articleName" placeholder="Название статьи">
+
+                <label>Глава</label>
+                <input id="articleChapter" placeholder="Например: Глава IX">
+
+                <label>Полный текст статьи</label>
+                <textarea id="articleText"
+                          style="min-height:180px"
+                          placeholder="Вставь оригинальный текст статьи"></textarea>
+
+                <button id="saveArticle">Сохранить статью</button>
+                <button id="cancelEditor" class="secondary">Отмена</button>
+
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Резервная копия</h2>
+
+            <p class="small-note">
+                Экспорт сохраняет всю базу в JSON.
+                Импорт заменяет текущую базу загруженным файлом.
+            </p>
+
+            <button id="exportLaws" class="secondary">
+                Экспортировать базу
+            </button>
+
+            <button id="importButton" class="secondary">
+                Импортировать базу
+            </button>
+
+            <input id="importFile"
+                   type="file"
+                   accept=".json,application/json"
+                   class="hidden">
+        </div>
+
+    </section>
+
+</main>
+
+<script>
+    // =====================================================
+    // ОСНОВНЫЕ ПЕРЕМЕННЫЕ
+    // =====================================================
+
+    let lawDatabase = { documents: [] };
+    let editingArticleId = null;
+    let currentController = null;
+    let generationStartedAt = null;
+    let timerInterval = null;
+
+    const $ = id => document.getElementById(id);
+
+    function createId() {
+        return "article_" + Date.now() + "_" +
+            Math.random().toString(36).slice(2, 8);
+    }
+
+    // =====================================================
+    // ВКЛАДКИ
+    // =====================================================
+
+    document.querySelectorAll(".tab").forEach(button => {
+        button.addEventListener("click", () => {
+            document.querySelectorAll(".tab").forEach(tab => {
+                tab.classList.remove("active");
+            });
+
+            button.classList.add("active");
+
+            $("analysis").classList.toggle(
+                "hidden",
+                button.dataset.tab !== "analysis"
+            );
+
+            $("legislation").classList.toggle(
+                "hidden",
+                button.dataset.tab !== "legislation"
+            );
+        });
+    });
+
+    // =====================================================
+    // ЗАГРУЗКА ЗАКОНОВ
+    // =====================================================
+
+    async function loadLaws() {
+        try {
+            const response = await fetch("/api/laws");
+
+            if (!response.ok) {
+                throw new Error("HTTP " + response.status);
+            }
+
+            lawDatabase = await response.json();
+
+            if (!Array.isArray(lawDatabase.documents)) {
+                throw new Error("Неверный формат базы.");
+            }
+
+            renderDocuments();
+            renderArticles();
+
+            const articleCount = lawDatabase.documents.reduce(
+                (sum, doc) => sum + (doc.articles || []).length,
+                0
+            );
+
+            $("lawStatus").textContent =
+                "База загружена. Документов: " +
+                lawDatabase.documents.length +
+                ". Статей: " + articleCount;
+
+        } catch (error) {
+            $("lawStatus").textContent =
+                "Ошибка загрузки: " + error.message;
+        }
+    }
+
+    // =====================================================
+    // ДОКУМЕНТЫ
+    // =====================================================
+
+    function renderDocuments() {
+        const select = $("documentSelect");
+        const previous = select.value;
+
+        select.replaceChildren();
+
+        lawDatabase.documents.forEach(doc => {
+            const option = document.createElement("option");
+
+            option.value = doc.id;
+            option.textContent = doc.name + " — " + doc.category;
+
+            select.appendChild(option);
+        });
+
+        if (lawDatabase.documents.some(doc => doc.id === previous)) {
+            select.value = previous;
+        }
+    }
+
+    function getSelectedDocument() {
+        return lawDatabase.documents.find(
+            doc => doc.id === $("documentSelect").value
+        );
+    }
+
+    // =====================================================
+    // СТАТЬИ
+    // =====================================================
+
+    function renderArticles() {
+        const container = $("articlesList");
+        container.replaceChildren();
+
+        const doc = getSelectedDocument();
+
+        if (!doc) {
+            container.textContent = "Документы не найдены.";
+            return;
+        }
+
+        const search = $("lawSearch").value.trim().toLowerCase();
+
+        const articles = (doc.articles || []).filter(article => {
+            const text = [
+                article.number,
+                article.name,
+                article.chapter,
+                article.text
+            ].join(" ").toLowerCase();
+
+            return text.includes(search);
+        });
+
+        if (articles.length === 0) {
+            const empty = document.createElement("div");
+
+            empty.className = "empty";
+            empty.textContent = search
+                ? "По запросу ничего не найдено."
+                : "В этом документе пока нет статей.";
+
+            container.appendChild(empty);
+            return;
+        }
+
+        articles.forEach(article => {
+            const card = document.createElement("div");
+            card.className = "article";
+
+            const heading = document.createElement("h3");
+
+            heading.textContent =
+                "Статья " + (article.number || "Без номера") +
+                (article.name ? " — " + article.name : "");
+
+            const meta = document.createElement("div");
+            meta.className = "article-meta";
+            meta.textContent = article.chapter || doc.name;
+
+            const content = document.createElement("p");
+            content.textContent = article.text || "Текст отсутствует.";
+
+            const edit = document.createElement("button");
+            edit.textContent = "Редактировать";
+            edit.className = "secondary";
+
+            edit.addEventListener("click", () => {
+                openEditor(article.id);
+            });
+
+            const remove = document.createElement("button");
+            remove.textContent = "Удалить";
+            remove.className = "danger";
+
+            remove.addEventListener("click", () => {
+                deleteArticle(article.id);
+            });
+
+            card.append(heading, meta, content, edit, remove);
+            container.appendChild(card);
+        });
+    }
+
+    // =====================================================
+    // РЕДАКТОР
+    // =====================================================
+
+    function openEditor(id = null) {
+        editingArticleId = id;
+
+        const doc = getSelectedDocument();
+        if (!doc) return;
+
+        const article = id
+            ? doc.articles.find(item => item.id === id)
+            : null;
+
+        $("editorTitle").textContent =
+            article ? "Редактирование статьи" : "Новая статья";
+
+        $("articleNumber").value = article?.number || "";
+        $("articleName").value = article?.name || "";
+        $("articleChapter").value = article?.chapter || "";
+        $("articleText").value = article?.text || "";
+
+        $("articleEditor").classList.remove("hidden");
+        $("articleNumber").focus();
+    }
+
+    function closeEditor() {
+        $("articleEditor").classList.add("hidden");
+        editingArticleId = null;
+    }
+
+    async function saveArticle() {
+        const doc = getSelectedDocument();
+
+        if (!doc) return;
+
+        const number = $("articleNumber").value.trim();
+        const text = $("articleText").value.trim();
+
+        if (!number || !text) {
+            alert("Укажи номер статьи и полный текст.");
+            return;
+        }
+
+        if (!Array.isArray(doc.articles)) {
+            doc.articles = [];
+        }
+
+        const article = {
+            id: editingArticleId || createId(),
+            number,
+            name: $("articleName").value.trim(),
+            chapter: $("articleChapter").value.trim(),
+            text
+        };
+
+        if (editingArticleId) {
+            const index = doc.articles.findIndex(
+                item => item.id === editingArticleId
+            );
+
+            if (index !== -1) {
+                doc.articles[index] = article;
+            }
+        } else {
+            doc.articles.push(article);
+        }
+
+        const saved = await saveDatabase();
+
+        if (saved) {
+            closeEditor();
+            renderArticles();
+        }
+    }
+
+    async function deleteArticle(id) {
+        const doc = getSelectedDocument();
+
+        if (!doc) return;
+
+        if (!confirm("Точно удалить эту статью?")) return;
+
+        const oldArticles = [...doc.articles];
+
+        doc.articles = doc.articles.filter(
+            article => article.id !== id
+        );
+
+        const saved = await saveDatabase();
+
+        if (saved) {
+            renderArticles();
+        } else {
+            doc.articles = oldArticles;
+            renderArticles();
+        }
+    }
+
+    // =====================================================
+    // СОХРАНЕНИЕ БАЗЫ
+    // =====================================================
+
+    async function saveDatabase() {
+        try {
+            $("lawStatus").textContent = "Сохранение...";
+
+            const response = await fetch("/api/laws", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(lawDatabase)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Ошибка сохранения.");
+            }
+
+            $("lawStatus").textContent = "База успешно сохранена.";
+            return true;
+
+        } catch (error) {
+            $("lawStatus").textContent =
+                "Ошибка сохранения: " + error.message;
+
+            return false;
+        }
+    }
+
+    $("addArticle").addEventListener("click", () => openEditor());
+    $("saveArticle").addEventListener("click", saveArticle);
+    $("cancelEditor").addEventListener("click", closeEditor);
+
+    $("documentSelect").addEventListener("change", () => {
+        closeEditor();
+        renderArticles();
+    });
+
+    $("lawSearch").addEventListener("input", renderArticles);
+
+    // =====================================================
+    // ЭКСПОРТ
+    // =====================================================
+
+    $("exportLaws").addEventListener("click", () => {
+        const blob = new Blob(
+            [JSON.stringify(lawDatabase, null, 2)],
+            { type: "application/json" }
+        );
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = "rpm-laws-backup.json";
+        link.click();
+
+        URL.revokeObjectURL(url);
+    });
+
+    // =====================================================
+    // ИМПОРТ
+    // =====================================================
+
+    $("importButton").addEventListener("click", () => {
+        $("importFile").click();
+    });
+
+    $("importFile").addEventListener("change", async event => {
+        const file = event.target.files[0];
+
+        if (!file) return;
+
+        try {
+            const imported = JSON.parse(await file.text());
+
+            if (!imported || !Array.isArray(imported.documents)) {
+                throw new Error("Неверный формат JSON.");
+            }
+
+            const valid = imported.documents.every(doc =>
+                typeof doc.id === "string" &&
+                typeof doc.name === "string" &&
+                Array.isArray(doc.articles)
+            );
+
+            if (!valid) {
+                throw new Error("Структура документов некорректна.");
+            }
+
+            if (!confirm("Импорт заменит текущую базу. Продолжить?")) {
+                return;
+            }
+
+            const previous = lawDatabase;
+            lawDatabase = imported;
+
+            const saved = await saveDatabase();
+
+            if (saved) {
+                renderDocuments();
+                renderArticles();
+            } else {
+                lawDatabase = previous;
+            }
+
+        } catch (error) {
+            alert("Ошибка импорта: " + error.message);
+        } finally {
+            event.target.value = "";
+        }
+    });
+
+    // =====================================================
+    // ЗАКОНЫ ДЛЯ ИИ
+    // =====================================================
+
+    function collectDatabaseLaws() {
+        return lawDatabase.documents.flatMap(doc =>
+            (doc.articles || []).map(article => `
+Нормативный акт: ${doc.name}
+Категория: ${doc.category}
+Статья ${article.number}
+Название: ${article.name || "Без названия"}
+Глава: ${article.chapter || "Не указана"}
+
+Текст статьи:
+${article.text}
+`)
+        ).join("\n\n");
+    }
+
+    // =====================================================
+    // СОСТОЯНИЕ ГЕНЕРАЦИИ
+    // =====================================================
+
+    function setGenerating(active) {
+        $("analyze").disabled = active;
+        $("followup").disabled = active;
+
+        $("stopGeneration").classList.toggle("hidden", !active);
+
+        $("generationState").innerHTML = active
+            ? '<span class="generation-indicator generating"></span>Gemini генерирует ответ...'
+            : "Генерация завершена";
+    }
+
+    function startTimer() {
+        generationStartedAt = Date.now();
+
+        clearInterval(timerInterval);
+
+        timerInterval = setInterval(() => {
+            const seconds = ((Date.now() - generationStartedAt) / 1000).toFixed(1);
+            $("generationTime").textContent = "Время: " + seconds + " сек.";
+        }, 100);
+    }
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+        timerInterval = null;
+
+        if (generationStartedAt) {
+            const seconds = ((Date.now() - generationStartedAt) / 1000).toFixed(2);
+            $("generationTime").textContent = "Время: " + seconds + " сек.";
+        }
+    }
+
+    // =====================================================
+    // ПОТОКОВЫЙ АНАЛИЗ GEMINI
+    // =====================================================
+
+    async function requestAI(mode) {
+        const facts = $("facts").value.trim();
+
+        if (!facts) {
+            alert("Заполни обстоятельства дела.");
+            return;
+        }
+
+        if (currentController) return;
+
+        const caseData = `
+Клиент: ${$("client").value}
+Стадия процесса: ${$("stage").value}
+Обвинение: ${$("charge").value}
+Обстоятельства дела: ${facts}
+Доказательства: ${$("evidence").value}
+`;
+
+        const laws = [
+            $("laws").value.trim(),
+            collectDatabaseLaws()
+        ].filter(Boolean).join("\n\n");
+
+        const officerAnswer = $("answer").value.trim();
+
+        currentController = new AbortController();
+
+        $("status").textContent = "Подключение к Gemini...";
+        $("result").textContent = "";
+        $("generationTime").textContent = "Время: 0 сек.";
+
+        setGenerating(true);
+        startTimer();
+
+        let receivedText = "";
+
+        try {
+            const response = await fetch("/api/attorney-assist/stream", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "text/event-stream"
+                },
+                body: JSON.stringify({
+                    mode,
+                    caseData,
+                    laws,
+                    officerAnswer
+                }),
+                signal: currentController.signal
+            });
+
+            if (!response.ok) {
+                let message = "Ошибка сервера: HTTP " + response.status;
+
+                try {
+                    const data = await response.json();
+                    message = data.error || message;
+                } catch {}
+
+                throw new Error(message);
+            }
+
+            if (!response.body) {
+                throw new Error("Браузер не поддерживает потоковый ответ.");
+            }
+
+            $("status").textContent = "Gemini формирует ответ...";
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            let buffer = "";
+            let finished = false;
+
+            while (!finished) {
+                const { value, done } = await reader.read();
+
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+
+                const events = buffer.split("\n\n");
+                buffer = events.pop() || "";
+
+                for (const event of events) {
+                    const lines = event.split("\n");
+
+                    for (const line of lines) {
+                        if (!line.startsWith("data: ")) continue;
+
+                        let data;
+
+                        try {
+                            data = JSON.parse(line.slice(6));
+                        } catch {
+                            continue;
+                        }
+
+                        if (data.type === "text") {
+                            receivedText += data.content;
+                            $("result").textContent = receivedText;
+                        }
+
+                        if (data.type === "done") {
+                            finished = true;
+                            $("generationTime").textContent =
+                                "Время Gemini: " +
+                                data.elapsedSeconds + " сек.";
+                        }
+
+                        if (data.type === "error") {
+                            throw new Error(data.error);
+                        }
+                    }
+                }
+            }
+
+            if (!receivedText) {
+                throw new Error("Gemini не вернул текстовый ответ.");
+            }
+
+            $("status").textContent = "Анализ завершён.";
+            $("generationState").textContent = "Ответ получен";
+
+        } catch (error) {
+            if (error.name === "AbortError") {
+                $("status").textContent = "Генерация остановлена.";
+                $("generationState").textContent = "Остановлено пользователем";
+
+                if (!receivedText) {
+                    $("result").textContent = "Генерация была остановлена.";
+                }
+            } else {
+                $("status").textContent = "Ошибка генерации.";
+                $("generationState").textContent = "Ошибка";
+                $("result").textContent =
+                    (receivedText ? receivedText + "\n\n" : "") +
+                    "Ошибка: " + error.message;
+            }
+
+        } finally {
+            stopTimer();
+            currentController = null;
+            setGenerating(false);
+        }
+    }
+
+    // =====================================================
+    // КНОПКИ АНАЛИЗА
+    // =====================================================
+
+    $("analyze").addEventListener("click", () => {
+        requestAI("analyze");
+    });
+
+    $("followup").addEventListener("click", () => {
+        if (!$("answer").value.trim()) {
+            alert("Сначала добавь ответ сотрудника.");
+            return;
+        }
+
+        requestAI("followup");
+    });
+
+    $("stopGeneration").addEventListener("click", () => {
+        if (currentController) {
+            currentController.abort();
+        }
+    });
+
+    $("copyResult").addEventListener("click", async () => {
+        const text = $("result").textContent;
+
+        if (!text || text === "Здесь появится результат анализа.") {
+            alert("Нет текста для копирования.");
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(text);
+            $("status").textContent = "Результат скопирован.";
+        } catch {
+            alert("Не удалось скопировать текст.");
+        }
+    });
+
+    // =====================================================
+    // ЗАПУСК
+    // =====================================================
+
+    loadLaws();
+
+</script>
+
+</body>
+</html>

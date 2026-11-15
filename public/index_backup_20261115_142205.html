@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPM Attorney Assistant</title>
+<style>
+
+:root {
+  --bg:#090d16;
+  --panel:#141b2a;
+  --panel2:#1c2639;
+  --text:#edf1fa;
+  --muted:#9ba9c2;
+  --accent:#9278ff;
+  --border:#2a3650;
+  --danger:#e45d6b;
+  --green:#58c99a;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  min-height:100vh;
+  background:
+    radial-gradient(ellipse at top left,#211a43,transparent 40%),
+    radial-gradient(ellipse at bottom right,#111e39,transparent 45%),
+    var(--bg);
+  color:var(--text);
+  font-family:Inter,"Segoe UI",Arial,sans-serif;
+}
+header {
+  padding:30px 5%;
+  background:#101522;
+  border-bottom:1px solid var(--border);
+}
+header h1 { margin:0; font-size:27px; }
+header p { color:var(--muted); margin:9px 0 0; }
+nav {
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  padding:17px 5%;
+  background:#0d1422;
+  border-bottom:1px solid var(--border);
+}
+nav button {
+  background:var(--panel);
+  color:var(--muted);
+  border:1px solid var(--border);
+  padding:12px 18px;
+  border-radius:10px;
+  cursor:pointer;
+}
+nav button:hover { border-color:var(--accent); color:white; }
+nav button.active {
+  background:linear-gradient(135deg,#8065ef,#a18aff);
+  color:white;
+  border-color:transparent;
+}
+main {
+  max-width:1150px;
+  margin:30px auto;
+  padding:0 20px 55px;
+}
+.panel {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:25px;
+  margin-bottom:20px;
+  box-shadow:0 12px 35px rgba(0,0,0,.18);
+}
+.tab { display:none; }
+.tab.active { display:block; }
+h2 { margin-top:0; font-size:23px; }
+label {
+  display:block;
+  margin:17px 0 8px;
+  color:var(--muted);
+  font-size:14px;
+}
+input,textarea,select {
+  width:100%;
+  padding:13px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#0c1220;
+  color:var(--text);
+  font:inherit;
+  outline:none;
+}
+input:focus,textarea:focus,select:focus {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(146,120,255,.13);
+}
+textarea { min-height:110px; resize:vertical; line-height:1.5; }
+button.action {
+  background:linear-gradient(135deg,#8065ef,#9a82ff);
+  color:white;
+  border:0;
+  padding:12px 18px;
+  border-radius:10px;
+  cursor:pointer;
+  margin:12px 7px 0 0;
+  font-weight:600;
+}
+button.action:hover { filter:brightness(1.12); }
+button.secondary {
+  background:var(--panel2);
+  border:1px solid var(--border);
+  color:var(--text);
+}
+button.danger { background:var(--danger); }
+button:disabled { opacity:.5; cursor:wait; }
+.result,.question-result {
+  white-space:pre-wrap;
+  line-height:1.7;
+  margin-top:18px;
+  padding:18px;
+  background:#0c1220;
+  border-radius:11px;
+  border:1px solid var(--border);
+  overflow-wrap:anywhere;
+}
+.muted { color:var(--muted); }
+.case-item,.question-card,.law-doc,.law-article {
+  background:#101827;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:17px;
+  margin:12px 0;
+}
+.case-item strong { display:block; margin-bottom:8px; }
+.question-number { color:var(--accent); font-size:13px; font-weight:bold; }
+.question-description { color:var(--muted); line-height:1.6; }
+.question-card h3 { margin:12px 0; }
+.question-card textarea { min-height:85px; }
+.law-category { margin:24px 0; }
+.law-category h3,.law-article h4 { color:var(--accent); }
+.law-category h3 { border-bottom:1px solid var(--border); padding-bottom:10px; }
+.law-doc strong { display:block; margin-bottom:8px; }
+.law-count { color:var(--muted); font-size:13px; }
+.law-article p { white-space:pre-wrap; line-height:1.7; overflow-wrap:anywhere; }
+.law-chapter { color:var(--green); margin-top:25px; }
+.law-empty { color:var(--muted); padding:17px; background:#101827; border-radius:10px; }
+.law-hidden { display:none; }
+.status { color:var(--green); margin-left:8px; }
+footer {
+  text-align:center;
+  color:var(--muted);
+  padding:30px;
+  border-top:1px solid var(--border);
+}
+@media(max-width:650px) {
+  header h1 { font-size:21px; }
+  nav { padding:12px 4%; }
+  nav button { flex:1 1 auto; padding:11px; }
+  main { padding:0 12px 35px; margin:18px auto; }
+  .panel { padding:17px; }
+  button.action { max-width:100%; }
+}
+
+
+body {
+    margin: 0;
+    background: #0b0e14;
+    color: #edf1fa;
+    font-family: Arial, sans-serif;
+}
+header {
+    padding: 25px;
+    background: #151a24;
+    border-bottom: 1px solid #30394c;
+}
+main {
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 15px;
+    background: #151a24;
+}
+nav button, .action {
+    padding: 12px 18px;
+    border: 1px solid #42405f;
+    border-radius: 9px;
+    background: #242039;
+    color: white;
+    cursor: pointer;
+}
+nav button.active {
+    background: #8065ef;
+}
+.panel {
+    padding: 25px;
+    margin-bottom: 20px;
+    background: #151a24;
+    border: 1px solid #30394c;
+    border-radius: 14px;
+}
+.tab { display: none; }
+.tab.active { display: block; }
+textarea, input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 13px;
+    margin: 10px 0;
+    color: white;
+    background: #0b0e14;
+    border: 1px solid #42405f;
+    border-radius: 8px;
+}
+textarea { min-height: 130px; }
+.result, .law-doc, .case-item {
+    white-space: pre-wrap;
+    padding: 16px;
+    margin-top: 15px;
+    background: #1d2431;
+    border-radius: 10px;
+}
+
+</style>
+</head>
+<body>
+
+<header>
+    <h1>⚖️ RPM Attorney Assistant</h1>
+    <p>Помощник адвоката для ролевого проекта RPM</p>
+</header>
+
+<nav>
+    <button class="active" data-tab="analysis">Анализ дела</button>
+    <button data-tab="questions">Душные вопросы</button>
+    <button data-tab="guide">Справочник адвоката</button>
+    <button data-tab="history">История дел</button>
+    <button data-tab="laws">Все законы</button>
+</nav>
+
+<main>
+
+<section id="analysis" class="tab active">
+    <div class="panel">
+        <h2>Анализ дела</h2>
+        <textarea id="caseText" placeholder="Опиши обстоятельства дела..."></textarea>
+        <button class="action" id="analyze">Проанализировать</button>
+        <div id="analysisResult" class="result"></div>
+    </div>
+</section>
+
+<section id="questions" class="tab">
+    <div class="panel">
+        <h2>Душные вопросы</h2>
+        <textarea id="questionText" placeholder="Опиши ситуацию..."></textarea>
+        <button class="action" id="makeQuestions">Подготовить вопросы</button>
+        <div id="questionResult" class="result"></div>
+    </div>
+</section>
+
+<section id="guide" class="tab">
+    <div class="panel">
+        <h2>Справочник адвоката</h2>
+        <h3>Порядок работы с делом</h3>
+        <p>1. Установи факты и отдели их от предположений.</p>
+        <p>2. Найди применимую статью в документах RPM.</p>
+        <p>3. Проверь доказательства и соблюдение процедуры.</p>
+        <p>4. Сформулируй позицию на основании установленных фактов.</p>
+        <p>5. Отметь, каких сведений не хватает.</p>
+    </div>
+</section>
+
+<section id="history" class="tab">
+    <div class="panel">
+        <h2>История дел</h2>
+        <button class="action" id="loadCases">Обновить историю</button>
+        <div id="casesList"></div>
+    </div>
+</section>
+
+<section id="laws" class="tab">
+    <div class="panel">
+        <h2>Все законы</h2>
+        <input id="lawSearch" placeholder="Поиск по законам...">
+        <div id="lawsList">Загрузка документов...</div>
+    </div>
+</section>
+
+</main>
+
+<script>
+const buttons = document.querySelectorAll("[data-tab]");
+
+buttons.forEach(button => {
+    button.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(tab =>
+            tab.classList.remove("active")
+        );
+        buttons.forEach(btn => btn.classList.remove("active"));
+
+        document.getElementById(button.dataset.tab)
+            .classList.add("active");
+
+        button.classList.add("active");
+    });
+});
+
+async function loadLaws() {
+    const list = document.getElementById("lawsList");
+    try {
+        const response = await fetch("/api/laws");
+        if (!response.ok) throw new Error("Ошибка загрузки");
+
+        const data = await response.json();
+        const docs = Array.isArray(data) ? data : data.documents || [];
+
+        list.replaceChildren();
+
+        docs.forEach(doc => {
+            const item = document.createElement("div");
+            item.className = "law-doc";
+
+            const title = document.createElement("h3");
+            title.textContent = doc.name || doc.title || "Документ";
+
+            item.appendChild(title);
+
+            (doc.articles || []).forEach(article => {
+                const articleBox = document.createElement("div");
+                articleBox.className = "case-item";
+
+                const heading = document.createElement("strong");
+                heading.textContent =
+                    article.title || article.name || article.number || "Статья";
+
+                const text = document.createElement("p");
+                text.textContent =
+                    article.text || article.content || article.description || "";
+
+                articleBox.append(heading, text);
+                item.appendChild(articleBox);
+            });
+
+            list.appendChild(item);
+        });
+
+        if (!docs.length) list.textContent = "Документы не найдены.";
+    } catch (error) {
+        list.textContent = "Не удалось загрузить законы: " + error.message;
+    }
+}
+
+document.getElementById("lawSearch").addEventListener("input", event => {
+    const query = event.target.value.toLowerCase();
+    document.querySelectorAll("#lawsList .law-doc").forEach(item => {
+        item.style.display = item.textContent.toLowerCase().includes(query)
+            ? "" : "none";
+    });
+});
+
+document.getElementById("loadCases").addEventListener("click", async () => {
+    const list = document.getElementById("casesList");
+    list.textContent = "Загрузка...";
+    try {
+        const response = await fetch("/api/cases");
+        if (!response.ok) throw new Error("Ошибка загрузки");
+        const data = await response.json();
+        const cases = Array.isArray(data) ? data : data.cases || [];
+        list.replaceChildren();
+
+        cases.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "case-item";
+            card.textContent = JSON.stringify(item, null, 2);
+            list.appendChild(card);
+        });
+
+        if (!cases.length) list.textContent = "История пока пуста.";
+    } catch (error) {
+        list.textContent = error.message;
+    }
+});
+
+document.getElementById("analyze").addEventListener("click", async () => {
+    const text = document.getElementById("caseText").value.trim();
+    const result = document.getElementById("analysisResult");
+
+    if (!text) {
+        result.textContent = "Сначала опиши дело.";
+        return;
+    }
+
+    result.textContent = "Выполняется анализ...";
+
+    try {
+        const response = await fetch("/api/attorney-assist", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ caseText: text })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Ошибка сервера");
+
+        result.textContent =
+            data.answer || data.analysis || data.result ||
+            JSON.stringify(data, null, 2);
+    } catch (error) {
+        result.textContent = "Ошибка: " + error.message;
+    }
+});
+
+document.getElementById("makeQuestions").addEventListener("click", () => {
+    const text = document.getElementById("questionText").value.trim();
+    const result = document.getElementById("questionResult");
+
+    if (!text) {
+        result.textContent = "Сначала опиши ситуацию.";
+        return;
+    }
+
+    result.textContent =
+        "1. Какое конкретное действие оспаривается?\n" +
+        "2. Кто его совершил?\n" +
+        "3. На каком основании?\n" +
+        "4. Какая статья применяется?\n" +
+        "5. Какие доказательства имеются?\n" +
+        "6. Соблюдена ли процедура?\n" +
+        "7. Какие факты ещё необходимо установить?\n\n" +
+        "Исходная ситуация: " + text;
+});
+
+loadLaws();
+</script>
+
+</body>
+</html>

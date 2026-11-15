@@ -12,16 +12,28 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// =====================================================
-// ЗАЩИТА ПРИЛОЖЕНИЯ
-// =====================================================
+
+const LAWS_FILE = path.join(__dirname, "laws.json");
+const CASES_FILE = path.join(__dirname, "cases.json");
 
 const APP_USER = process.env.APP_USER;
 const APP_PASSWORD = process.env.APP_PASSWORD;
+const MODEL = process.env.OPENAI_MODEL || "gemini-3.1-flash-lite";
+
+const client = process.env.GEMINI_API_KEY
+    ? new OpenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
+    })
+    : null;
+
+// =====================================================
+// АВТОРИЗАЦИЯ
+// =====================================================
 
 function safeCompare(a, b) {
-  const first = Buffer.from(a);
-  const second = Buffer.from(b);
+  const first = Buffer.from(String(a));
+  const second = Buffer.from(String(b));
 
   return first.length === second.length &&
       timingSafeEqual(first, second);
@@ -41,7 +53,6 @@ function requireAuth(req, res, next) {
         "WWW-Authenticate",
         'Basic realm="RPM Attorney Assistant", charset="UTF-8"'
     );
-
     return res.status(401).send("Authentication required.");
   }
 
@@ -55,7 +66,7 @@ function requireAuth(req, res, next) {
 
   const separator = credentials.indexOf(":");
 
-  if (separator === -1) {
+  if (separator < 0) {
     return res.status(401).send("Invalid credentials.");
   }
 
@@ -72,24 +83,12 @@ function requireAuth(req, res, next) {
   next();
 }
 
-const LAWS_FILE = path.join(__dirname, "laws.json");
-const CASES_FILE = path.join(__dirname, "cases.json");
-
 app.use(requireAuth);
 app.use(express.json({ limit: "5mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-const client = process.env.GEMINI_API_KEY
-    ? new OpenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
-    })
-    : null;
-
-const MODEL = process.env.OPENAI_MODEL || "gemini-3.1-flash-lite";
-
 // =====================================================
-// РАБОТА С JSON
+// JSON
 // =====================================================
 
 async function readJson(file, fallback) {
@@ -101,11 +100,7 @@ async function readJson(file, fallback) {
 }
 
 async function writeJson(file, data) {
-  await fs.writeFile(
-      file,
-      JSON.stringify(data, null, 2),
-      "utf8"
-  );
+  await fs.writeFile(file, JSON.stringify(data, null, 2), "utf8");
 }
 
 // =====================================================
@@ -116,27 +111,20 @@ app.get("/api/laws", async (req, res) => {
   try {
     res.json(await readJson(LAWS_FILE, { documents: [] }));
   } catch (error) {
-    res.status(500).json({
-      error: "Не удалось загрузить законы: " + error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
 app.put("/api/laws", async (req, res) => {
   try {
     if (!req.body || typeof req.body !== "object") {
-      return res.status(400).json({
-        error: "Некорректный формат законов."
-      });
+      return res.status(400).json({ error: "Некорректный формат законов." });
     }
 
     await writeJson(LAWS_FILE, req.body);
-
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      error: "Не удалось сохранить законы: " + error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -158,13 +146,7 @@ app.get("/api/health", (req, res) => {
 // =====================================================
 
 app.get("/api/cases", async (req, res) => {
-  try {
-    res.json(await readJson(CASES_FILE, []));
-  } catch (error) {
-    res.status(500).json({
-      error: "Не удалось загрузить дела: " + error.message
-    });
-  }
+  res.json(await readJson(CASES_FILE, []));
 });
 
 app.post("/api/cases", async (req, res) => {
@@ -187,35 +169,27 @@ app.post("/api/cases", async (req, res) => {
     }
 
     await writeJson(CASES_FILE, cases);
-
     res.json(item);
   } catch (error) {
-    res.status(500).json({
-      error: "Не удалось сохранить дело: " + error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
 app.delete("/api/cases/:id", async (req, res) => {
   try {
     const cases = await readJson(CASES_FILE, []);
-
-    const updated = cases.filter(
-        c => c.id !== req.params.id
+    await writeJson(
+        CASES_FILE,
+        cases.filter(c => c.id !== req.params.id)
     );
-
-    await writeJson(CASES_FILE, updated);
-
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      error: "Не удалось удалить дело: " + error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
 // =====================================================
-// НОРМАЛИЗАЦИЯ ТЕКСТА
+// ПОИСК СТАТЕЙ
 // =====================================================
 
 function normalize(value) {
@@ -228,27 +202,19 @@ function normalize(value) {
 }
 
 function getWords(value) {
-  return normalize(value)
-      .split(/\s+/)
-      .filter(word => word.length >= 3);
+  return [...new Set(
+      normalize(value).split(/\s+/).filter(word => word.length >= 3)
+  )];
 }
-
-// =====================================================
-// ИЗВЛЕЧЕНИЕ СТАТЕЙ ИЗ ЗАКОНОВ
-// =====================================================
 
 function extractArticles(documents) {
   const result = [];
 
   function walk(node, documentName, depth = 0) {
-    if (!node || typeof node !== "object" || depth > 10) {
-      return;
-    }
+    if (!node || typeof node !== "object" || depth > 12) return;
 
     if (Array.isArray(node)) {
-      for (const item of node) {
-        walk(item, documentName, depth + 1);
-      }
+      node.forEach(item => walk(item, documentName, depth + 1));
       return;
     }
 
@@ -291,35 +257,26 @@ function extractArticles(documents) {
     ];
 
     for (const key of childKeys) {
-      if (Array.isArray(node[key])) {
+      if (node[key] && typeof node[key] === "object") {
         walk(node[key], currentName, depth + 1);
       }
     }
 
-    // Поддержка других вложенных структур
-    if (!childKeys.some(key => Array.isArray(node[key]))) {
-      for (const [key, value] of Object.entries(node)) {
-        if (
-            value &&
-            typeof value === "object" &&
-            !Array.isArray(value)
-        ) {
-          walk(value, currentName, depth + 1);
-        }
+    for (const [key, value] of Object.entries(node)) {
+      if (
+          !childKeys.includes(key) &&
+          value &&
+          typeof value === "object"
+      ) {
+        walk(value, currentName, depth + 1);
       }
     }
   }
 
   for (const doc of documents) {
-    const documentName =
-        doc.name ||
-        doc.title ||
-        "Неизвестный документ";
-
-    walk(doc, documentName);
+    walk(doc, doc.name || doc.title || "Неизвестный документ");
   }
 
-  // Удаление дублей
   const unique = new Map();
 
   for (const article of result) {
@@ -327,121 +284,81 @@ function extractArticles(documents) {
         article.document + article.title + article.text
     );
 
-    if (!unique.has(key)) {
-      unique.set(key, article);
-    }
+    if (!unique.has(key)) unique.set(key, article);
   }
 
   return [...unique.values()];
 }
 
-// =====================================================
-// ПОИСК ТОЧНЫХ И РЕЛЕВАНТНЫХ СТАТЕЙ
-// =====================================================
-
 function findRelevantArticles(documents, searchText) {
   const articles = extractArticles(documents);
-  const words = [...new Set(getWords(searchText))];
+  const words = getWords(searchText);
 
-  if (!words.length) {
-    return [];
-  }
+  if (!words.length) return [];
 
-  // Находим номера статей в запросе
-  const articleNumbers = [
+  const numbers = [
     ...new Set(
         String(searchText).match(/\b\d+(?:\.\d+)+\b/g) || []
     )
   ];
 
-  // Сначала ищем точные совпадения
-  const exactMatches = articles.filter(article => {
+  const exact = articles.filter(article => {
     const title = normalize(article.title);
 
-    return articleNumbers.some(number => {
-      const escaped = number.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          "\\$&"
-      );
-
-      const pattern = new RegExp(
-          `(?:^|\\s)${escaped}(?:$|\\s)`
-      );
-
-      return pattern.test(title);
+    return numbers.some(number => {
+      const escaped = number.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(title);
     });
   });
 
   const exactKeys = new Set(
-      exactMatches.map(article =>
-          normalize(
-              article.document + article.title + article.text
-          )
-      )
+      exact.map(a => normalize(a.document + a.title + a.text))
   );
 
-  // Затем выполняем обычный поиск
   const ranked = articles
-      .filter(article =>
-          !exactKeys.has(
-              normalize(
-                  article.document + article.title + article.text
-              )
-          )
-      )
+      .filter(a => !exactKeys.has(normalize(a.document + a.title + a.text)))
       .map(article => {
-        const documentText = normalize(article.document);
-        const titleText = normalize(article.title);
-        const fullText = normalize(article.text);
+        const title = normalize(article.title);
+        const document = normalize(article.document);
+        const text = normalize(article.text);
 
         let score = 0;
 
         for (const word of words) {
-          if (titleText.includes(word)) score += 5;
-          if (documentText.includes(word)) score += 3;
-          if (fullText.includes(word)) score += 1;
+          if (title.includes(word)) score += 5;
+          if (document.includes(word)) score += 3;
+          if (text.includes(word)) score += 1;
         }
 
-        return {
-          ...article,
-          score
-        };
+        return { ...article, score };
       })
-      .filter(article => article.score > 0)
+      .filter(a => a.score > 0)
       .sort((a, b) => b.score - a.score);
 
-  return [...exactMatches, ...ranked];
+  return [...exact, ...ranked];
 }
 
-// =====================================================
-// ПОДГОТОВКА ЗАКОНОВ ДЛЯ ИИ
-// =====================================================
-
 function prepareLawsForAI(articles) {
-  const MAX_ARTICLES = 12;
-  const MAX_ARTICLE_LENGTH = 4500;
-  const MAX_TOTAL_LENGTH = 30000;
+  const MAX_ARTICLES = 18;
+  const MAX_ARTICLE_LENGTH = 7000;
+  const MAX_TOTAL_LENGTH = 45000;
 
   const selected = [];
-  let totalLength = 0;
+  let total = 0;
 
   for (const article of articles) {
-    if (selected.length >= MAX_ARTICLES) {
-      break;
-    }
+    if (selected.length >= MAX_ARTICLES) break;
 
     const formatted = [
       `Документ: ${article.document}`,
       `Статья: ${article.title}`,
-      `Текст: ${article.text.slice(0, MAX_ARTICLE_LENGTH)}`
+      `Полный текст статьи и примечаний: ${article.text.slice(0, MAX_ARTICLE_LENGTH)}`
     ].join("\n");
 
-    if (totalLength + formatted.length > MAX_TOTAL_LENGTH) {
-      continue;
-    }
+    if (total + formatted.length > MAX_TOTAL_LENGTH) continue;
 
     selected.push(formatted);
-    totalLength += formatted.length;
+    total += formatted.length;
   }
 
   return selected.length
@@ -453,104 +370,117 @@ function prepareLawsForAI(articles) {
 // ИНСТРУКЦИИ ИИ
 // =====================================================
 
-function createInstructions({
-                              mode,
-                              caseData,
-                              officerAnswer,
-                              lawsForAI
-                            }) {
+function createInstructions({ mode, caseData, officerAnswer, lawsForAI }) {
+  const analysisFormat = `
+ОСОБОЕ ТРЕБОВАНИЕ ДЛЯ РЕЖИМА ANALYZE:
+
+Верни результат строго в формате JSON без Markdown и без
+текстовых пояснений до или после JSON.
+
+Структура:
+
+{
+  "answer": "Полный текст анализа дела на русском языке",
+  "legalReasoning": [
+    {
+      "article": "Точное название статьи и документа",
+      "whyApplied": "Почему эта статья может применяться",
+      "establishedElements": ["Подтверждённый признак"],
+      "evidence": ["Конкретное подтверждающее доказательство"],
+      "missingEvidence": ["Каких сведений не хватает"],
+      "defenseArguments": ["Аргумент защиты"],
+      "exceptions": ["Примечания и исключения из текста закона"],
+      "conclusion": "Подтверждено"
+    }
+  ]
+}
+
+Допустимые значения conclusion:
+- "Подтверждено"
+- "Вероятно"
+- "Недостаточно данных"
+- "Не применимо"
+
+ПРАВИЛА ДЛЯ legalReasoning:
+
+1. Включай только статьи, текст которых действительно присутствует
+   в предоставленной базе законов.
+2. Не создавай номера статей самостоятельно.
+3. Если статья не подходит к обстоятельствам, укажи
+   "Не применимо" и объясни причину.
+4. Не называй факт подтверждённым, если он основан только
+   на предположении или словах одной стороны.
+5. В evidence включай только реально предоставленные материалы.
+6. Если доказательств нет, оставь массив пустым.
+7. В missingEvidence указывай конкретные недостающие сведения.
+8. Обязательно проверяй примечания и специальные исключения.
+9. Если исключение применимо, объясни его значение.
+10. Не смешивай незаконность задержания с незаконностью обыска.
+11. Если статья не найдена, не выдумывай её ради заполнения карточки.
+12. Если подходящих статей нет, верни пустой массив legalReasoning.
+13. Не делай вывод о виновности человека только по факту обвинения.
+14. Не представляй аргументы защиты как доказанные факты.
+15. В answer обязательно объясни ограничения анализа.
+`;
+
   return `
 Ты — RPM Attorney Assistant, помощник адвоката
 в ролевом проекте RPM.
 
-Твоя задача — помогать анализировать игровые
-правовые ситуации на основании предоставленных
-нормативных документов RPM.
+Твоя задача — анализировать игровые правовые ситуации
+исключительно на основании переданных нормативных документов RPM.
 
-ОСНОВНЫЕ ПРАВИЛА:
+ОБЩИЕ ПРАВИЛА:
 
-1. Используй только предоставленные законы RPM
-   и материалы дела.
-2. Не придумывай статьи, пункты, кодексы,
-   сроки и полномочия.
-3. Не приписывай статье содержание,
-   которого нет в переданном тексте.
-4. Разделяй подтверждённые факты,
-   предположения и возможные нарушения.
-5. Не объявляй действия сотрудника незаконными
-   без достаточных оснований.
-6. Если норма не найдена, сообщи:
-   «По предоставленным материалам невозможно
-   подтвердить наличие такой нормы».
-7. Не требуй полного досье для проверки
-   отдельного ответа.
-8. Не путай отсутствие ответа, отказ от ответа
-   и признание нарушения.
-9. Не утверждай, что любое противоречие
-   доказывает невиновность.
-10. Не гарантируй освобождение или
-    удовлетворение ходатайства.
+1. Используй только предоставленные законы RPM и материалы дела.
+2. Не используй реальные законы РФ, Латвии, США или других стран.
+3. Не придумывай статьи, части, пункты, сроки, полномочия и санкции.
+4. Не приписывай статье содержание, которого нет в её тексте.
+5. Разделяй подтверждённые факты, предположения и заявления участников.
+6. Не объявляй человека виновным до достаточного подтверждения.
+7. Не считай отсутствие ответа сотрудника доказательством нарушения.
+8. Не гарантируй освобождение или удовлетворение ходатайства.
+9. Если нужной нормы нет, прямо сообщи об этом.
+10. Проверяй статью полностью, включая примечания и исключения.
+
+ПРОВЕРКА ЗАКОНОВ:
+
+- Проверяй специальные нормы и исключения.
+- Не игнорируй примечания к статьям.
+- Не смешивай незаконность задержания и незаконность обыска.
+- Не считай любое процессуальное нарушение автоматическим
+  основанием для исключения всех доказательств.
+- Если нормы кажутся противоречивыми, объясни это.
+- Не утверждай, что доказательство недопустимо, не проверив
+  способ его получения и применимые исключения.
+- Если информации недостаточно, укажи, что нужно установить.
 
 ПРАВИЛА ЗАДЕРЖАНИЯ:
 
 Различай:
-
 А) сотрудник не смог назвать статью;
-Б) статья отсутствует в материалах задержания;
-В) фактического и законного основания
-   задержания не существует.
+Б) статья отсутствует в материалах;
+В) законного основания задержания не существовало.
 
 Это разные обстоятельства.
 
-Невозможность сотрудника назвать статью сама
-по себе не доказывает незаконность задержания.
+Одного незнания статьи сотрудником недостаточно,
+чтобы автоматически признать задержание незаконным.
 
-Если сотрудник не может назвать статью:
-
-- оцени ответ как неполный;
-- предложи уточнить статью и часть;
-- выясни, где указано основание задержания;
-- не придумывай норму вместо сотрудника.
-
-Если правовое основание не подтверждается
-материалами, рекомендуй запросить документы
-и рассмотреть возможность ходатайства
-об освобождении.
-
-Не обещай автоматического освобождения.
-
-ПРАВИЛА ПРОВЕРКИ СТАТЕЙ:
-
-1. Ссылайся только на статьи, текст которых
-   действительно передан.
-2. УК 1.1 регулирует малозначительность.
-   Не используй её для обоснования полномочий
-   при задержании.
-3. УК 13.4 о заведомо незаконном задержании
-   можно рассматривать только при наличии
-   подтверждающих фактов.
-4. Одного незнания статьи сотрудником
-   недостаточно для такого вывода.
-5. Не утверждай, что сотрудник обязан объявить
-   статью непосредственно в момент задержания,
-   если такая норма не предоставлена.
-6. Не приписывай Конституции права и обязанности,
-   которых нет в её тексте.
-7. Если процессуальный порядок не найден,
-   сообщи об отсутствии достаточной информации.
-8. Не называй ошибку в документе автоматическим
-   доказательством незаконности задержания.
+Не утверждай, что сотрудник обязан объявить статью
+непосредственно в момент задержания, если такая норма
+не содержится в переданных документах.
 
 ПРАВИЛА ДОКАЗАТЕЛЬСТВ:
 
-- Различай наличие доказательства и доказанность
-  обстоятельства.
-- Учитывай содержание, подлинность, полноту
-  и относимость записи или показаний.
-- Не называй доказательство бесспорным
-  без проверки.
-- Не делай окончательных выводов
-  на основании предположений.
+Для каждого доказательства оцени:
+- Что именно оно подтверждает.
+- Кто его предоставил.
+- При каких обстоятельствах оно получено.
+- Есть ли сведения о его подлинности и полноте.
+- Соблюдались ли процессуальные требования.
+- Есть ли применимое исключение.
+- Какие сомнения остаются.
 
 РЕЖИМ: ${mode}
 
@@ -563,87 +493,84 @@ ${officerAnswer || "Не предоставлен"}
 НАЙДЕННЫЕ ЗАКОНЫ RPM:
 ${lawsForAI}
 
-ВАЖНО:
-
-Если подходящая статья не найдена,
-не придумывай её.
-
-Если переданы только названия документов
-без текста статей, сообщи, что проверить
-содержание норм невозможно.
-
-Совпадение слов не доказывает применимость статьи.
-
 ТРЕБОВАНИЯ К РЕЖИМАМ:
 
-Если режим analyze:
-
-Проанализируй ситуацию, факты, возможные нарушения,
-доказательства, противоречия и дальнейшие действия
-адвоката.
+${mode === "analyze" ? analysisFormat : ""}
 
 Если режим evaluate_answer:
-
 Проведи предметную проверку ответа сотрудника.
-
 Используй структуру:
-
-1. ОЦЕНКА ОТВЕТА
-2. ЧТО УСТАНОВЛЕНО
-3. ЧЕГО НЕ ХВАТАЕТ
-4. ПРАВОВОЕ ЗНАЧЕНИЕ
-5. СЛЕДУЮЩИЙ ВОПРОС
-6. РЕКОМЕНДАЦИЯ АДВОКАТУ
-
-ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА ПРОВЕРКИ:
-
-- Не требуй от пользователя описания обстоятельств дела.
-- Если указана статья, сначала найди её точное
-  содержание среди переданных законов.
-- Если сотрудник назвал номер статьи, проверь,
-  соответствует ли его ответ содержанию этой статьи.
-- Различай правильность номера статьи и доказанность
-  самого нарушения.
-- Если известен только номер статьи, объясни,
-  что можно и чего нельзя установить по этому номеру.
-- Если статья не найдена, сообщи об этом прямо.
-- Не придумывай содержание статьи, её санкцию
-  или дополнительные требования.
-- Не объявляй ответ сотрудника неправильным
-  без объяснения причины.
-- Если данных недостаточно, укажи,
-  какие сведения необходимо запросить.
-- Не считай отсутствие ответа доказательством
-  виновности или незаконности действий.
-- Каждый следующий вопрос должен помогать получить
-  конкретную недостающую информацию.
-- Если передано несколько вопросов и ответов,
-  оцени каждый отдельно.
+1. Оценка ответа.
+2. Что установлено.
+3. Чего не хватает.
+4. Правовое значение.
+5. Следующий вопрос.
+6. Рекомендация адвокату.
 
 Если режим followup:
-
-Предложи следующие вопросы и действия
-с учётом предыдущего ответа.
+Предложи следующие вопросы и действия с учётом материалов дела.
+Каждый вопрос должен помогать получить конкретную информацию.
 
 Если режим questions:
-
-Составь список сложных, но корректных вопросов
-сотруднику.
-
-Объясни, что каждый вопрос помогает выяснить.
+Составь сложные, но корректные вопросы сотруднику.
+Объясни, что помогает выяснить каждый вопрос.
 
 Если режим reference:
-
-Подготовь практическую памятку адвокату
-на основании переданных законов.
-
-Не добавляй отсутствующие нормы.
+Подготовь практическую памятку адвокату на основании законов RPM.
 
 ОТВЕЧАЙ НА РУССКОМ ЯЗЫКЕ.
-
-Используй понятные заголовки
-и нумерованные списки.
+Не выдумывай нормы.
 `;
+}
+
+// =====================================================
+// ПАРСИНГ СТРУКТУРИРОВАННОГО ОТВЕТА
+// =====================================================
+
+function parseAIAnalysis(raw) {
+  const text = String(raw || "").trim();
+
+  const cleaned = text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+  try {
+    const parsed = JSON.parse(cleaned);
+
+    return {
+      answer: String(parsed.answer || "Анализ не получен."),
+      legalReasoning: Array.isArray(parsed.legalReasoning)
+          ? parsed.legalReasoning.map(item => ({
+            article: String(item.article || "Статья не указана"),
+            whyApplied: String(item.whyApplied || ""),
+            establishedElements: Array.isArray(item.establishedElements)
+                ? item.establishedElements.map(String) : [],
+            evidence: Array.isArray(item.evidence)
+                ? item.evidence.map(String) : [],
+            missingEvidence: Array.isArray(item.missingEvidence)
+                ? item.missingEvidence.map(String) : [],
+            defenseArguments: Array.isArray(item.defenseArguments)
+                ? item.defenseArguments.map(String) : [],
+            exceptions: Array.isArray(item.exceptions)
+                ? item.exceptions.map(String) : [],
+            conclusion: [
+              "Подтверждено",
+              "Вероятно",
+              "Недостаточно данных",
+              "Не применимо"
+            ].includes(item.conclusion)
+                ? item.conclusion
+                : "Недостаточно данных"
+          }))
+          : []
+    };
+  } catch {
+    return {
+      answer: text || "ИИ не вернул ответ.",
+      legalReasoning: []
+    };
+  }
 }
 
 // =====================================================
@@ -654,7 +581,7 @@ app.post("/api/attorney-assist", async (req, res) => {
   try {
     if (!client) {
       return res.status(503).json({
-        error: "Gemini API не настроен. Проверь GEMINI_API_KEY в .env"
+        error: "Gemini API не настроен. Проверь GEMINI_API_KEY."
       });
     }
 
@@ -685,78 +612,36 @@ app.post("/api/attorney-assist", async (req, res) => {
             ? laws.documents
             : [];
 
-    // Подготавливаем поисковый запрос
-    let searchText = "";
+    let searchText = [
+      caseData?.suspectedArticle,
+      caseData?.article,
+      caseData?.title,
+      caseData?.description,
+      caseData?.evidence,
+      caseData?.accusation,
+      caseData?.facts,
+      caseData?.notes,
+      officerAnswer
+    ].filter(Boolean).join(" ");
 
-    switch (mode) {
-      case "evaluate_answer":
-        searchText = [
-          caseData?.suspectedArticle,
-          caseData?.article,
-          caseData?.title,
-          caseData?.description,
-          caseData?.evidence,
-          caseData?.accusation,
-          officerAnswer
-        ].filter(Boolean).join(" ");
-        break;
-
-      case "questions":
-        searchText = [
-          caseData?.suspectedArticle,
-          caseData?.article,
-          caseData?.description,
-          caseData?.title,
-          caseData?.accusation
-        ].filter(Boolean).join(" ");
-        break;
-
-      case "reference":
-        searchText = [
-          caseData?.description,
-          caseData?.title,
-          caseData?.notes
-        ].filter(Boolean).join(" ");
-        break;
-
-      default:
-        searchText = [
-          caseData?.suspectedArticle,
-          caseData?.article,
-          caseData?.title,
-          caseData?.description,
-          caseData?.evidence,
-          caseData?.accusation,
-          caseData?.facts,
-          caseData?.notes,
-          officerAnswer
-        ].filter(Boolean).join(" ");
+    if (mode === "reference") {
+      searchText = [
+        caseData?.description,
+        caseData?.title,
+        caseData?.notes
+      ].filter(Boolean).join(" ");
     }
 
-    // Поиск статей
-    const relevantArticles = findRelevantArticles(
-        documents,
-        searchText
-    );
-
-    // Подготовка найденных законов
-    const lawsForAI = prepareLawsForAI(
-        relevantArticles
-    );
+    const relevantArticles = findRelevantArticles(documents, searchText);
+    const lawsForAI = prepareLawsForAI(relevantArticles);
 
     console.log("AI request:", {
       mode,
       documents: documents.length,
       totalArticles: extractArticles(documents).length,
-      selectedArticles: Math.min(relevantArticles.length, 12),
-      exactArticleNumbers: [
-        ...new Set(
-            String(searchText).match(/\b\d+(?:\.\d+)+\b/g) || []
-        )
-      ]
+      selectedArticles: Math.min(relevantArticles.length, 18)
     });
 
-    // Создание инструкции
     const instructions = createInstructions({
       mode,
       caseData,
@@ -764,34 +649,29 @@ app.post("/api/attorney-assist", async (req, res) => {
       lawsForAI
     });
 
-    // Запрос к Gemini
     const completion = await client.chat.completions.create({
       model: MODEL,
       messages: [
-        {
-          role: "system",
-          content: instructions
-        },
-        {
-          role: "user",
-          content: "Подготовь ответ по указанному режиму."
-        }
+        { role: "system", content: instructions },
+        { role: "user", content: "Подготовь ответ по указанному режиму." }
       ],
-      temperature: 0.4
+      temperature: 0.2
     });
 
-    const answer =
-        completion.choices?.[0]?.message?.content ||
-        "ИИ не вернул ответ.";
+    const rawAnswer =
+        completion.choices?.[0]?.message?.content || "ИИ не вернул ответ.";
 
-    res.json({ answer });
+    if (mode === "analyze") {
+      const parsed = parseAIAnalysis(rawAnswer);
+      return res.json(parsed);
+    }
+
+    res.json({ answer: rawAnswer });
 
   } catch (error) {
     console.error("AI error:", error);
 
-    const status = error.status === 429 ? 429 : 500;
-
-    res.status(status).json({
+    res.status(error.status === 429 ? 429 : 500).json({
       error: "Ошибка обращения к Gemini API: " + error.message
     });
   }

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPM Attorney Assistant</title>
+<style>
+:root {
+  --bg:#0b0e14; --panel:#151a24; --panel2:#1d2431;
+  --text:#edf1f8; --muted:#9aa6ba; --accent:#8b75ff;
+  --border:#2b3445; --danger:#e45d6b; --green:#58c99a;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:Arial,sans-serif;
+}
+header {
+  padding:22px 5%; border-bottom:1px solid var(--border);
+  background:#10141d;
+}
+header h1 { margin:0; font-size:23px; }
+header p { color:var(--muted); margin:8px 0 0; }
+nav {
+  display:flex; flex-wrap:wrap; gap:8px; padding:16px 5%;
+  border-bottom:1px solid var(--border);
+}
+nav button {
+  background:var(--panel); color:var(--text);
+  border:1px solid var(--border); padding:11px 16px;
+  border-radius:9px; cursor:pointer;
+}
+nav button.active { background:var(--accent); border-color:var(--accent); }
+main { max-width:1100px; margin:25px auto; padding:0 18px 50px; }
+.panel {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:13px; padding:20px; margin-bottom:16px;
+}
+.tab { display:none; }
+.tab.active { display:block; }
+h2 { margin-top:0; }
+label { display:block; margin:15px 0 7px; color:var(--muted); }
+input,textarea,select {
+  width:100%; padding:12px; border-radius:8px;
+  border:1px solid var(--border); background:#0e131c;
+  color:var(--text); font:inherit;
+}
+textarea { min-height:105px; resize:vertical; }
+button.action {
+  background:var(--accent); color:white; border:0;
+  padding:12px 17px; border-radius:8px; cursor:pointer;
+  margin:12px 7px 0 0;
+}
+button.secondary { background:var(--panel2); border:1px solid var(--border); }
+button.danger { background:var(--danger); }
+button:disabled { opacity:.5; cursor:wait; }
+.result {
+  white-space:pre-wrap; line-height:1.6; margin-top:18px;
+  padding:17px; background:#0e131c; border-radius:9px;
+  border:1px solid var(--border); overflow-wrap:anywhere;
+}
+.muted { color:var(--muted); }
+.case-item {
+  padding:14px; border:1px solid var(--border);
+  border-radius:9px; margin:10px 0; background:#10151f;
+}
+.case-item strong { display:block; margin-bottom:8px; }
+.status { color:var(--green); margin-left:8px; }
+footer { text-align:center; color:var(--muted); padding:25px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚖ RPM Attorney Assistant</h1>
+  <p>Помощник адвоката для ролевого проекта RPM</p>
+</header>
+
+<nav>
+  <button class="active" data-tab="analysis">Анализ дела</button>
+  <button data-tab="questions">Душные вопросы</button>
+  <button data-tab="reference">Справочник адвоката</button>
+  <button data-tab="history">История дел</button>
+</nav>
+
+<main>
+<section id="analysis" class="tab active">
+  <div class="panel">
+    <h2>Материалы дела</h2>
+    <label>Клиент / задержанный</label>
+    <input id="clientName" placeholder="Имя и фамилия">
+    <label>Этап дела</label>
+    <select id="stage">
+      <option>Задержание</option>
+      <option>Допрос</option>
+      <option>Суд</option>
+      <option>Обжалование</option>
+      <option>Другое</option>
+    </select>
+    <label>Обвинение</label>
+    <textarea id="charge" placeholder="В чём обвиняют клиента?"></textarea>
+    <label>Обстоятельства</label>
+    <textarea id="facts" placeholder="Опиши ситуацию по порядку..."></textarea>
+    <label>Доказательства</label>
+    <textarea id="evidence" placeholder="Видео, документы, показания и другое..."></textarea>
+    <label>Применимые статьи и законы (если известны)</label>
+    <textarea id="laws" placeholder="Укажи статьи или оставь пустым..."></textarea>
+    <label>Ответ сотрудника / дополнительные сведения</label>
+    <textarea id="officerAnswer" placeholder="Вставь ответ сотрудника..."></textarea>
+    <button class="action" onclick="analyze('analyze')">Анализировать дело</button>
+    <button class="action secondary" onclick="analyze('followup')">Продолжить анализ</button>
+    <button class="action secondary" onclick="saveCurrentCase()">Сохранить дело</button>
+    <div id="analysisResult" class="result">Здесь появится результат анализа.</div>
+  </div>
+</section>
+
+<section id="questions" class="tab">
+  <div class="panel">
+    <h2>Душные вопросы</h2>
+    <p class="muted">Подготовка уточняющих вопросов по обстоятельствам дела и действиям сотрудников.</p>
+    <label>Опиши ситуацию или укажи, что нужно выяснить</label>
+    <textarea id="questionContext" placeholder="Например: сотрудник провёл задержание, но не объяснил причину..."></textarea>
+    <label>Ответ сотрудника (если есть)</label>
+    <textarea id="questionAnswer" placeholder="Вставь ответ сотрудника или оставь пустым..."></textarea>
+    <button class="action" onclick="generateQuestions()">Составить вопросы</button>
+    <button class="action secondary" onclick="sendQuestionsToAnalysis()">Передать в анализ дела</button>
+    <div id="questionsResult" class="result">Здесь появятся вопросы.</div>
+  </div>
+</section>
+
+<section id="reference" class="tab">
+  <div class="panel">
+    <h2>Справочник адвоката</h2>
+    <p class="muted">Общие рабочие заметки. Конкретные нормы и полномочия необходимо сверять с документами RPM.</p>
+    <h3>Перед началом работы</h3>
+    <ul>
+      <li>Уточни личность клиента и суть обвинения.</li>
+      <li>Установи последовательность событий.</li>
+      <li>Запроси сведения о доказательствах.</li>
+      <li>Проверь применимые документы и статьи RPM.</li>
+    </ul>
+    <h3>Во время разбирательства</h3>
+    <ul>
+      <li>Задавай конкретные вопросы по одному обстоятельству.</li>
+      <li>Уточняй время, место и участников событий.</li>
+      <li>Отделяй личные предположения от подтверждённых фактов.</li>
+      <li>Фиксируй противоречия и ответы участников.</li>
+    </ul>
+    <h3>После разбирательства</h3>
+    <ul>
+      <li>Сохрани материалы дела.</li>
+      <li>Проверь, какие обстоятельства остались невыясненными.</li>
+      <li>Сверь выводы с действующими документами RPM.</li>
+    </ul>
+    <button class="action" onclick="generateReference()">Попросить ИИ подготовить памятку по законам</button>
+    <div id="referenceResult" class="result">Дополнительная памятка появится здесь.</div>
+  </div>
+</section>
+
+<section id="history" class="tab">
+  <div class="panel">
+    <h2>История дел</h2>
+    <p class="muted">Сохранённые дела хранятся в файле cases.json на сервере.</p>
+    <button class="action" onclick="loadCases()">Обновить список</button>
+    <div id="casesList"></div>
+  </div>
+</section>
+</main>
+
+<footer>RPM Attorney Assistant · RP project</footer>
+
+<script>
+let currentCaseId = null;
+let lawsData = {};
+
+document.querySelectorAll("nav button").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    button.classList.add("active");
+    document.getElementById(button.dataset.tab).classList.add("active");
+    if (button.dataset.tab === "history") loadCases();
+  });
+});
+
+function switchTab(name) {
+  document.querySelector(`nav button[data-tab="${name}"]`).click();
+}
+
+function getCaseData() {
+  return {
+    client: document.getElementById("clientName").value,
+    stage: document.getElementById("stage").value,
+    charge: document.getElementById("charge").value,
+    facts: document.getElementById("facts").value,
+    evidence: document.getElementById("evidence").value,
+    laws: document.getElementById("laws").value
+  };
+}
+
+async function loadLaws() {
+  try {
+    const response = await fetch("/api/laws");
+    lawsData = await response.json();
+  } catch (error) {
+    console.error("Не удалось загрузить законы", error);
+  }
+}
+
+async function askAI(mode, caseData, officerAnswer, target) {
+  const output = document.getElementById(target);
+  output.textContent = "ИИ готовит ответ...";
+  try {
+    const response = await fetch("/api/attorney-assist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode,
+        caseData,
+        laws: lawsData,
+        officerAnswer
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Ошибка сервера");
+    output.textContent = data.answer || "Пустой ответ";
+  } catch (error) {
+    output.textContent = "Ошибка: " + error.message;
+  }
+}
+
+function analyze(mode) {
+  const answer = document.getElementById("officerAnswer").value;
+  askAI(mode, getCaseData(), answer, "analysisResult");
+}
+
+function generateQuestions() {
+  const data = getCaseData();
+  data.questionContext = document.getElementById("questionContext").value;
+  askAI(
+    "questions",
+    data,
+    document.getElementById("questionAnswer").value,
+    "questionsResult"
+  );
+}
+
+function generateReference() {
+  askAI("reference", getCaseData(), "", "referenceResult");
+}
+
+function sendQuestionsToAnalysis() {
+  document.getElementById("facts").value =
+    document.getElementById("questionContext").value;
+  document.getElementById("officerAnswer").value =
+    document.getElementById("questionAnswer").value;
+  switchTab("analysis");
+}
+
+async function saveCurrentCase() {
+  const data = getCaseData();
+  const title = data.client ? "Дело: " + data.client : "Новое дело";
+  try {
+    const response = await fetch("/api/cases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: currentCaseId || Date.now().toString(),
+        title,
+        data
+      })
+    });
+    if (!response.ok) throw new Error("Не удалось сохранить дело");
+    const saved = await response.json();
+    currentCaseId = saved.id;
+    alert("Дело сохранено.");
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function loadCases() {
+  const list = document.getElementById("casesList");
+  list.textContent = "Загрузка...";
+  try {
+    const response = await fetch("/api/cases");
+    const cases = await response.json();
+    list.innerHTML = "";
+    if (!cases.length) {
+      list.textContent = "Сохранённых дел пока нет.";
+      return;
+    }
+    for (const item of cases) {
+      const div = document.createElement("div");
+      div.className = "case-item";
+      const title = document.createElement("strong");
+      title.textContent = item.title;
+      const date = document.createElement("span");
+      date.className = "muted";
+      date.textContent = new Date(item.updatedAt).toLocaleString("ru-RU");
+      const open = document.createElement("button");
+      open.className = "action";
+      open.textContent = "Открыть";
+      open.onclick = () => openCase(item);
+      const remove = document.createElement("button");
+      remove.className = "action danger";
+      remove.textContent = "Удалить";
+      remove.onclick = () => deleteCase(item.id);
+      div.append(title, date, document.createElement("br"), open, remove);
+      list.appendChild(div);
+    }
+  } catch (error) {
+    list.textContent = "Ошибка загрузки: " + error.message;
+  }
+}
+
+function openCase(item) {
+  const d = item.data || {};
+  currentCaseId = item.id;
+  document.getElementById("clientName").value = d.client || "";
+  document.getElementById("stage").value = d.stage || "Задержание";
+  document.getElementById("charge").value = d.charge || "";
+  document.getElementById("facts").value = d.facts || "";
+  document.getElementById("evidence").value = d.evidence || "";
+  document.getElementById("laws").value = d.laws || "";
+  switchTab("analysis");
+}
+
+async function deleteCase(id) {
+  if (!confirm("Удалить это дело из истории?")) return;
+  try {
+    const response = await fetch("/api/cases/" + encodeURIComponent(id), {
+      method: "DELETE"
+    });
+    if (!response.ok) throw new Error("Не удалось удалить дело");
+    loadCases();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+loadLaws();
+</script>
+</body>
+</html>

@@ -1,0 +1,652 @@
+
+<style>
+:root {
+  --bg:#090d16;
+  --panel:#141b2a;
+  --panel2:#1c2639;
+  --text:#edf1fa;
+  --muted:#9ba9c2;
+  --accent:#9278ff;
+  --border:#2a3650;
+  --danger:#e45d6b;
+  --green:#58c99a;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  min-height:100vh;
+  background:
+    radial-gradient(ellipse at top left,#211a43,transparent 40%),
+    radial-gradient(ellipse at bottom right,#111e39,transparent 45%),
+    var(--bg);
+  color:var(--text);
+  font-family:Inter,"Segoe UI",Arial,sans-serif;
+}
+header {
+  padding:30px 5%;
+  background:#101522;
+  border-bottom:1px solid var(--border);
+}
+header h1 { margin:0; font-size:27px; }
+header p { color:var(--muted); margin:9px 0 0; }
+nav {
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  padding:17px 5%;
+  background:#0d1422;
+  border-bottom:1px solid var(--border);
+}
+nav button {
+  background:var(--panel);
+  color:var(--muted);
+  border:1px solid var(--border);
+  padding:12px 18px;
+  border-radius:10px;
+  cursor:pointer;
+}
+nav button:hover { border-color:var(--accent); color:white; }
+nav button.active {
+  background:linear-gradient(135deg,#8065ef,#a18aff);
+  color:white;
+  border-color:transparent;
+}
+main {
+  max-width:1150px;
+  margin:30px auto;
+  padding:0 20px 55px;
+}
+.panel {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:25px;
+  margin-bottom:20px;
+  box-shadow:0 12px 35px rgba(0,0,0,.18);
+}
+.tab { display:none; }
+.tab.active { display:block; }
+h2 { margin-top:0; font-size:23px; }
+label {
+  display:block;
+  margin:17px 0 8px;
+  color:var(--muted);
+  font-size:14px;
+}
+input,textarea,select {
+  width:100%;
+  padding:13px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#0c1220;
+  color:var(--text);
+  font:inherit;
+  outline:none;
+}
+input:focus,textarea:focus,select:focus {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(146,120,255,.13);
+}
+textarea { min-height:110px; resize:vertical; line-height:1.5; }
+button.action {
+  background:linear-gradient(135deg,#8065ef,#9a82ff);
+  color:white;
+  border:0;
+  padding:12px 18px;
+  border-radius:10px;
+  cursor:pointer;
+  margin:12px 7px 0 0;
+  font-weight:600;
+}
+button.action:hover { filter:brightness(1.12); }
+button.secondary {
+  background:var(--panel2);
+  border:1px solid var(--border);
+  color:var(--text);
+}
+button.danger { background:var(--danger); }
+button:disabled { opacity:.5; cursor:wait; }
+.result,.question-result {
+  white-space:pre-wrap;
+  line-height:1.7;
+  margin-top:18px;
+  padding:18px;
+  background:#0c1220;
+  border-radius:11px;
+  border:1px solid var(--border);
+  overflow-wrap:anywhere;
+}
+.muted { color:var(--muted); }
+.case-item,.question-card,.law-doc,.law-article {
+  background:#101827;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:17px;
+  margin:12px 0;
+}
+.case-item strong { display:block; margin-bottom:8px; }
+.question-number { color:var(--accent); font-size:13px; font-weight:bold; }
+.question-description { color:var(--muted); line-height:1.6; }
+.question-card h3 { margin:12px 0; }
+.question-card textarea { min-height:85px; }
+.law-category { margin:24px 0; }
+.law-category h3,.law-article h4 { color:var(--accent); }
+.law-category h3 { border-bottom:1px solid var(--border); padding-bottom:10px; }
+.law-doc strong { display:block; margin-bottom:8px; }
+.law-count { color:var(--muted); font-size:13px; }
+.law-article p { white-space:pre-wrap; line-height:1.7; overflow-wrap:anywhere; }
+.law-chapter { color:var(--green); margin-top:25px; }
+.law-empty { color:var(--muted); padding:17px; background:#101827; border-radius:10px; }
+.law-hidden { display:none; }
+.status { color:var(--green); margin-left:8px; }
+footer {
+  text-align:center;
+  color:var(--muted);
+  padding:30px;
+  border-top:1px solid var(--border);
+}
+@media(max-width:650px) {
+  header h1 { font-size:21px; }
+  nav { padding:12px 4%; }
+  nav button { flex:1 1 auto; padding:11px; }
+  main { padding:0 12px 35px; margin:18px auto; }
+  .panel { padding:17px; }
+  button.action { max-width:100%; }
+}
+</style>
+
+
+from pathlib import Path
+from datetime import datetime
+import sys
+
+# Путь к существующей странице
+PROJECT_DIR = Path(__file__).resolve().parent
+HTML_FILE = PROJECT_DIR / "public" / "index.html"
+
+if not HTML_FILE.exists():
+print("ОШИБКА: Не найден public/index.html")
+print("Проверь, что скрипт находится в папке RPM_Attorney_Assistant1.")
+sys.exit(1)
+
+html = HTML_FILE.read_text(encoding="utf-8")
+
+# Не допускаем повторного добавления вкладки
+if 'data-tab="alllaws"' in html or 'id="alllaws"' in html:
+print("Вкладка «Все законы» уже добавлена.")
+print("Повторное изменение не требуется.")
+sys.exit(0)
+
+
+def replace_once(source, old, new, description):
+count = source.count(old)
+if count != 1:
+raise ValueError(
+f"Не удалось изменить участок «{description}». "
+f"Ожидалось одно совпадение, найдено: {count}."
+)
+return source.replace(old, new, 1)
+
+
+try:
+# 1. Добавляем оформление
+css = r"""
+/* Библиотека законов */
+.law-toolbar {
+display: grid;
+grid-template-columns: 1fr;
+gap: 12px;
+margin-bottom: 18px;
+}
+
+.law-category {
+margin: 22px 0;
+}
+
+.law-category h3 {
+color: var(--accent);
+border-bottom: 1px solid var(--border);
+padding-bottom: 10px;
+}
+
+.law-doc {
+background: #10151f;
+border: 1px solid var(--border);
+border-radius: 10px;
+padding: 15px;
+margin: 10px 0;
+}
+
+.law-doc strong {
+display: block;
+margin-bottom: 6px;
+}
+
+.law-doc button {
+margin-top: 10px;
+}
+
+.law-count {
+color: var(--muted);
+font-size: 13px;
+}
+
+.law-article {
+background: #10151f;
+border: 1px solid var(--border);
+border-radius: 9px;
+padding: 14px;
+margin: 10px 0;
+}
+
+.law-article h4 {
+margin: 0 0 9px;
+color: var(--accent);
+}
+
+.law-article p {
+white-space: pre-wrap;
+line-height: 1.6;
+overflow-wrap: anywhere;
+}
+
+.law-chapter {
+margin-top: 22px;
+color: var(--green);
+}
+
+.law-back {
+margin-bottom: 15px;
+}
+
+.law-empty {
+color: var(--muted);
+padding: 15px;
+background: #10151f;
+border-radius: 9px;
+}
+
+.law-hidden {
+display: none;
+}
+"""
+
+html = replace_once(
+html,
+"</style>",
+css + "\n</style>",
+"стили библиотеки"
+)
+
+# 2. Добавляем кнопку вкладки
+html = replace_once(
+html,
+'  <button data-tab="history">История дел</button>',
+'  <button data-tab="history">История дел</button>\n'
+'  <button data-tab="alllaws">Все законы</button>',
+"кнопка вкладки"
+)
+
+# 3. Добавляем содержимое новой вкладки
+library_section = r"""
+<section id="alllaws" class="tab">
+  <div class="panel">
+    <h2>Все законы RPM</h2>
+    <p class="muted">
+      Библиотека документов загружается из файла laws.json.
+      Выберите документ, чтобы посмотреть его статьи.
+    </p>
+
+    <div class="law-toolbar">
+      <input
+              id="lawSearch"
+              type="search"
+              placeholder="Поиск по законам, статьям и тексту..."
+              oninput="renderLawLibrary()"
+      >
+    </div>
+
+    <div id="lawLibraryStatus" class="muted">
+      Загрузка документов...
+    </div>
+
+    <div id="lawLibraryList"></div>
+
+    <div id="lawDocumentView" class="law-hidden">
+      <button class="action secondary law-back"
+              onclick="closeLawDocument()">
+        ← Назад к списку
+      </button>
+      <div id="lawDocumentContent"></div>
+    </div>
+  </div>
+</section>
+
+"""
+
+html = replace_once(
+html,
+'<section id="reference" class="tab">',
+  library_section + '<section id="reference" class="tab">',
+    "раздел библиотеки"
+    )
+
+    # 4. Подключаем переключение новой вкладки
+    html = replace_once(
+    html,
+    '    if (button.dataset.tab === "history") loadCases();',
+    '    if (button.dataset.tab === "history") loadCases();\n'
+    '    if (button.dataset.tab === "alllaws") renderLawLibrary();',
+    "переключение вкладок"
+    )
+
+    # 5. Обновляем загрузку законов
+    old_load_laws = r"""async function loadLaws() {
+    try {
+    const response = await fetch("/api/laws");
+    lawsData = await response.json();
+    } catch (error) {
+    console.error("Не удалось загрузить законы", error);
+    }
+    }"""
+
+    new_load_laws = r"""async function loadLaws() {
+    try {
+    const response = await fetch("/api/laws");
+
+    if (!response.ok) {
+    throw new Error("Сервер не смог загрузить laws.json");
+    }
+
+    lawsData = await response.json();
+
+    lawDocuments = Array.isArray(lawsData.documents)
+    ? lawsData.documents
+    : [];
+
+    const status = document.getElementById("lawLibraryStatus");
+
+    if (status) {
+    status.textContent =
+    "Загружено документов: " + lawDocuments.length;
+    }
+
+    if (document.getElementById("alllaws")?.classList.contains("active")) {
+    renderLawLibrary();
+    }
+
+    } catch (error) {
+    console.error("Не удалось загрузить законы", error);
+
+    const status = document.getElementById("lawLibraryStatus");
+    if (status) {
+    status.textContent = "Ошибка загрузки: " + error.message;
+    }
+    }
+    }"""
+
+    html = replace_once(
+    html,
+    old_load_laws,
+    new_load_laws,
+    "функция загрузки законов"
+    )
+
+    # 6. Добавляем функции библиотеки перед askAI
+    library_functions = r"""
+    function getLawCategory(doc) {
+    const value = [
+    doc.name || "",
+    doc.category || "",
+    doc.id || ""
+    ].join(" ").toLowerCase();
+
+    if (value.includes("конституц")) return "Конституция";
+    if (value.includes("уголов") || value.includes("ук")) {
+    return "Уголовный кодекс";
+    }
+    if (value.includes("административ") || value.includes("ак")) {
+    return "Административный кодекс";
+    }
+    if (
+    value.includes("федераль") ||
+    value.includes("кодекс") ||
+    value.includes("закон")
+    ) {
+    return "Федеральные законы и кодексы";
+    }
+
+    return doc.category || "Другие документы";
+    }
+
+    function getArticleText(article) {
+    return [
+    article.number || "",
+    article.name || article.title || "",
+    article.chapter || "",
+    article.text || ""
+    ].join(" ").toLowerCase();
+    }
+
+    function renderLawLibrary() {
+    const list = document.getElementById("lawLibraryList");
+    const status = document.getElementById("lawLibraryStatus");
+    const view = document.getElementById("lawDocumentView");
+
+    if (!list) return;
+
+    if (view) view.classList.add("law-hidden");
+    list.classList.remove("law-hidden");
+
+    const search = (
+    document.getElementById("lawSearch")?.value || ""
+    ).trim().toLowerCase();
+
+    list.innerHTML = "";
+
+    const filtered = lawDocuments.filter(doc => {
+    const articles = Array.isArray(doc.articles) ? doc.articles : [];
+
+    const documentText = [
+    doc.name || "",
+    doc.category || "",
+    doc.id || ""
+    ].join(" ").toLowerCase();
+
+    if (documentText.includes(search)) return true;
+
+    return articles.some(article =>
+    getArticleText(article).includes(search)
+    );
+    });
+
+    if (status) {
+    status.textContent =
+    "Найдено документов: " + filtered.length +
+    " из " + lawDocuments.length;
+    }
+
+    if (!filtered.length) {
+    const empty = document.createElement("div");
+    empty.className = "law-empty";
+    empty.textContent = search
+    ? "По вашему запросу ничего не найдено."
+    : "В laws.json пока нет документов.";
+    list.appendChild(empty);
+    return;
+    }
+
+    const groups = {};
+
+    filtered.forEach(doc => {
+    const category = getLawCategory(doc);
+
+    if (!groups[category]) groups[category] = [];
+    groups[category].push(doc);
+    });
+
+    Object.keys(groups).sort().forEach(category => {
+    const section = document.createElement("div");
+    section.className = "law-category";
+
+    const heading = document.createElement("h3");
+    heading.textContent = category;
+    section.appendChild(heading);
+
+    groups[category].forEach(doc => {
+    const card = document.createElement("div");
+    card.className = "law-doc";
+
+    const name = document.createElement("strong");
+    name.textContent = doc.name || doc.id || "Без названия";
+
+    const count = document.createElement("div");
+    count.className = "law-count";
+
+    const articles = Array.isArray(doc.articles)
+    ? doc.articles
+    : [];
+
+    count.textContent = "Статей: " + articles.length;
+
+    const button = document.createElement("button");
+    button.className = "action";
+    button.textContent = "Открыть документ";
+    button.onclick = () => openLawDocument(doc.id);
+
+    card.append(name, count, button);
+    section.appendChild(card);
+    });
+
+    list.appendChild(section);
+    });
+    }
+
+    function openLawDocument(documentId) {
+    const doc = lawDocuments.find(item => item.id === documentId);
+    if (!doc) return;
+
+    activeLawDocument = doc;
+
+    const list = document.getElementById("lawLibraryList");
+    const view = document.getElementById("lawDocumentView");
+    const content = document.getElementById("lawDocumentContent");
+
+    list.classList.add("law-hidden");
+    view.classList.remove("law-hidden");
+    content.innerHTML = "";
+
+    const heading = document.createElement("h2");
+    heading.textContent = doc.name || doc.id || "Документ";
+
+    const category = document.createElement("p");
+    category.className = "muted";
+    category.textContent = getLawCategory(doc);
+
+    content.append(heading, category);
+
+    const articles = Array.isArray(doc.articles)
+    ? doc.articles
+    : [];
+
+    if (!articles.length) {
+    const empty = document.createElement("div");
+    empty.className = "law-empty";
+    empty.textContent =
+    "В этом документе пока нет текста или статей в laws.json.";
+    content.appendChild(empty);
+    return;
+    }
+
+    const search = (
+    document.getElementById("lawSearch")?.value || ""
+    ).trim().toLowerCase();
+
+    const filteredArticles = articles.filter(article =>
+    !search || getArticleText(article).includes(search)
+    );
+
+    if (!filteredArticles.length) {
+    const empty = document.createElement("div");
+    empty.className = "law-empty";
+    empty.textContent = "В этом документе нет совпадающих статей.";
+    content.appendChild(empty);
+    return;
+    }
+
+    let currentChapter = null;
+
+    filteredArticles.forEach((article, index) => {
+    const chapter = article.chapter || "";
+
+    if (chapter && chapter !== currentChapter) {
+    currentChapter = chapter;
+
+    const chapterHeading = document.createElement("h3");
+    chapterHeading.className = "law-chapter";
+    chapterHeading.textContent = chapter;
+    content.appendChild(chapterHeading);
+    }
+
+    const card = document.createElement("div");
+    card.className = "law-article";
+
+    const title = document.createElement("h4");
+    const number = article.number || String(index + 1);
+    const name = article.name || article.title || "";
+
+    title.textContent = "Статья " + number +
+    (name ? " — " + name : "");
+
+    const text = document.createElement("p");
+    text.textContent = article.text || "Текст статьи отсутствует.";
+
+    card.append(title, text);
+    content.appendChild(card);
+    });
+    }
+
+    function closeLawDocument() {
+    activeLawDocument = null;
+
+    document.getElementById("lawDocumentView").classList.add("law-hidden");
+    document.getElementById("lawLibraryList").classList.remove("law-hidden");
+
+    renderLawLibrary();
+    }
+
+    """
+
+    html = replace_once(
+    html,
+    "async function askAI(",
+    library_functions + "async function askAI(",
+    "функции библиотеки"
+    )
+
+    # 7. Создаём резервную копию и сохраняем обновлённую страницу
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup = HTML_FILE.with_name(
+    f"index_backup_{timestamp}.html"
+    )
+
+    backup.write_text(
+    HTML_FILE.read_text(encoding="utf-8"),
+    encoding="utf-8"
+    )
+
+    HTML_FILE.write_text(html, encoding="utf-8")
+
+    print()
+    print("ГОТОВО! Вкладка «Все законы» добавлена.")
+    print("Обновлённый файл:", HTML_FILE)
+    print("Резервная копия:", backup)
+    print()
+    print("Теперь перезапусти страницу в браузере.")
+
+    except Exception as error:
+    print()
+    print("ОШИБКА: файл не был обновлён.")
+    print("Причина:", error)
+    print("Исходный index.html сохранён без изменений.")
+    sys.exit(1)
