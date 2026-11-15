@@ -5,16 +5,77 @@ import OpenAI from "openai";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { timingSafeEqual } from "node:crypto";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// =====================================================
+// ЗАЩИТА ПРИЛОЖЕНИЯ
+// =====================================================
+
+const APP_USER = process.env.APP_USER;
+const APP_PASSWORD = process.env.APP_PASSWORD;
+
+function safeCompare(a, b) {
+  const first = Buffer.from(a);
+  const second = Buffer.from(b);
+
+  return first.length === second.length &&
+      timingSafeEqual(first, second);
+}
+
+function requireAuth(req, res, next) {
+  if (!APP_USER || !APP_PASSWORD) {
+    console.error("Authentication is not configured!");
+    return res.status(503).send("Server authentication is not configured.");
+  }
+
+  const header = req.headers.authorization || "";
+  const [scheme, encoded] = header.split(" ");
+
+  if (scheme !== "Basic" || !encoded) {
+    res.setHeader(
+        "WWW-Authenticate",
+        'Basic realm="RPM Attorney Assistant", charset="UTF-8"'
+    );
+
+    return res.status(401).send("Authentication required.");
+  }
+
+  let credentials;
+
+  try {
+    credentials = Buffer.from(encoded, "base64").toString("utf8");
+  } catch {
+    return res.status(401).send("Invalid credentials.");
+  }
+
+  const separator = credentials.indexOf(":");
+
+  if (separator === -1) {
+    return res.status(401).send("Invalid credentials.");
+  }
+
+  const username = credentials.slice(0, separator);
+  const password = credentials.slice(separator + 1);
+
+  if (
+      !safeCompare(username, APP_USER) ||
+      !safeCompare(password, APP_PASSWORD)
+  ) {
+    return res.status(401).send("Invalid username or password.");
+  }
+
+  next();
+}
 
 const LAWS_FILE = path.join(__dirname, "laws.json");
 const CASES_FILE = path.join(__dirname, "cases.json");
 
+app.use(requireAuth);
 app.use(express.json({ limit: "5mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
