@@ -1,5 +1,4 @@
-﻿
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -489,6 +488,85 @@
       line-height:1.65;
     }
 
+    /* АУДИТ ССЫЛОК И УВЕРЕННОСТЬ ИИ */
+
+    .audit-panel{
+      background:#151121;
+      border:1px solid #67439a;
+      border-radius:10px;
+      padding:16px;
+      margin-top:15px;
+      overflow-wrap:anywhere;
+    }
+
+    .audit-panel h2{
+      color:#d3b5ff;
+      margin:0 0 12px;
+    }
+
+    .audit-panel h3{
+      color:#d8baff;
+      margin:14px 0 8px;
+    }
+
+    .audit-item{
+      background:#211832;
+      border:1px solid #49345f;
+      border-radius:8px;
+      padding:11px;
+      margin-top:8px;
+      line-height:1.55;
+      font-size:13px;
+      overflow-wrap:anywhere;
+      white-space:pre-wrap;
+    }
+
+    .audit-success{border-left:4px solid var(--green)}
+    .audit-warning{border-left:4px solid var(--yellow)}
+    .audit-danger{border-left:4px solid var(--red)}
+    .audit-neutral{border-left:4px solid var(--blue)}
+
+    .audit-label{
+      color:#c49aff;
+      font-weight:700;
+      display:block;
+      margin-bottom:4px;
+    }
+
+    .confidence-badge{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:7px;
+      margin:5px 0;
+      font-size:12px;
+      font-weight:700;
+    }
+
+    .confidence-high{
+      color:var(--green);
+      background:rgba(40,150,100,.12);
+      border:1px solid #398c68;
+    }
+
+    .confidence-medium{
+      color:var(--yellow);
+      background:rgba(210,160,40,.12);
+      border:1px solid #a78332;
+    }
+
+    .confidence-low{
+      color:#ff788e;
+      background:rgba(200,55,80,.12);
+      border:1px solid #a94359;
+    }
+
+    .audit-note{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      margin-top:10px;
+    }
+
     @media(max-width:850px){
       .analysis-layout{grid-template-columns:1fr}
     }
@@ -916,6 +994,7 @@
       });
 
       showResult("questionsResult",data.answer||data.message||"Ответ не получен.");
+      renderAuditInfo($("questionsResult"),data);
 
     }catch(error){
       showResult("questionsResult","Ошибка: "+error.message);
@@ -966,6 +1045,804 @@
     toastTimer=setTimeout(()=>el.style.display="none",3000);
   }
 
+  /* ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ */
+
+  function makeElement(tag,className,text){
+    const el=document.createElement(tag);
+    if(className)el.className=className;
+    if(text!==undefined)el.textContent=String(text);
+    return el;
+  }
+
+  function normalizeSearch(value){
+    return String(value??"").toLowerCase().replace(/ё/g,"е").trim();
+  }
+
+  function formatLawValue(value){
+    if(value===null||value===undefined||value==="")return "Не предусмотрено";
+    if(Array.isArray(value))return value.map(formatLawValue).join("; ");
+    if(typeof value==="object"){
+      return Object.entries(value).map(([k,v])=>k+": "+formatLawValue(v)).join("\n");
+    }
+    return String(value);
+  }
+
+
+
+  /* АУДИТ ССЫЛОК И УВЕРЕННОСТЬ ИИ */
+
+
+  /* БИБЛИОТЕКА ЗАКОНОВ И УЛУЧШЕННЫЙ ПОИСК */
+
+  function getDocuments(){
+    if(Array.isArray(lawsData)) return lawsData;
+    if(lawsData && Array.isArray(lawsData.documents)) {
+      return lawsData.documents;
+    }
+    return [];
+  }
+
+  function getArticleText(article){
+    return article.text ||
+            article.content ||
+            article.fullText ||
+            article.description ||
+            "Текст статьи отсутствует.";
+  }
+
+  function getDocumentType(doc){
+    const name = normalizeSearch(
+            (doc.name || doc.title || "") + " " +
+            (doc.category || "")
+    );
+
+    if(name.includes("кодекс")) return "code";
+    if(name.includes("закон") || name.includes("положение")) {
+      return "law";
+    }
+
+    return "other";
+  }
+
+  async function loadLaws(){
+    try{
+      lawsData = await api("/api/laws");
+
+      const editor = $("lawsEditor");
+      if(editor){
+        editor.value = JSON.stringify(lawsData, null, 2);
+      }
+
+      renderLaws();
+    }catch(error){
+      $("lawsList").textContent =
+              "Ошибка загрузки законодательства: " + error.message;
+    }
+  }
+
+  function toggleLawEditor(){
+    $("lawEditorPanel").classList.toggle("hidden");
+  }
+
+  function getLawSearchText(doc, article){
+    return normalizeSearch([
+      doc.name,
+      doc.title,
+      doc.id,
+      doc.category,
+      article.number,
+      article.title,
+      article.status,
+      getArticleText(article),
+      formatLawValue(article.penalty),
+      formatLawValue(article.exceptions),
+      formatLawValue(article.notes)
+    ].filter(Boolean).join(" "));
+  }
+
+  function renderLaws(){
+    const list = $("lawsList");
+    if(!list) return;
+
+    const query = normalizeSearch($("lawSearch").value);
+    const type = $("lawTypeFilter").value;
+    const documents = getDocuments();
+
+    list.replaceChildren();
+
+    let totalArticles = 0;
+
+    documents.forEach(doc => {
+      totalArticles += Array.isArray(doc.articles)
+              ? doc.articles.length
+              : 0;
+    });
+
+    const stats = $("lawStats");
+    stats.replaceChildren();
+
+    [
+      ["Документов", documents.length],
+      ["Всего статей", totalArticles]
+    ].forEach(([name, value]) => {
+      const card = makeElement("div", "stat-card");
+      card.appendChild(makeElement("div", "stat-number", value));
+      card.appendChild(makeElement("div", "stat-label", name));
+      stats.appendChild(card);
+    });
+
+    const searchWords = query
+            .split(/\s+/)
+            .filter(Boolean);
+
+    const filtered = documents.map(doc => {
+      if(type !== "all" && getDocumentType(doc) !== type) {
+        return null;
+      }
+
+      const articles = Array.isArray(doc.articles)
+              ? doc.articles
+              : [];
+
+      const documentText = normalizeSearch([
+        doc.name,
+        doc.title,
+        doc.id,
+        doc.category
+      ].filter(Boolean).join(" "));
+
+      const documentMatches = searchWords.length > 0 &&
+              searchWords.every(word => documentText.includes(word));
+
+      let matchingArticles = articles.filter(article => {
+        if(!searchWords.length) return true;
+
+        const articleText = getLawSearchText(doc, article);
+
+        return searchWords.every(word => articleText.includes(word));
+      });
+
+      if(!searchWords.length || documentMatches) {
+        matchingArticles = articles;
+      }
+
+      if(!matchingArticles.length) return null;
+
+      return {
+        doc,
+        articles: matchingArticles
+      };
+    }).filter(Boolean);
+
+    const foundArticles = filtered.reduce(
+            (sum, item) => sum + item.articles.length,
+            0
+    );
+
+    $("lawSearchInfo").textContent =
+            "Найдено документов: " + filtered.length +
+            " · Найдено статей: " + foundArticles +
+            " · Всего документов: " + documents.length;
+
+    if(!filtered.length){
+      list.textContent =
+              "По вашему запросу ничего не найдено. Попробуйте изменить формулировку.";
+      return;
+    }
+
+    filtered.forEach(({doc, articles}) => {
+      const details = makeElement("details", "law-document");
+      const summary = makeElement("summary");
+
+      summary.appendChild(
+              makeElement(
+                      "h2",
+                      "",
+                      doc.name || doc.title || "Документ"
+              )
+      );
+
+      summary.appendChild(
+              makeElement(
+                      "div",
+                      "muted",
+                      doc.category || "Нормативный документ"
+              )
+      );
+
+      summary.appendChild(
+              makeElement(
+                      "span",
+                      "badge",
+                      articles.length + " статей"
+              )
+      );
+
+      const content = makeElement("div", "law-content");
+
+      articles.forEach(article => {
+        const articleBox = makeElement("details", "article");
+
+        const articleSummary = makeElement(
+                "summary",
+                "",
+                "Статья " +
+                (article.number ?? "—") +
+                ". " +
+                (article.title || "Без названия")
+        );
+
+        const body = makeElement("div", "article-body");
+
+        body.appendChild(
+                makeElement(
+                        "div",
+                        "article-status",
+                        "Статус: " + (article.status || "не указан")
+                )
+        );
+
+        body.appendChild(
+                makeElement("div", "", getArticleText(article))
+        );
+
+        if(article.penalty){
+          body.appendChild(
+                  makeElement("strong", "", "Наказание / санкция")
+          );
+
+          body.appendChild(
+                  makeElement(
+                          "div",
+                          "",
+                          formatLawValue(article.penalty)
+                  )
+          );
+        }
+
+        if(article.exceptions){
+          body.appendChild(
+                  makeElement("strong", "", "Исключения")
+          );
+
+          body.appendChild(
+                  makeElement(
+                          "div",
+                          "",
+                          formatLawValue(article.exceptions)
+                  )
+          );
+        }
+
+        if(article.notes){
+          body.appendChild(
+                  makeElement("strong", "", "Примечания")
+          );
+
+          body.appendChild(
+                  makeElement(
+                          "div",
+                          "",
+                          formatLawValue(article.notes)
+                  )
+          );
+        }
+
+        articleBox.append(articleSummary, body);
+        content.appendChild(articleBox);
+      });
+
+      details.append(summary, content);
+      list.appendChild(details);
+    });
+  }
+
+  async function saveLaws(){
+    try{
+      const parsed = JSON.parse($("lawsEditor").value);
+
+      if(
+              !Array.isArray(parsed) &&
+              (!parsed || !Array.isArray(parsed.documents))
+      ){
+        throw new Error("Не найден массив documents.");
+      }
+
+      await api("/api/laws", {
+        method: "PUT",
+        body: JSON.stringify(parsed)
+      });
+
+      lawsData = parsed;
+      renderLaws();
+
+      toast("Законы сохранены.");
+    }catch(error){
+      toast("Ошибка: " + error.message);
+    }
+  }
+
+
+
+  /* АУДИТ ССЫЛОК И УВЕРЕННОСТЬ ИИ */
+
+
+  /* БИБЛИОТЕКА ЗАКОНОВ И УЛУЧШЕННЫЙ ПОИСК */
+
+  function getDocuments(){
+    if(Array.isArray(lawsData)) return lawsData;
+    if(lawsData && Array.isArray(lawsData.documents)) {
+      return lawsData.documents;
+    }
+    return [];
+  }
+
+  function getArticleText(article){
+    return article.text ||
+            article.content ||
+            article.fullText ||
+            article.description ||
+            "Текст статьи отсутствует.";
+  }
+
+  function getDocumentType(doc){
+    const name = normalizeSearch(
+            (doc.name || doc.title || "") + " " +
+            (doc.category || "")
+    );
+
+    if(name.includes("кодекс")) return "code";
+    if(name.includes("закон") || name.includes("положение")) {
+      return "law";
+    }
+
+    return "other";
+  }
+
+  async function loadLaws(){
+    try{
+      lawsData = await api("/api/laws");
+
+      const editor = $("lawsEditor");
+      if(editor){
+        editor.value = JSON.stringify(lawsData, null, 2);
+      }
+
+      renderLaws();
+    }catch(error){
+      $("lawsList").textContent =
+              "Ошибка загрузки законодательства: " + error.message;
+    }
+  }
+
+  function toggleLawEditor(){
+    $("lawEditorPanel").classList.toggle("hidden");
+  }
+
+  function getLawSearchText(doc, article){
+    return normalizeSearch([
+      doc.name,
+      doc.title,
+      doc.id,
+      doc.category,
+      article.number,
+      article.title,
+      article.status,
+      getArticleText(article),
+      formatLawValue(article.penalty),
+      formatLawValue(article.exceptions),
+      formatLawValue(article.notes)
+    ].filter(Boolean).join(" "));
+  }
+
+
+  function renderLaws(){
+    const list = $("lawsList");
+    if(!list) return;
+
+    const rawQuery = $("lawSearch").value.trim();
+    const query = normalizeSearch(rawQuery);
+    const type = $("lawTypeFilter").value;
+    const documents = getDocuments();
+
+    function appendHighlightedText(container, value){
+      const text = String(value ?? "");
+      const words = rawQuery.split(/\s+/).filter(Boolean)
+              .sort((a,b) => b.length - a.length);
+
+      if(!words.length){
+        container.textContent = text;
+        return;
+      }
+
+      const escaped = words.map(word =>
+              word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      );
+
+      const regex = new RegExp("(" + escaped.join("|") + ")", "gi");
+      let position = 0;
+      let match;
+
+      while((match = regex.exec(text)) !== null){
+        container.appendChild(
+                document.createTextNode(text.slice(position, match.index))
+        );
+
+        const mark = document.createElement("mark");
+        mark.textContent = match[0];
+        container.appendChild(mark);
+
+        position = regex.lastIndex;
+      }
+
+      container.appendChild(
+              document.createTextNode(text.slice(position))
+      );
+    }
+
+    function highlightedElement(tag, className, value){
+      const element = makeElement(tag, className);
+      appendHighlightedText(element, value);
+      return element;
+    }
+
+    list.replaceChildren();
+
+    let totalArticles = 0;
+    documents.forEach(doc => {
+      totalArticles += Array.isArray(doc.articles) ? doc.articles.length : 0;
+    });
+
+    const stats = $("lawStats");
+    if(stats){
+      stats.replaceChildren();
+      [
+        ["Документов", documents.length],
+        ["Всего статей", totalArticles]
+      ].forEach(([name, value]) => {
+        const card = makeElement("div", "stat-card");
+        card.appendChild(makeElement("div", "stat-number", value));
+        card.appendChild(makeElement("div", "stat-label", name));
+        stats.appendChild(card);
+      });
+    }
+
+    const searchWords = query.split(/\s+/).filter(Boolean);
+
+    const filtered = documents.map(doc => {
+      if(type !== "all" && getDocumentType(doc) !== type) return null;
+
+      const articles = Array.isArray(doc.articles) ? doc.articles : [];
+
+      const documentText = normalizeSearch([
+        doc.name, doc.title, doc.id, doc.category
+      ].filter(Boolean).join(" "));
+
+      const documentMatches = searchWords.length > 0 &&
+              searchWords.every(word => documentText.includes(word));
+
+      let matchingArticles = articles.filter(article => {
+        if(!searchWords.length) return true;
+        const articleText = getLawSearchText(doc, article);
+        return searchWords.every(word => articleText.includes(word));
+      });
+
+      if(!searchWords.length || documentMatches){
+        matchingArticles = articles;
+      }
+
+      if(!matchingArticles.length) return null;
+      return {doc, articles: matchingArticles};
+    }).filter(Boolean);
+
+    const foundArticles = filtered.reduce(
+            (sum, item) => sum + item.articles.length, 0
+    );
+
+    $("lawSearchInfo").textContent =
+            "Найдено документов: " + filtered.length +
+            " · Найдено статей: " + foundArticles +
+            " · Всего документов: " + documents.length;
+
+    if(!filtered.length){
+      list.textContent = "По вашему запросу ничего не найдено.";
+      return;
+    }
+
+    filtered.forEach(({doc, articles}) => {
+      const details = makeElement("details", "law-document");
+      const summary = makeElement("summary");
+
+      summary.appendChild(highlightedElement(
+              "h2", "", doc.name || doc.title || "Документ"
+      ));
+
+      summary.appendChild(highlightedElement(
+              "div", "muted", doc.category || "Нормативный документ"
+      ));
+
+      summary.appendChild(makeElement(
+              "span", "badge", articles.length + " статей"
+      ));
+
+      const content = makeElement("div", "law-content");
+
+      articles.forEach(article => {
+        const articleBox = makeElement("details", "article");
+
+        const articleSummary = highlightedElement(
+                "summary", "",
+                "Статья " + (article.number ?? "—") +
+                ". " + (article.title || "Без названия")
+        );
+
+        const body = makeElement("div", "article-body");
+
+        body.appendChild(highlightedElement(
+                "div", "article-status",
+                "Статус: " + (article.status || "не указан")
+        ));
+
+        body.appendChild(highlightedElement(
+                "div", "", getArticleText(article)
+        ));
+
+        if(article.penalty){
+          body.appendChild(makeElement("strong", "", "Наказание / санкция"));
+          body.appendChild(highlightedElement(
+                  "div", "", formatLawValue(article.penalty)
+          ));
+        }
+
+        if(article.exceptions){
+          body.appendChild(makeElement("strong", "", "Исключения"));
+          body.appendChild(highlightedElement(
+                  "div", "", formatLawValue(article.exceptions)
+          ));
+        }
+
+        if(article.notes){
+          body.appendChild(makeElement("strong", "", "Примечания"));
+          body.appendChild(highlightedElement(
+                  "div", "", formatLawValue(article.notes)
+          ));
+        }
+
+        articleBox.append(articleSummary, body);
+        content.appendChild(articleBox);
+      });
+
+      details.append(summary, content);
+      list.appendChild(details);
+    });
+  }
+  async function saveLaws(){
+    try{
+      const parsed = JSON.parse($("lawsEditor").value);
+
+      if(
+              !Array.isArray(parsed) &&
+              (!parsed || !Array.isArray(parsed.documents))
+      ){
+        throw new Error("Не найден массив documents.");
+      }
+
+      await api("/api/laws", {
+        method: "PUT",
+        body: JSON.stringify(parsed)
+      });
+
+      lawsData = parsed;
+      renderLaws();
+
+      toast("Законы сохранены.");
+    }catch(error){
+      toast("Ошибка: " + error.message);
+    }
+  }
+
+
+  function getConfidenceClass(value){
+    const confidence=normalizeSearch(value);
+
+    if(confidence.includes("высок"))return "confidence-high";
+    if(confidence.includes("средн"))return "confidence-medium";
+    if(confidence.includes("низк"))return "confidence-low";
+
+    return "confidence-medium";
+  }
+
+  function formatAuditValue(value){
+    if(value===null||value===undefined||value==="")return "Не указано";
+
+    if(Array.isArray(value)){
+      if(!value.length)return "Нет данных";
+
+      return value.map(item=>{
+        if(typeof item==="object"&&item!==null){
+          return Object.entries(item)
+                  .map(([key,val])=>key+": "+formatAuditValue(val))
+                  .join("; ");
+        }
+        return String(item);
+      }).join("\n");
+    }
+
+    if(typeof value==="object"){
+      return Object.entries(value)
+              .map(([key,val])=>key+": "+formatAuditValue(val))
+              .join("\n");
+    }
+
+    if(typeof value==="boolean")return value?"Да":"Нет";
+
+    return String(value);
+  }
+
+  function addAuditItem(container,title,value,className="audit-neutral"){
+    if(value===undefined||value===null||value==="")return;
+
+    const item=makeElement("div","audit-item "+className);
+    item.appendChild(makeElement("span","audit-label",title));
+    item.appendChild(makeElement("div","",formatAuditValue(value)));
+    container.appendChild(item);
+  }
+
+  function renderAuditInfo(container,data){
+    if(!container||!data)return;
+
+    const confidence=data.confidence;
+    const confidenceReason=data.confidenceReason;
+    const referenceAudit=data.referenceAudit;
+    const auditSummary=data.auditSummary;
+
+    if(
+            !confidence&&
+            !confidenceReason&&
+            !referenceAudit&&
+            !auditSummary
+    )return;
+
+    const panel=makeElement("div","audit-panel");
+
+    panel.appendChild(
+            makeElement("h2","","Проверка достоверности анализа")
+    );
+
+    if(confidence){
+      const badge=makeElement(
+              "span",
+              "confidence-badge "+getConfidenceClass(confidence),
+              "Уверенность ИИ: "+confidence
+      );
+
+      panel.appendChild(badge);
+    }
+
+    if(confidenceReason){
+      addAuditItem(
+              panel,
+              "Почему установлена такая уверенность",
+              confidenceReason,
+              "audit-neutral"
+      );
+    }
+
+    if(auditSummary){
+      panel.appendChild(
+              makeElement("h3","","Сводка проверки ссылок")
+      );
+
+      if(typeof auditSummary==="object"&&!Array.isArray(auditSummary)){
+        Object.entries(auditSummary).forEach(([key,value])=>{
+          addAuditItem(panel,key,value,"audit-neutral");
+        });
+      }else{
+        addAuditItem(panel,"Результат",auditSummary,"audit-neutral");
+      }
+    }
+
+    if(referenceAudit){
+      panel.appendChild(
+              makeElement("h3","","Проверка правовых ссылок")
+      );
+
+      if(Array.isArray(referenceAudit)){
+        referenceAudit.forEach((item,index)=>{
+          const title=
+                  item.reference||
+                  item.article||
+                  item.number||
+                  item.name||
+                  ("Ссылка №"+(index+1));
+
+          const details=Object.entries(item)
+                  .filter(([key])=>
+                          !["reference","article","number","name"].includes(key)
+                  )
+                  .map(([key,value])=>key+": "+formatAuditValue(value))
+                  .join("\n");
+
+          const status=normalizeSearch(
+                  item.status||item.result||item.message||""
+          );
+
+          let cls="audit-neutral";
+
+          if(
+                  status.includes("найден")||
+                  status.includes("подтвержден")||
+                  status.includes("valid")||
+                  status.includes("существ")
+          ){
+            cls="audit-success";
+          }
+
+          if(
+                  status.includes("не найден")||
+                  status.includes("отсутств")||
+                  status.includes("ошиб")||
+                  status.includes("invalid")
+          ){
+            cls="audit-danger";
+          }
+
+          if(
+                  status.includes("не провер")||
+                  status.includes("неоднознач")||
+                  status.includes("сомн")
+          ){
+            cls="audit-warning";
+          }
+
+          addAuditItem(
+                  panel,
+                  title,
+                  details||item.status||item.result||item.message||"Результат не указан",
+                  cls
+          );
+        });
+
+      }else if(typeof referenceAudit==="object"){
+        Object.entries(referenceAudit).forEach(([key,value])=>{
+          const normalizedKey=normalizeSearch(key);
+          let cls="audit-neutral";
+
+          if(
+                  normalizedKey.includes("missing")||
+                  normalizedKey.includes("notfound")||
+                  normalizedKey.includes("ошиб")||
+                  normalizedKey.includes("отсутств")
+          ){
+            cls="audit-danger";
+          }else if(
+                  normalizedKey.includes("valid")||
+                  normalizedKey.includes("found")||
+                  normalizedKey.includes("найден")||
+                  normalizedKey.includes("подтвержден")
+          ){
+            cls="audit-success";
+          }
+
+          addAuditItem(panel,key,value,cls);
+        });
+
+      }else{
+        addAuditItem(panel,"Результат аудита",referenceAudit,"audit-neutral");
+      }
+    }
+
+    panel.appendChild(
+            makeElement(
+                    "p",
+                    "audit-note",
+                    "Важно: наличие статьи в базе подтверждает только факт её обнаружения. Это не доказывает, что статья правильно истолкована или применена к обстоятельствам дела."
+            )
+    );
+
+    container.appendChild(panel);
+  }
+
   /* ЦВЕТА РЕЗУЛЬТАТОВ */
 
   function categoryByName(name){
@@ -976,6 +1853,7 @@
       blue:{name:"ПРАВОВЫЕ ОСНОВАНИЯ",className:"result-blue"},
       purple:{name:"РЕКОМЕНДАЦИЯ АДВОКАТУ",className:"result-purple"}
     };
+
     return categories[name]||null;
   }
 
@@ -1018,6 +1896,7 @@
 
   function appendFormattedText(container,text){
     const value=String(text||"");
+
     const patterns=[
       {regex:/\b(?:статья|статьи|ст\.?)\s*\d+(?:\.\d+)?/gi,cls:"highlight-blue"},
       {regex:/\b(?:возможно|предположительно|не установлено|не подтверждено|требует проверки)\b/gi,cls:"highlight-yellow"},
@@ -1045,7 +1924,9 @@
     matches.forEach(m=>{
       if(m.start<pos)return;
 
-      container.appendChild(document.createTextNode(value.slice(pos,m.start)));
+      container.appendChild(
+              document.createTextNode(value.slice(pos,m.start))
+      );
 
       const span=document.createElement("span");
       span.className="result-highlight "+m.cls;
@@ -1055,7 +1936,9 @@
       pos=m.end;
     });
 
-    container.appendChild(document.createTextNode(value.slice(pos)));
+    container.appendChild(
+            document.createTextNode(value.slice(pos))
+    );
   }
 
   function showResult(id,text){
@@ -1080,11 +1963,19 @@
       const info=getHeadingCategory(trimmed);
 
       if(info){
-        current=makeElement("div","result-section "+info.category.className);
-        current.appendChild(makeElement("h3","",info.category.name));
+        current=makeElement(
+                "div",
+                "result-section "+info.category.className
+        );
+
+        current.appendChild(
+                makeElement("h3","",info.category.name)
+        );
 
         if(info.heading){
-          current.appendChild(makeElement("p","",info.heading));
+          current.appendChild(
+                  makeElement("p","",info.heading)
+          );
         }
 
         el.appendChild(current);
@@ -1104,173 +1995,6 @@
     });
   }
 
-  /* РАБОТА С ЗАКОНАМИ */
-
-  function getDocuments(){
-    if(Array.isArray(lawsData))return lawsData;
-    if(Array.isArray(lawsData.documents))return lawsData.documents;
-    return [];
-  }
-
-  function makeElement(tag,className,text){
-    const el=document.createElement(tag);
-    if(className)el.className=className;
-    if(text!==undefined)el.textContent=String(text);
-    return el;
-  }
-
-  function normalizeSearch(value){
-    return String(value??"").toLowerCase().replace(/ё/g,"е").trim();
-  }
-
-  function getArticleText(article){
-    return article.text||article.content||article.fullText||"Текст статьи отсутствует.";
-  }
-
-  function getDocumentType(doc){
-    const name=normalizeSearch((doc.name||doc.title||"")+" "+(doc.category||""));
-    if(name.includes("кодекс"))return "code";
-    if(name.includes("закон")||name.includes("положение"))return "law";
-    return "other";
-  }
-
-  async function loadLaws(){
-    try{
-      lawsData=await api("/api/laws");
-      $("lawsEditor").value=JSON.stringify(lawsData,null,2);
-      renderLaws();
-    }catch(error){
-      $("lawsList").textContent="Ошибка загрузки: "+error.message;
-    }
-  }
-
-  function toggleLawEditor(){
-    $("lawEditorPanel").classList.toggle("hidden");
-  }
-
-  function renderLaws(){
-    const list=$("lawsList");
-    const query=normalizeSearch($("lawSearch").value);
-    const type=$("lawTypeFilter").value;
-    const documents=getDocuments();
-
-    list.replaceChildren();
-
-    let total=0;
-    documents.forEach(doc=>{total+=(doc.articles||[]).length;});
-
-    const stats=$("lawStats");
-    stats.replaceChildren();
-
-    [
-      ["Документов",documents.length],
-      ["Статей",total]
-    ].forEach(([name,value])=>{
-      const card=makeElement("div","stat-card");
-      card.appendChild(makeElement("div","stat-number",value));
-      card.appendChild(makeElement("div","stat-label",name));
-      stats.appendChild(card);
-    });
-
-    const filtered=documents.map(doc=>{
-      if(type!=="all"&&getDocumentType(doc)!==type)return null;
-
-      const articles=Array.isArray(doc.articles)?doc.articles:[];
-      const name=doc.name||doc.title||doc.id||"Документ";
-
-      const matches=articles.filter(article=>
-              normalizeSearch(
-                      (article.number||"")+" "+
-                      (article.title||"")+" "+
-                      getArticleText(article)
-              ).includes(query)
-      );
-
-      if(!query||normalizeSearch(name).includes(query))return {doc,articles};
-      if(matches.length)return {doc,articles:matches};
-
-      return null;
-    }).filter(Boolean);
-
-    $("lawSearchInfo").textContent="Найдено документов: "+filtered.length;
-
-    if(!filtered.length){
-      list.textContent="Ничего не найдено.";
-      return;
-    }
-
-    filtered.forEach(({doc,articles})=>{
-      const details=makeElement("details","law-document");
-      const summary=makeElement("summary");
-
-      summary.appendChild(makeElement("h2","",doc.name||doc.title||"Документ"));
-      summary.appendChild(makeElement("div","muted",doc.category||"Нормативный документ"));
-      summary.appendChild(makeElement("span","badge",articles.length+" статей"));
-
-      const content=makeElement("div","law-content");
-
-      articles.forEach(article=>{
-        const articleBox=makeElement("details","article");
-        const articleSummary=makeElement(
-                "summary",
-                "",
-                "Статья "+(article.number??"—")+". "+(article.title||"Без названия")
-        );
-
-        const body=makeElement("div","article-body");
-
-        body.appendChild(makeElement(
-                "div",
-                "article-status",
-                "Статус: "+(article.status||"не указан")
-        ));
-
-        body.appendChild(makeElement("div","",getArticleText(article)));
-
-        if(article.penalty){
-          body.appendChild(makeElement("strong","","Наказание / санкция"));
-          body.appendChild(makeElement("div","",formatLawValue(article.penalty)));
-        }
-
-        articleBox.append(articleSummary,body);
-        content.appendChild(articleBox);
-      });
-
-      details.append(summary,content);
-      list.appendChild(details);
-    });
-  }
-
-  function formatLawValue(value){
-    if(value===null||value===undefined||value==="")return "Не предусмотрено";
-    if(Array.isArray(value))return value.map(formatLawValue).join("; ");
-    if(typeof value==="object"){
-      return Object.entries(value).map(([k,v])=>k+": "+formatLawValue(v)).join("\n");
-    }
-    return String(value);
-  }
-
-  async function saveLaws(){
-    try{
-      const parsed=JSON.parse($("lawsEditor").value);
-
-      if(!Array.isArray(parsed)&&!Array.isArray(parsed.documents)){
-        throw new Error("Не найден массив documents.");
-      }
-
-      await api("/api/laws",{
-        method:"PUT",
-        body:JSON.stringify(parsed)
-      });
-
-      lawsData=parsed;
-      renderLaws();
-      toast("Законы сохранены.");
-
-    }catch(error){
-      toast("Ошибка: "+error.message);
-    }
-  }
 
   /* АНАЛИЗ ИИ */
 
@@ -1339,11 +2063,16 @@
       });
 
       const answer=data.answer||data.message||"Ответ не получен.";
+
       showResult(target,answer);
+
+      // Добавляем сведения об уверенности ИИ и аудите ссылок.
+      renderAuditInfo($(target),data);
 
       if(mode==="analyze"){
         lastAnalysis=answer;
-        lastLegalReasoning=Array.isArray(data.legalReasoning)?data.legalReasoning:[];
+        lastLegalReasoning=Array.isArray(data.legalReasoning)
+                ?data.legalReasoning:[];
         renderLegalReasoning(lastLegalReasoning);
       }
 
@@ -1391,7 +2120,9 @@
         field.appendChild(ul);
       }
     }else{
-      field.appendChild(makeElement("div","",value||"Не указано."));
+      field.appendChild(
+              makeElement("div","",value||"Не указано.")
+      );
     }
 
     card.appendChild(field);
@@ -1399,43 +2130,62 @@
 
   function renderPoliceCheck(data){
     const container=$("policeCheckResult");
+
     container.replaceChildren();
     container.classList.remove("hidden");
 
     if(data.answer){
       const summary=makeElement("div","police-check-summary");
-      summary.appendChild(makeElement("h2","","Общий вывод"));
-      summary.appendChild(makeElement("div","result-plain",data.answer));
+
+      summary.appendChild(
+              makeElement("h2","","Общий вывод")
+      );
+
+      summary.appendChild(
+              makeElement("div","result-plain",data.answer)
+      );
+
       container.appendChild(summary);
     }
 
+    // Аудит отображается даже при отсутствии структурированных checks.
+    renderAuditInfo(container,data);
+
     if(!Array.isArray(data.checks)||!data.checks.length){
       if(!data.answer){
-        container.appendChild(makeElement(
-                "div",
-                "result",
-                "ИИ не вернул структурированные результаты проверки."
-        ));
+        container.appendChild(
+                makeElement(
+                        "div",
+                        "result",
+                        "ИИ не вернул структурированные результаты проверки."
+                )
+        );
       }
       return;
     }
 
-    container.appendChild(makeElement("h2","","Результаты проверки"));
+    container.appendChild(
+            makeElement("h2","","Результаты проверки")
+    );
 
     data.checks.forEach((item,index)=>{
       const card=makeElement("div","police-check-card");
 
-      card.appendChild(makeElement(
-              "h3",
-              "",
-              (index+1)+". "+(item.topic||"Проверяемый вопрос")
-      ));
+      card.appendChild(
+              makeElement(
+                      "h3",
+                      "",
+                      (index+1)+". "+(item.topic||"Проверяемый вопрос")
+              )
+      );
 
-      card.appendChild(makeElement(
-              "span",
-              "police-check-status "+getPoliceStatusClass(item.status),
-              item.status||"Статус не указан"
-      ));
+      card.appendChild(
+              makeElement(
+                      "span",
+                      "police-check-status "+getPoliceStatusClass(item.status),
+                      item.status||"Статус не указан"
+              )
+      );
 
       addPoliceField(card,"Правовые основания",item.legalBasis);
       addPoliceField(card,"Установленные факты",item.establishedFacts);
@@ -1465,11 +2215,13 @@
     container.replaceChildren();
     container.classList.remove("hidden");
 
-    container.appendChild(makeElement(
-            "div",
-            "result",
-            "ИИ анализирует действия полиции и проверяет применимые нормы RPM..."
-    ));
+    container.appendChild(
+            makeElement(
+                    "div",
+                    "result",
+                    "ИИ анализирует действия полиции и проверяет применимые нормы RPM..."
+            )
+    );
 
     try{
       const data=await api("/api/attorney-assist",{
@@ -1493,11 +2245,13 @@
       container.replaceChildren();
       container.classList.remove("hidden");
 
-      container.appendChild(makeElement(
-              "div",
-              "result result-plain",
-              "Ошибка проверки: "+error.message
-      ));
+      container.appendChild(
+              makeElement(
+                      "div",
+                      "result result-plain",
+                      "Ошибка проверки: "+error.message
+              )
+      );
 
     }finally{
       button.disabled=false;
@@ -1512,14 +2266,19 @@
     if(!panel)return;
 
     panel.replaceChildren();
-    panel.appendChild(makeElement("h2","","Обоснование обвинения"));
+
+    panel.appendChild(
+            makeElement("h2","","Обоснование обвинения")
+    );
 
     if(!Array.isArray(items)||!items.length){
-      panel.appendChild(makeElement(
-              "p",
-              "reasoning-empty",
-              "ИИ не указал применимых статей. Это может означать, что подходящие нормы не найдены или предоставленных материалов недостаточно."
-      ));
+      panel.appendChild(
+              makeElement(
+                      "p",
+                      "reasoning-empty",
+                      "ИИ не указал применимых статей. Это может означать, что подходящие нормы не найдены или предоставленных материалов недостаточно."
+              )
+      );
       return;
     }
 
@@ -1532,11 +2291,17 @@
           field.appendChild(makeElement("span","","Не указано."));
         }else{
           const ul=document.createElement("ul");
-          value.forEach(item=>ul.appendChild(makeElement("li","",item)));
+
+          value.forEach(item=>{
+            ul.appendChild(makeElement("li","",item));
+          });
+
           field.appendChild(ul);
         }
       }else{
-        field.appendChild(makeElement("div","",value||"Не указано."));
+        field.appendChild(
+                makeElement("div","",value||"Не указано.")
+        );
       }
 
       card.appendChild(field);
@@ -1545,17 +2310,21 @@
     items.forEach(item=>{
       const card=makeElement("div","reasoning-card");
 
-      card.appendChild(makeElement(
-              "h3",
-              "",
-              item.article||"Статья не указана"
-      ));
+      card.appendChild(
+              makeElement(
+                      "h3",
+                      "",
+                      item.article||"Статья не указана"
+              )
+      );
 
-      card.appendChild(makeElement(
-              "span",
-              "reasoning-status",
-              item.conclusion||"Недостаточно данных"
-      ));
+      card.appendChild(
+              makeElement(
+                      "span",
+                      "reasoning-status",
+                      item.conclusion||"Недостаточно данных"
+              )
+      );
 
       addField(card,"Почему применяется",item.whyApplied);
       addField(card,"Подтверждённые признаки",item.establishedElements);
@@ -1583,7 +2352,11 @@
         method:"POST",
         body:JSON.stringify({
           title:data.title||"Новое дело",
-          data:{...data,analysis:lastAnalysis,legalReasoning:lastLegalReasoning}
+          data:{
+            ...data,
+            analysis:lastAnalysis,
+            legalReasoning:lastLegalReasoning
+          }
         })
       });
 
@@ -1601,6 +2374,7 @@
 
     try{
       const data=await api("/api/cases");
+
       casesData=Array.isArray(data)?data:(data.cases||[]);
       list.replaceChildren();
 
@@ -1611,7 +2385,10 @@
 
       casesData.forEach(item=>{
         const card=makeElement("div","case-item");
-        card.appendChild(makeElement("h3","",item.title||"Без названия"));
+
+        card.appendChild(
+                makeElement("h3","",item.title||"Без названия")
+        );
 
         const open=makeElement("button","secondary","Открыть");
         open.onclick=()=>openCase(item);
@@ -1636,12 +2413,17 @@
     $("caseEvidence").value=data.evidence||"";
 
     lastAnalysis=data.analysis||"";
-    lastLegalReasoning=Array.isArray(data.legalReasoning)?data.legalReasoning:[];
 
-    if(lastAnalysis)showResult("analysisResult",lastAnalysis);
+    lastLegalReasoning=Array.isArray(data.legalReasoning)
+            ?data.legalReasoning:[];
+
+    if(lastAnalysis){
+      showResult("analysisResult",lastAnalysis);
+    }
 
     renderLegalReasoning(lastLegalReasoning);
     activateTab("analysis");
+
     toast("Дело загружено.");
   }
 
@@ -1680,7 +2462,8 @@
   /* ВКЛАДКИ */
 
   function activateTab(id){
-    if(!$ (id))return;
+    // Исправлено: раньше здесь была ошибка if(!$ (id)).
+    if(!$(id))return;
 
     document.querySelectorAll("nav button[data-tab]").forEach(button=>{
       button.classList.toggle("active",button.dataset.tab===id);
@@ -1692,7 +2475,9 @@
   }
 
   document.querySelectorAll("nav button[data-tab]").forEach(button=>{
-    button.addEventListener("click",()=>activateTab(button.dataset.tab));
+    button.addEventListener("click",()=>{
+      activateTab(button.dataset.tab);
+    });
   });
 
   $("lawSearch").addEventListener("input",renderLaws);
