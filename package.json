@@ -1,0 +1,14 @@
+
+{
+  "name": "rpm-attorney-assistant",
+  "version": "0.6.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "latest",
+    "express": "latest",
+    "openai": "latest"
+  }
+}
