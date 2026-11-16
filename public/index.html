@@ -596,6 +596,7 @@
   <button data-tab="reference">Справочник адвоката</button>
   <button data-tab="glossary">Словарь терминов</button>
   <button data-tab="history">История дел</button>
+  <button data-tab="backups">Резервные копии</button>
   <button data-tab="laws">Все законы</button>
 </nav>
 
@@ -640,6 +641,8 @@
       </div>
 
       <button class="secondary" onclick="saveCurrentCase()">Сохранить дело</button>
+
+      <button class="secondary" onclick="exportAnalysisPDF()">📄 Скачать анализ в PDF</button>
     </div>
 
     <div class="panel">
@@ -696,6 +699,10 @@
 
       <button class="primary" id="policeCheckButton" onclick="runPoliceCheck()">
         Проверить действия полиции
+      </button>
+
+      <button class="secondary" onclick="exportPoliceCheckPDF()">
+        📄 Скачать проверку в PDF
       </button>
 
       <div id="policeCheckResult" class="hidden"></div>
@@ -770,7 +777,78 @@
     <h1>История дел</h1>
     <p class="subtitle">Сохранённые материалы дел.</p>
     <button class="secondary" onclick="loadCases()">Обновить список</button>
+    <button class="secondary" onclick="exportCasesBackup()">
+      💾 Скачать резервную копию JSON
+    </button>
+
+    <button class="secondary" onclick="document.getElementById('casesBackupFile').click()">
+      📥 Восстановить из JSON
+    </button>
+
+
+    <input
+            type="file"
+            id="casesBackupFile"
+            accept=".json,application/json"
+            style="display:none"
+            onchange="importCasesBackup(this.files[0]); this.value=''"
+    >
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;">
+      <button class="secondary" onclick="exportCasesBackup()">
+        💾 Экспорт JSON
+      </button>
+
+      <button class="secondary" onclick="document.getElementById('casesBackupFile').click()">
+        📥 Восстановить из JSON
+      </button>
+
+      <button class="secondary" onclick="exportAllCasesPDF()">
+        📚 Скачать весь архив PDF
+      </button>
+    </div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin:15px 0;">
+      <input
+              type="text"
+              id="casesSearch"
+              placeholder="🔎 Поиск по названию дела..."
+              oninput="renderFilteredCases()"
+              style="flex:1; min-width:220px;"
+      >
+
+      <input
+              type="date"
+              id="casesDateFilter"
+              onchange="renderFilteredCases()"
+              style="min-width:160px;"
+      >
+
+      <button class="secondary" onclick="resetCasesFilters()">
+        Сбросить фильтры
+      </button>
+    </div>
+
     <div id="casesList">Загрузка...</div>
+  </section>
+
+  <!-- РЕЗЕРВНЫЕ КОПИИ -->
+  <section id="backups" class="tab">
+    <h1>Резервные копии</h1>
+    <p class="subtitle">
+      Автоматические копии истории дел, сохранённые на сервере.
+    </p>
+
+    <p style="color:#e0b85c;">
+      Восстановление заменит текущую историю дел выбранной резервной копией.
+      Перед восстановлением текущая версия также будет сохранена.
+    </p>
+
+    <button class="secondary" onclick="loadBackups()">
+      Обновить список
+    </button>
+
+    <div id="backupsList">Загрузка...</div>
   </section>
 
   <!-- ЗАКОНЫ -->
@@ -2336,6 +2414,378 @@
       panel.appendChild(card);
     });
   }
+  /* ЭКСПОРТ АНАЛИЗА В PDF */
+
+  function exportAnalysisPDF(){
+    if(!lastAnalysis){
+      toast("Сначала проведи анализ дела.");
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+
+    if(!printWindow){
+      toast("Разреши всплывающие окна для этого сайта.");
+      return;
+    }
+
+    function escapeHTML(value){
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+      })[char]);
+    }
+
+    const title = escapeHTML(
+            $("caseTitle").value.trim() || "Без названия"
+    );
+
+    const description = escapeHTML(
+            $("caseDescription").value.trim() || "Не указано"
+    );
+
+    const evidence = escapeHTML(
+            $("caseEvidence").value.trim() || "Не указано"
+    );
+
+    const date = new Date().toLocaleString("ru-RU");
+
+    const analysisHTML = $("analysisResult").innerHTML;
+
+    const reasoningHTML = $("legalReasoningPanel").innerHTML;
+
+    printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+      <meta charset="UTF-8">
+      <title>Анализ дела — RPM Attorney Assistant</title>
+
+      <style>
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          color: #222;
+          background: white;
+          margin: 35px;
+          line-height: 1.6;
+        }
+
+        h1 {
+          font-size: 24px;
+          border-bottom: 2px solid #7044bd;
+          padding-bottom: 12px;
+        }
+
+        h2 {
+          font-size: 19px;
+          margin-top: 28px;
+          color: #49306f;
+        }
+
+        h3 {
+          font-size: 15px;
+        }
+
+        .meta {
+          color: #666;
+          font-size: 12px;
+        }
+
+        .section {
+          margin-top: 18px;
+          padding: 14px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          overflow-wrap: anywhere;
+        }
+
+        .result-section {
+          padding: 12px;
+          margin: 12px 0;
+          border: 1px solid #ccc;
+          border-radius: 7px;
+          page-break-inside: avoid;
+        }
+
+        .result-section h3 {
+          margin-top: 0;
+        }
+
+        .result-plain {
+          white-space: pre-wrap;
+        }
+
+        .reasoning-card {
+          border: 1px solid #ccc;
+          border-radius: 7px;
+          padding: 12px;
+          margin: 12px 0;
+          page-break-inside: avoid;
+        }
+
+        .reasoning-field {
+          margin-top: 10px;
+        }
+
+        .reasoning-field strong {
+          display: block;
+        }
+
+        .audit-panel {
+          margin-top: 20px;
+          padding: 12px;
+          border: 1px solid #bbb;
+          border-radius: 7px;
+          page-break-inside: avoid;
+        }
+
+        .audit-item {
+          padding: 9px;
+          margin: 8px 0;
+          border: 1px solid #ddd;
+          page-break-inside: avoid;
+        }
+
+        .audit-label {
+          display: block;
+          font-weight: bold;
+        }
+
+        .badge,
+        .reasoning-status,
+        .confidence-badge {
+          display: inline-block;
+          padding: 4px 8px;
+          border: 1px solid #aaa;
+          border-radius: 5px;
+          font-size: 12px;
+        }
+
+        .audit-note {
+          font-size: 11px;
+          color: #555;
+        }
+
+        @media print {
+          body {
+            margin: 15mm;
+          }
+
+          h2 {
+            page-break-after: avoid;
+          }
+
+          .section,
+          .reasoning-card,
+          .result-section {
+            break-inside: avoid;
+          }
+        }
+      </style>
+    </head>
+
+    <body>
+      <h1>RPM Attorney Assistant</h1>
+
+      <p class="meta">
+        Отчёт по делу · Дата формирования: ${escapeHTML(date)}
+      </p>
+
+      <h2>1. Информация о деле</h2>
+
+      <div class="section">
+        <strong>Название:</strong> ${title}
+      </div>
+
+      <div class="section">
+        <strong>Описание ситуации:</strong>
+        <p>${description}</p>
+      </div>
+
+      <div class="section">
+        <strong>Доказательства и дополнительные материалы:</strong>
+        <p>${evidence}</p>
+      </div>
+
+      <h2>2. Результат правового анализа</h2>
+
+      ${analysisHTML}
+
+      <h2>3. Обоснование применения статей</h2>
+
+      ${reasoningHTML}
+
+      <hr>
+
+      <p class="meta">
+        Документ сформирован RPM Attorney Assistant.
+        Результат анализа требует самостоятельной проверки по законодательству RPM.
+      </p>
+    </body>
+    </html>
+  `);
+
+    printWindow.document.close();
+
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
+  }
+  /* ЭКСПОРТ ПОЛИЦЕЙСКОЙ ПРОВЕРКИ В PDF */
+
+  function exportPoliceCheckPDF(){
+    const resultHTML = $("policeCheckResult").innerHTML.trim();
+
+    if(!resultHTML){
+      toast("Сначала проведи проверку действий сотрудника.");
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+
+    if(!printWindow){
+      toast("Разреши всплывающие окна для этого сайта.");
+      return;
+    }
+
+    function escapeHTML(value){
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+      })[char]);
+    }
+
+    const actionType = escapeHTML(
+            $("policeActionType").value || "Не указано"
+    );
+
+    const description = escapeHTML(
+            $("policeDescription").value.trim() || "Не указано"
+    );
+
+    const evidence = escapeHTML(
+            $("policeEvidence").value.trim() || "Не указано"
+    );
+
+    const date = new Date().toLocaleString("ru-RU");
+
+    printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+      <meta charset="UTF-8">
+      <title>Полицейская проверка — RPM Attorney Assistant</title>
+
+      <style>
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          color: #222;
+          background: white;
+          margin: 35px;
+          line-height: 1.6;
+        }
+
+        h1 {
+          font-size: 24px;
+          border-bottom: 2px solid #7044bd;
+          padding-bottom: 12px;
+        }
+
+        h2 {
+          font-size: 19px;
+          margin-top: 28px;
+          color: #49306f;
+        }
+
+        .meta {
+          color: #666;
+          font-size: 12px;
+        }
+
+        .section {
+          margin-top: 15px;
+          padding: 14px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          overflow-wrap: anywhere;
+        }
+
+        .result {
+          margin-top: 20px;
+          padding: 15px;
+          border: 1px solid #ccc;
+          border-radius: 8px;
+        }
+
+        @media print {
+          body {
+            margin: 15mm;
+          }
+
+          .section,
+          .result {
+            break-inside: avoid;
+          }
+        }
+      </style>
+    </head>
+
+    <body>
+      <h1>RPM Attorney Assistant</h1>
+
+      <p class="meta">
+        Отчёт о проверке действий сотрудника
+        · Дата: ${escapeHTML(date)}
+      </p>
+
+      <h2>1. Тип действия</h2>
+      <div class="section">${actionType}</div>
+
+      <h2>2. Описание ситуации</h2>
+      <div class="section">${description}</div>
+
+      <h2>3. Доказательства</h2>
+      <div class="section">${evidence}</div>
+
+      <h2>4. Результат правовой проверки</h2>
+      <div class="result">
+        ${resultHTML}
+      </div>
+
+      <hr>
+
+      <p class="meta">
+        Документ сформирован RPM Attorney Assistant.
+        Результат проверки требует самостоятельной оценки
+        по действующему законодательству RPM.
+      </p>
+    </body>
+    </html>
+  `);
+
+    printWindow.document.close();
+
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
+  }
+
 
   /* СОХРАНЕНИЕ ДЕЛ */
 
@@ -2367,6 +2817,485 @@
       toast("Ошибка: "+error.message);
     }
   }
+  /* ЭКСПОРТ СОХРАНЁННОГО ДЕЛА В PDF */
+
+  function exportSavedCasePDF(item){
+    const data=item.data||{};
+
+    const printWindow=window.open("","_blank");
+
+    if(!printWindow){
+      toast("Разреши всплывающие окна для этого сайта.");
+      return;
+    }
+
+    function esc(value){
+      return String(value??"").replace(/[&<>"']/g,char=>({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+      })[char]);
+    }
+
+    function formatField(value){
+      if(Array.isArray(value)){
+        if(!value.length)return "<p>Не указано.</p>";
+
+        return "<ul>"+value.map(v=>"<li>"+esc(v)+"</li>").join("")+"</ul>";
+      }
+
+      return "<p>"+esc(value||"Не указано.")+"</p>";
+    }
+
+    const reasoning=Array.isArray(data.legalReasoning)
+            ?data.legalReasoning
+            :[];
+
+    const reasoningHTML=reasoning.length
+            ?reasoning.map(article=>`
+      <div class="card">
+        <h3>${esc(article.article||"Статья не указана")}</h3>
+        <p><strong>Вывод:</strong> ${esc(article.conclusion||"Недостаточно данных")}</p>
+
+        <div><strong>Почему применяется:</strong>
+          ${formatField(article.whyApplied)}
+        </div>
+
+        <div><strong>Подтверждённые признаки:</strong>
+          ${formatField(article.establishedElements)}
+        </div>
+
+        <div><strong>Подтверждающие доказательства:</strong>
+          ${formatField(article.evidence)}
+        </div>
+
+        <div><strong>Недостающие доказательства:</strong>
+          ${formatField(article.missingEvidence)}
+        </div>
+
+        <div><strong>Аргументы защиты:</strong>
+          ${formatField(article.defenseArguments)}
+        </div>
+
+        <div><strong>Исключения и примечания:</strong>
+          ${formatField(article.exceptions)}
+        </div>
+      </div>
+    `).join("")
+            :"<p>Обоснование статей отсутствует.</p>";
+
+    const title=esc(item.title||data.title||"Без названия");
+    const description=esc(data.description||"Не указано");
+    const evidence=esc(data.evidence||"Не указано");
+    const analysis=esc(data.analysis||"Анализ не проводился.");
+    const date=new Date().toLocaleString("ru-RU");
+
+    printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+      <meta charset="UTF-8">
+      <title>${title} — RPM Attorney Assistant</title>
+
+      <style>
+        *{box-sizing:border-box}
+
+        body{
+          font-family:Arial,sans-serif;
+          color:#222;
+          margin:35px;
+          line-height:1.6;
+        }
+
+        h1{
+          font-size:24px;
+          border-bottom:2px solid #7044bd;
+          padding-bottom:12px;
+        }
+
+        h2{
+          color:#49306f;
+          margin-top:28px;
+        }
+
+        h3{
+          margin-bottom:8px;
+        }
+
+        .meta{
+          color:#666;
+          font-size:12px;
+        }
+
+        .section,.card{
+          border:1px solid #ddd;
+          border-radius:8px;
+          padding:14px;
+          margin:12px 0;
+          overflow-wrap:anywhere;
+        }
+
+        .analysis{
+          white-space:pre-wrap;
+        }
+
+        @media print{
+          body{margin:15mm}
+          .section,.card{break-inside:avoid}
+        }
+      </style>
+    </head>
+
+    <body>
+      <h1>RPM Attorney Assistant</h1>
+
+      <p class="meta">
+        Отчёт по сохранённому делу · ${esc(date)}
+      </p>
+
+      <h2>1. Информация о деле</h2>
+
+      <div class="section">
+        <strong>Название:</strong> ${title}
+      </div>
+
+      <div class="section">
+        <strong>Описание ситуации:</strong>
+        <p>${description}</p>
+      </div>
+
+      <div class="section">
+        <strong>Доказательства:</strong>
+        <p>${evidence}</p>
+      </div>
+
+      <h2>2. Результат анализа</h2>
+
+      <div class="section analysis">${analysis}</div>
+
+      <h2>3. Обоснование применения статей</h2>
+
+      ${reasoningHTML}
+
+      <hr>
+
+      <p class="meta">
+        Документ сформирован RPM Attorney Assistant.
+        Результат анализа требует самостоятельной проверки.
+      </p>
+    </body>
+    </html>
+  `);
+
+    printWindow.document.close();
+
+    setTimeout(()=>{
+      printWindow.focus();
+      printWindow.print();
+    },500);
+  }
+
+  /* ЭКСПОРТ ВСЕГО АРХИВА ДЕЛ В PDF */
+
+  async function exportCasesBackup(){
+    try {
+      const cases = await api("/api/cases");
+
+      const backup = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        cases: Array.isArray(cases) ? cases : []
+      };
+
+      const blob = new Blob(
+              [JSON.stringify(backup, null, 2)],
+              { type: "application/json;charset=utf-8" }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `RPM_Cases_Backup_${new Date().toISOString().slice(0,10)}.json`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(url);
+
+      alert(`Резервная копия создана. Дел: ${backup.cases.length}`);
+    } catch (error) {
+      console.error("Backup export error:", error);
+      alert("Не удалось создать резервную копию: " + error.message);
+    }
+  }
+
+  async function importCasesBackup(file){
+    if(!file) return;
+
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+
+      const importedCases = Array.isArray(backup)
+              ? backup
+              : backup.cases;
+
+      if(!Array.isArray(importedCases)){
+        throw new Error("В JSON не найден массив cases.");
+      }
+
+      const validCases = importedCases.filter(item =>
+              item &&
+              item.id &&
+              item.title &&
+              item.data &&
+              typeof item.data === "object"
+      );
+
+      if(validCases.length === 0){
+        throw new Error("В файле нет подходящих дел.");
+      }
+
+      const confirmed = confirm(
+              `Найдено дел: ${validCases.length}.\n\n` +
+              "Дела с совпадающими ID будут обновлены. Остальные будут добавлены.\n" +
+              "Существующая история не будет удалена.\n\n" +
+              "Продолжить восстановление?"
+      );
+
+      if(!confirmed) return;
+
+      let restored = 0;
+
+      for(const item of validCases){
+        await api("/api/cases", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            id: String(item.id),
+            title: item.title,
+            data: item.data
+          })
+        });
+
+        restored++;
+      }
+
+      await loadCases();
+
+      alert(`Восстановление завершено!\nОбработано дел: ${restored}`);
+    } catch(error){
+      console.error("Backup import error:", error);
+      alert("Ошибка восстановления: " + error.message);
+    }
+  }
+
+
+  function exportAllCasesPDF(){
+    if(!Array.isArray(casesData)||!casesData.length){
+      toast("Сначала загрузи список сохранённых дел.");
+      return;
+    }
+
+    const printWindow=window.open("","_blank");
+
+    if(!printWindow){
+      toast("Разреши всплывающие окна для этого сайта.");
+      return;
+    }
+
+    function esc(value){
+      return String(value??"").replace(/[&<>"']/g,char=>({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+      })[char]);
+    }
+
+    function formatField(value){
+      if(Array.isArray(value)){
+        if(!value.length)return "<p>Не указано.</p>";
+
+        return "<ul>"+value.map(v=>"<li>"+esc(v)+"</li>").join("")+"</ul>";
+      }
+
+      return "<p>"+esc(value||"Не указано.")+"</p>";
+    }
+
+    const date=new Date().toLocaleString("ru-RU");
+
+    const contents=casesData.map((item,index)=>`
+    <li>
+      <a href="#case-${index}">${esc(item.title||"Без названия")}</a>
+    </li>
+  `).join("");
+
+    const documents=casesData.map((item,index)=>{
+      const data=item.data||{};
+
+      const reasoning=Array.isArray(data.legalReasoning)
+              ?data.legalReasoning
+              :[];
+
+      const reasoningHTML=reasoning.length
+              ?reasoning.map(article=>`
+        <div class="card">
+          <h3>${esc(article.article||"Статья не указана")}</h3>
+          <p><strong>Вывод:</strong> ${esc(article.conclusion||"Недостаточно данных")}</p>
+
+          <strong>Почему применяется:</strong>
+          ${formatField(article.whyApplied)}
+
+          <strong>Подтверждённые признаки:</strong>
+          ${formatField(article.establishedElements)}
+
+          <strong>Подтверждающие доказательства:</strong>
+          ${formatField(article.evidence)}
+
+          <strong>Недостающие доказательства:</strong>
+          ${formatField(article.missingEvidence)}
+
+          <strong>Аргументы защиты:</strong>
+          ${formatField(article.defenseArguments)}
+
+          <strong>Исключения и примечания:</strong>
+          ${formatField(article.exceptions)}
+        </div>
+      `).join("")
+              :"<p>Обоснование статей отсутствует.</p>";
+
+      return `
+      <section class="case">
+        <h2 id="case-${index}">
+          ${index+1}. ${esc(item.title||data.title||"Без названия")}
+        </h2>
+
+        <h3>Описание ситуации</h3>
+        <div class="card">${esc(data.description||"Не указано")}</div>
+
+        <h3>Доказательства</h3>
+        <div class="card">${esc(data.evidence||"Не указано")}</div>
+
+        <h3>Результат анализа</h3>
+        <div class="card analysis">${esc(data.analysis||"Анализ не проводился.")}</div>
+
+        <h3>Обоснование применения статей</h3>
+        ${reasoningHTML}
+      </section>
+    `;
+    }).join("");
+
+    printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+      <meta charset="UTF-8">
+      <title>Архив дел — RPM Attorney Assistant</title>
+
+      <style>
+        *{box-sizing:border-box}
+
+        body{
+          font-family:Arial,sans-serif;
+          color:#222;
+          margin:35px;
+          line-height:1.6;
+        }
+
+        h1{
+          font-size:26px;
+          border-bottom:2px solid #7044bd;
+          padding-bottom:12px;
+        }
+
+        h2{
+          color:#49306f;
+          border-bottom:1px solid #ccc;
+          padding-bottom:8px;
+        }
+
+        h3{
+          margin-bottom:6px;
+          color:#49306f;
+        }
+
+        .meta{
+          color:#666;
+          font-size:12px;
+        }
+
+        .card{
+          border:1px solid #ddd;
+          border-radius:8px;
+          padding:12px;
+          margin:10px 0;
+          overflow-wrap:anywhere;
+        }
+
+        .analysis{
+          white-space:pre-wrap;
+        }
+
+        .case{
+          margin-top:35px;
+          page-break-before:always;
+        }
+
+        .case:first-child{
+          page-break-before:auto;
+        }
+
+        a{
+          color:#49306f;
+          text-decoration:none;
+        }
+
+        @media print{
+          body{margin:15mm}
+          .card{break-inside:avoid}
+          h2,h3{page-break-after:avoid}
+        }
+      </style>
+    </head>
+
+    <body>
+      <h1>RPM Attorney Assistant</h1>
+
+      <p><strong>Архив сохранённых дел</strong></p>
+      <p class="meta">Дата формирования: ${esc(date)}</p>
+      <p class="meta">Количество дел: ${casesData.length}</p>
+
+      <h2>Оглавление</h2>
+      <ol>${contents}</ol>
+
+      ${documents}
+
+      <hr>
+
+      <p class="meta">
+        Архив сформирован RPM Attorney Assistant.
+        Материалы требуют самостоятельной проверки.
+      </p>
+    </body>
+    </html>
+  `);
+
+    printWindow.document.close();
+
+    setTimeout(()=>{
+      printWindow.focus();
+      printWindow.print();
+    },500);
+  }
+
 
   async function loadCases(){
     const list=$("casesList");
@@ -2374,29 +3303,99 @@
 
     try{
       const data=await api("/api/cases");
-
       casesData=Array.isArray(data)?data:(data.cases||[]);
+      renderFilteredCases();
+    }catch(error){
+      list.textContent="Ошибка загрузки: "+error.message;
+    }
+  }
+
+  function renderFilteredCases(){
+    const list=$("casesList");
+    if(!list)return;
+
+    list.replaceChildren();
+
+    const search=($("casesSearch")?.value||"").trim().toLowerCase();
+    const selectedDate=$("casesDateFilter")?.value||"";
+
+    const filtered=casesData.filter(item=>{
+      const title=(item.title||"Без названия").toLowerCase();
+      const matchesSearch=title.includes(search);
+
+      const rawDate=item.updatedAt||item.createdAt||item.data?.updatedAt;
+      const date=rawDate?new Date(rawDate):null;
+      let dateKey="";
+
+      if(date&&!isNaN(date.getTime())){
+        dateKey=[
+          date.getFullYear(),
+          String(date.getMonth()+1).padStart(2,"0"),
+          String(date.getDate()).padStart(2,"0")
+        ].join("-");
+      }
+
+      const matchesDate=!selectedDate||dateKey===selectedDate;
+      return matchesSearch&&matchesDate;
+    });
+
+    if(!filtered.length){
+      list.textContent=casesData.length
+              ?"По заданным фильтрам дела не найдены."
+              :"Сохранённых дел пока нет.";
+      return;
+    }
+
+    filtered.forEach(item=>{
+      const card=makeElement("div","case-item");
+      card.appendChild(makeElement("h3","",item.title||"Без названия"));
+
+      const open=makeElement("button","secondary","Открыть");
+      open.onclick=()=>openCase(item);
+
+      const remove=makeElement("button","danger","Удалить");
+      remove.onclick=()=>deleteCase(item.id);
+
+      const pdf=makeElement("button","secondary","📄 Скачать PDF");
+      pdf.onclick=()=>exportSavedCasePDF(item);
+
+      card.append(open,pdf,remove);
+      list.appendChild(card);
+    });
+  }
+
+  function resetCasesFilters(){
+    $("casesSearch").value="";
+    $("casesDateFilter").value="";
+    renderFilteredCases();
+  }
+  async function loadBackups(){
+    const list=$("backupsList");
+    list.textContent="Загрузка резервных копий...";
+
+    try{
+      const backups=await api("/api/case-backups");
       list.replaceChildren();
 
-      if(!casesData.length){
-        list.textContent="Сохранённых дел пока нет.";
+      if(!Array.isArray(backups)||!backups.length){
+        list.textContent="Резервных копий пока нет.";
         return;
       }
 
-      casesData.forEach(item=>{
+      backups.forEach(backup=>{
         const card=makeElement("div","case-item");
 
-        card.appendChild(
-                makeElement("h3","",item.title||"Без названия")
-        );
+        const title=makeElement("h3","",backup.filename);
 
-        const open=makeElement("button","secondary","Открыть");
-        open.onclick=()=>openCase(item);
+        const date=new Date(backup.createdAt).toLocaleString("ru-RU");
+        const size=(backup.size/1024).toFixed(1)+" КБ";
 
-        const remove=makeElement("button","danger","Удалить");
-        remove.onclick=()=>deleteCase(item.id);
+        const info=makeElement("p","",`Создана: ${date} · Размер: ${size}`);
 
-        card.append(open,remove);
+        const restore=makeElement("button","secondary","Восстановить эту копию");
+        restore.onclick=()=>restoreCaseBackup(backup.filename);
+
+        card.append(title,info,restore);
         list.appendChild(card);
       });
 
@@ -2405,6 +3404,27 @@
     }
   }
 
+  async function restoreCaseBackup(filename){
+    if(!confirm(
+            `Восстановить копию "${filename}"?\n\nТекущая история дел будет заменена. Перед этим сервер сохранит её резервную копию.`
+    ))return;
+
+    try{
+      const result=await api("/api/case-backups/restore",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({filename})
+      });
+
+      await loadCases();
+      await loadBackups();
+
+      alert(`Восстановление завершено. Дел восстановлено: ${result.restored}`);
+
+    }catch(error){
+      alert("Ошибка восстановления: "+error.message);
+    }
+  }
   function openCase(item){
     const data=item.data||{};
 
@@ -2476,7 +3496,13 @@
 
   document.querySelectorAll("nav button[data-tab]").forEach(button=>{
     button.addEventListener("click",()=>{
-      activateTab(button.dataset.tab);
+      const tabId=button.dataset.tab;
+
+      activateTab(tabId);
+
+      if(tabId==="backups"){
+        loadBackups();
+      }
     });
   });
 
