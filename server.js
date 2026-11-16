@@ -1,13 +1,17 @@
-
 import express from "express";
 import dotenv from "dotenv";
 import OpenAI from "openai";
+import pg from "pg";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { timingSafeEqual } from "node:crypto";
 
 dotenv.config();
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +30,47 @@ const client = process.env.GEMINI_API_KEY
       baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
     })
     : null;
+
+// =====================================================
+// РАБОТА С ИСТОРИЕЙ ДЕЛ В POSTGRESQL
+// =====================================================
+
+async function getCasesFromDB() {
+  const result = await pool.query(
+      "SELECT id, title, data, updated_at FROM rpm_cases ORDER BY updated_at DESC"
+  );
+
+  return result.rows.map(row => ({
+    id: row.id,
+    title: row.title,
+    data: row.data,
+    updatedAt: row.updated_at
+  }));
+}
+
+async function backupCasesDB() {
+  const cases = await getCasesFromDB();
+
+  if (cases.length === 0) {
+    return;
+  }
+
+  await pool.query(
+      `INSERT INTO rpm_case_backups (cases)
+     VALUES ($1::jsonb)`,
+      [JSON.stringify(cases)]
+  );
+
+  await pool.query(`
+    DELETE FROM rpm_case_backups
+    WHERE id NOT IN (
+      SELECT id
+      FROM rpm_case_backups
+      ORDER BY created_at DESC, id DESC
+      LIMIT 30
+    )
+  `);
+}
 
 // =====================================================
 // АВТОРИЗАЦИЯ
@@ -1548,108 +1593,99 @@ app.post("/api/attorney-assist", async (req, res) => {
 });
 
 // =====================================================
-// ИСТОРИЯ ДЕЛ
+// ИСТОРИЯ ДЕЛ — POSTGRESQL
 // =====================================================
 
 app.get("/api/cases", async (req, res) => {
-  const cases = await readJson(CASES_FILE, []);
-
-  res.json(
-      Array.isArray(cases) ? cases : []
-  );
+  try {
+    const cases = await getCasesFromDB();
+    res.json(cases);
+  } catch (error) {
+    console.error("Load cases error:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get("/api/case-backups", async (req, res) => {
   try {
-    await fs.mkdir(BACKUP_DIR, { recursive: true });
+    const result = await pool.query(`
+      SELECT
+        id,
+        created_at,
+        octet_length(cases::text) AS size
+      FROM rpm_case_backups
+      ORDER BY created_at DESC, id DESC
+    `);
 
-    const files = await fs.readdir(BACKUP_DIR);
-
-    const backups = await Promise.all(
-        files
-            .filter(name => /^cases-.*\.json$/.test(name))
-            .map(async name => {
-              const filePath = path.join(BACKUP_DIR, name);
-              const stats = await fs.stat(filePath);
-
-              return {
-                filename: name,
-                size: stats.size,
-                createdAt: stats.mtime.toISOString()
-              };
-            })
-    );
-
-    backups.sort((a, b) =>
-        b.createdAt.localeCompare(a.createdAt)
-    );
-
-    res.json(backups);
-
+    res.json(result.rows.map(row => ({
+      filename: String(row.id),
+      size: Number(row.size),
+      createdAt: row.created_at
+    })));
   } catch (error) {
     console.error("Load backups error:", error);
-
-    res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
-
 app.post("/api/cases", async (req, res) => {
   try {
-    const loaded = await readJson(CASES_FILE, []);
-    const cases = Array.isArray(loaded) ? loaded : [];
-
     const item = {
-      id: req.body.id || Date.now().toString(),
+      id: String(req.body.id || Date.now()),
       title: req.body.title || "Новое дело",
       data: req.body.data || {},
       updatedAt: new Date().toISOString()
     };
 
-    const index = cases.findIndex(
-        c => c.id === item.id
+    await backupCasesDB();
+
+    await pool.query(
+        `INSERT INTO rpm_cases (id, title, data, updated_at)
+       VALUES ($1, $2, $3::jsonb, $4)
+       ON CONFLICT (id)
+       DO UPDATE SET
+         title = EXCLUDED.title,
+         data = EXCLUDED.data,
+         updated_at = EXCLUDED.updated_at`,
+        [
+          item.id,
+          item.title,
+          JSON.stringify(item.data),
+          item.updatedAt
+        ]
     );
 
-    if (index >= 0) {
-      cases[index] = item;
-    } else {
-      cases.unshift(item);
-    }
-
-    await backupCases();
-    await writeJson(CASES_FILE, cases);
-
     res.json(item);
-
   } catch (error) {
     console.error("Save case error:", error);
-
-    res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
 app.post("/api/case-backups/restore", async (req, res) => {
-  try {
-    const filename = req.body.filename;
+  const backupId = Number(req.body.filename);
 
-    if (
-        typeof filename !== "string" ||
-        !/^cases-[\wT.-]+\.json$/.test(filename)
-    ) {
-      return res.status(400).json({
-        error: "Некорректное имя резервной копии."
+  if (!Number.isSafeInteger(backupId) || backupId <= 0) {
+    return res.status(400).json({
+      error: "Некорректный номер резервной копии."
+    });
+  }
+
+  let transactionStarted = false;
+
+  try {
+    const result = await pool.query(
+        "SELECT cases FROM rpm_case_backups WHERE id = $1",
+        [backupId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "Резервная копия не найдена."
       });
     }
 
-    const backupPath = path.join(BACKUP_DIR, filename);
-
-    const backupData = JSON.parse(
-        await fs.readFile(backupPath, "utf8")
-    );
+    const backupData = result.rows[0].cases;
 
     if (!Array.isArray(backupData)) {
       return res.status(400).json({
@@ -1657,44 +1693,56 @@ app.post("/api/case-backups/restore", async (req, res) => {
       });
     }
 
-    await backupCases();
-    await writeJson(CASES_FILE, backupData);
+    await backupCasesDB();
+
+    await pool.query("BEGIN");
+    transactionStarted = true;
+
+    await pool.query("DELETE FROM rpm_cases");
+
+    for (const item of backupData) {
+      await pool.query(
+          `INSERT INTO rpm_cases (id, title, data, updated_at)
+         VALUES ($1, $2, $3::jsonb, $4)`,
+          [
+            String(item.id),
+            item.title || "Без названия",
+            JSON.stringify(item.data || {}),
+            item.updatedAt || new Date().toISOString()
+          ]
+      );
+    }
+
+    await pool.query("COMMIT");
+    transactionStarted = false;
 
     res.json({
       success: true,
       restored: backupData.length
     });
-
   } catch (error) {
-    console.error("Restore backup error:", error);
+    if (transactionStarted) {
+      await pool.query("ROLLBACK").catch(() => {});
+    }
 
-    res.status(500).json({
-      error: error.message
-    });
+    console.error("Restore backup error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
 app.delete("/api/cases/:id", async (req, res) => {
   try {
-    const loaded = await readJson(CASES_FILE, []);
-    const cases = Array.isArray(loaded) ? loaded : [];
+    await backupCasesDB();
 
-    await backupCases();
-
-    await writeJson(
-        CASES_FILE,
-        cases.filter(c => c.id !== req.params.id)
+    await pool.query(
+        "DELETE FROM rpm_cases WHERE id = $1",
+        [req.params.id]
     );
 
-    res.json({
-      success: true
-    });
+    res.json({ success: true });
   } catch (error) {
     console.error("Delete case error:", error);
-
-    res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -1736,9 +1784,9 @@ app.listen(PORT, async () => {
   console.log("Модель:", MODEL);
 
   try {
-    await backupCases();
-    console.log("Проверка резервных копий завершена.");
-  } catch(error) {
-    console.error("Ошибка проверки резервных копий:", error);
+    await pool.query("SELECT 1");
+    console.log("Подключение к PostgreSQL успешно.");
+  } catch (error) {
+    console.error("Ошибка подключения к PostgreSQL:", error);
   }
 });
