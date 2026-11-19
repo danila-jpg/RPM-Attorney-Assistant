@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import pg from "pg";
@@ -28,6 +28,7 @@ const CASES_FILE = path.join(__dirname, "cases.json");
 
 const APP_USER = process.env.APP_USER;
 const APP_PASSWORD = process.env.APP_PASSWORD;
+const OWNER_USER = String(process.env.OWNER_USER || "quantummuse").trim().toLowerCase();
 const MODEL = process.env.OPENAI_MODEL || "gemini-3.1-flash-lite";
 
 const client = process.env.GEMINI_API_KEY
@@ -234,7 +235,7 @@ async function requireAuth(req, res, next) {
           req.userId = adminResult.rows[0].id;
           req.isAdmin = true;
           req.isCustomer = false;
-          req.isOwner = String(adminResult.rows[0].username || "").trim().toLowerCase() === "quantummuse";
+          req.isOwner = String(adminResult.rows[0].username || "").trim().toLowerCase() === OWNER_USER;
           if (req.isOwner) {
             try {
               await migrateLegacyCasesToOwner(req.userId);
@@ -346,7 +347,7 @@ async function requireAuth(req, res, next) {
 
   req.isAdmin = true;
   req.isCustomer = false;
-  req.isOwner = String(username || "").trim().toLowerCase() === "quantummuse";
+  req.isOwner = String(username || "").trim().toLowerCase() === OWNER_USER;
   if (req.isOwner) {
     try {
       await migrateLegacyCasesToOwner(req.userId);
