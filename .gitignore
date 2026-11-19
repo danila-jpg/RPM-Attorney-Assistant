@@ -1,5 +1,35 @@
-node_modules/
+﻿node_modules/
 .env
 cases.json
 backups/
 .neon
+
+# Local IDE settings
+.idea/
+
+# Backups
+*.bak
+*.backup
+
+# Logs
+*.log
+
+# Environment files
+.env.*
+!.env.example
+
+# Private owner files
+private/
+
+# Allow the owner panel, keep other private files ignored
+!private/
+private/*
+!private/owner.html
+*.backup*
+*.backup.*
+*.before-*
+*.old
+*.orig
+laws_backup_*.json
+laws_before_*.json
+server_before_*.js

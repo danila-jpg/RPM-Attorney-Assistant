@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -22,6 +22,16 @@
       --violet:#c49aff;
     }
 
+    body[data-theme="minimal-light"]{--bg:#f1f3f8;--panel:#ffffff;--panel2:#e8ebf3;--border:#d4d9e5;--purple:#6754c8;--purple2:#5743b3;--text:#202638;--muted:#66718a}
+    body[data-theme="graphite"]{--bg:#08090b;--panel:#17191e;--panel2:#22252c;--border:#343943;--purple:#9a9fae;--purple2:#646b79;--text:#f1f2f4;--muted:#a0a5af}
+    body[data-theme="cyber-blue"]{--bg:#061321;--panel:#102238;--panel2:#18324d;--border:#234866;--purple:#43b8ff;--purple2:#247dbd;--text:#e9f5ff;--muted:#9db9d1}
+    body[data-theme="minimal-light"] header{background:linear-gradient(120deg,#fff,#e9ecf6)}
+    body[data-theme="minimal-light"] nav{background:#e5e9f2}
+    body[data-theme="minimal-light"] nav button:hover,body[data-theme="minimal-light"] nav button.active{color:#202638;background:#dce1ee;border-color:#aeb8d0}
+    body[data-theme="minimal-light"] input,body[data-theme="minimal-light"] textarea,body[data-theme="minimal-light"] select{background:#f8f9fc;color:#202638}
+    body[data-theme="graphite"] header,body[data-theme="cyber-blue"] header{background:linear-gradient(120deg,var(--panel2),var(--panel))}
+    body[data-theme="graphite"] nav,body[data-theme="cyber-blue"] nav{background:var(--panel)}
+    body[data-theme="minimal-light"] .ai-disclaimer{background:#fff;color:#48536b}
     *{box-sizing:border-box}
 
     body{
@@ -44,6 +54,9 @@
 
     .logo{font-size:22px;font-weight:800}
     .logo span{color:var(--purple)}
+    .panel-profile{display:flex;align-items:center;gap:9px;margin-left:auto;text-decoration:none;color:var(--text);padding:5px 10px;border:1px solid var(--border);border-radius:999px;background:var(--panel)}
+    .panel-profile img{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--panel2)}
+    .panel-profile span{font-size:13px;font-weight:650;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .status{font-size:13px;color:var(--muted)}
 
     nav{
@@ -579,14 +592,303 @@
       .result{padding:12px}
       .question-top{align-items:flex-start}
     }
-  </style>
+
+    /* КОМПАКТНЫЕ ТАБЛИЦЫ */
+    #customersList,#ordersList {
+      width:100%;
+      max-width:100%;
+      overflow-x:auto;
+      border-radius:12px;
+    }
+
+    #customersList table,#ordersList table {
+      width:100%;
+      min-width:720px;
+      table-layout:fixed;
+      border-collapse:separate;
+      border-spacing:0;
+      font-size:13px;
+    }
+
+    #customersList th,#ordersList th {
+      padding:13px 10px;
+      background:#211832;
+      color:#cdb8f5;
+      text-align:left;
+      font-weight:600;
+      border-bottom:1px solid #49345f;
+      overflow-wrap:anywhere;
+    }
+
+    #customersList td,#ordersList td {
+      padding:12px 10px;
+      color:#e7e0f1;
+      border-bottom:1px solid rgba(120,90,155,.18);
+      vertical-align:middle;
+      overflow-wrap:anywhere;
+      line-height:1.45;
+    }
+
+    #customersList tbody tr:hover,#ordersList tbody tr:hover {
+      background:rgba(157,105,230,.12);
+    }
+
+    #ordersList td:last-child {
+      min-width:150px;
+    }
+
+    #ordersList td button {
+      width:100%;
+      min-width:0;
+      padding:9px 10px;
+      font-size:12px;
+      white-space:normal;
+    }
+
+    /* ЗАГРУЗОЧНЫЙ ЭКРАН */
+    #appLoader {
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:18px;
+      background:#090711;
+      opacity:1;
+      visibility:visible;
+      transition:opacity .45s ease,visibility .45s ease;
+    }
+
+    #appLoader.hidden {
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .loader-logo {
+      font-size:25px;
+      font-weight:800;
+      letter-spacing:2px;
+    }
+
+    .loader-logo span {
+      color:var(--purple);
+    }
+
+    .loader-spinner {
+      width:48px;
+      height:48px;
+      border:4px solid #302342;
+      border-top-color:var(--purple);
+      border-radius:50%;
+      animation:loaderSpin .8s linear infinite;
+      box-shadow:0 0 25px rgba(152,101,237,.2);
+    }
+
+    .loader-caption {
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    @keyframes loaderSpin {
+      to { transform:rotate(360deg); }
+    }
+
+    /* ПРЕДУПРЕЖДЕНИЕ */
+    .ai-disclaimer {
+      max-width:1250px;
+      margin:16px auto 0;
+      padding:13px 18px;
+      border:1px solid rgba(243,202,104,.3);
+      border-radius:11px;
+      background:rgba(243,202,104,.055);
+      color:#e8d8ae;
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .ai-disclaimer strong {
+      color:var(--yellow);
+    }
+
+    /* КОНТАКТЫ */
+    .site-footer {
+      max-width:1250px;
+      margin:10px auto 25px;
+      padding:22px;
+      border:1px solid var(--border);
+      border-radius:13px;
+      background:var(--panel);
+    }
+
+    .footer-grid {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:18px;
+    }
+
+    .footer-contact {
+      min-width:0;
+      padding:15px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:rgba(255,255,255,.02);
+    }
+
+    .footer-contact h3 {
+      margin:0 0 10px;
+      color:var(--violet);
+    }
+
+    .footer-contact p {
+      margin:7px 0;
+      color:var(--muted);
+      font-size:13px;
+      overflow-wrap:anywhere;
+    }
+
+    .footer-contact a {
+      color:#c49aff;
+      text-decoration:none;
+    }
+
+    .footer-contact a:hover {
+      text-decoration:underline;
+    }
+
+    .footer-bottom {
+      margin-top:18px;
+      padding-top:14px;
+      border-top:1px solid var(--border);
+      color:var(--muted);
+      font-size:12px;
+      text-align:center;
+    }
+
+    @media(max-width:700px) {
+      .ai-disclaimer {
+        margin:12px;
+      }
+
+      .site-footer {
+        margin:10px 12px 20px;
+        padding:15px;
+      }
+
+      .footer-grid {
+        grid-template-columns:1fr;
+      }
+    }
+
+/* SUPPORT TAB */
+.support-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.5fr);
+  gap: 16px;
+  align-items: start;
+}
+.support-panel-heading,
+.support-reply-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.support-tickets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.support-ticket-item {
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid #51436f;
+  border-radius: 10px;
+  background: #211a32;
+  color: #f3edff !important;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.support-ticket-item:hover {
+  background: #302442;
+  border-color: #8b6cff;
+}
+.support-ticket-item.active {
+  border-color: #a78bfa;
+  background: #34264d;
+}
+.support-ticket-item strong,
+.support-ticket-item span {
+  display: block;
+  margin-bottom: 5px;
+  color: #f3edff !important;
+}
+.support-ticket-item span {
+  font-size: 0.88em;
+  opacity: 0.9;
+}
+.support-messages {
+  min-height: 260px;
+  max-height: 520px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0;
+}
+.support-message {
+  padding: 12px;
+  border: 1px solid var(--border, #444);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.support-message.admin {
+  margin-left: 8%;
+}
+.support-message.customer {
+  margin-right: 8%;
+}
+.support-message-meta {
+  font-size: 0.82em;
+  opacity: 0.7;
+  margin-bottom: 7px;
+}
+.support-reply-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.support-owner-contacts {
+  margin-top: 16px;
+}
+@media (max-width: 850px) {
+  .support-layout {
+    grid-template-columns: 1fr;
+  }
+  .support-messages {
+    max-height: 420px;
+  }
+}</style>
 </head>
 
 <body>
+<div id="appLoader">
+  <div class="loader-logo">RPM <span>ATTORNEY ASSISTANT</span></div>
+  <div class="loader-spinner"></div>
+  <div class="loader-caption">Подготавливаем рабочее пространство...</div>
+</div>
+
 
 <header>
   <div class="logo">RPM <span>ATTORNEY ASSISTANT</span></div>
   <div class="status" id="systemStatus">Проверка сервера...</div>
+  <a class="panel-profile" href="/app/account.html" id="panelProfile" hidden><img id="panelAvatar" alt=""><span id="panelDisplayName">Профиль</span></a>
 </header>
 
 <nav>
@@ -598,7 +900,16 @@
   <button data-tab="history">История дел</button>
   <button data-tab="backups">Резервные копии</button>
   <button data-tab="laws">Все законы</button>
-</nav>
+  <button data-tab="customers">Покупатели</button>
+  <button data-tab="orders">Заказы</button>
+  <button data-tab="support">Поддержка</button></nav>
+<div class="ai-disclaimer">
+  <strong>Важно:</strong> RPM Attorney Assistant — информационный ИИ-помощник
+  для ролевой игры (RP). Ответы могут содержать ошибки и не являются официальной
+  юридической консультацией. Всегда самостоятельно сверяйте статьи, редакции
+  законов и выводы с первоисточниками.
+</div>
+
 
 <main>
 
@@ -887,7 +1198,200 @@
     </div>
   </section>
 
-</main>
+
+  <!-- ПОКУПАТЕЛИ -->
+  <section id="customers" class="tab">
+    <h1>Управление покупателями</h1>
+    <p class="subtitle">
+      Аккаунты, лицензии и подключённые устройства клиентов.
+    </p>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="customersTotal">0</div>
+        <div class="stat-label">Всего покупателей</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="customersActive">0</div>
+        <div class="stat-label">Активные лицензии</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="customersExpired">0</div>
+        <div class="stat-label">Истекшие лицензии</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <label for="customerSearch">Поиск покупателя</label>
+      <input
+        id="customerSearch"
+        type="search"
+        placeholder="Логин или RP-ник..."
+      >
+
+      <button class="secondary" onclick="loadCustomers()">
+        Обновить список
+      </button>
+    </div>
+
+    <div class="panel">
+      <div id="customersList">Нажмите «Обновить список».</div>
+    </div>
+
+    <div class="panel" id="customerDetails" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <h2 id="customerDetailsTitle">Карточка покупателя</h2>
+        <button class="secondary" onclick="closeCustomerDetails()">
+          Вернуться к списку
+        </button>
+      </div>
+
+      <div id="customerDetailsContent">
+        Загрузка информации...
+      </div>
+    </div>  </section>
+  <section id="orders" class="tab">
+    <h1>Управление заказами</h1>
+    <p class="subtitle">
+      Создание заказов, подтверждение оплаты и выдача приглашений.
+    </p>
+
+    <div class="panel">
+      <h2>Создать заказ</h2>
+
+      <form id="orderCreateForm">
+        <label for="orderBuyerNickname">RP-ник покупателя</label>
+        <input
+          id="orderBuyerNickname"
+          type="text"
+          maxlength="64"
+          required
+          placeholder="Введите RP-ник"
+        >
+
+        <label for="orderPlan">Тариф</label>
+        <select id="orderPlan" required>
+          <option value="7_days">7 дней — 300 000 RP</option>
+          <option value="30_days">30 дней — 2 000 000 RP</option>
+          <option value="90_days">90 дней — 5 000 000 RP</option>
+        </select>
+
+        <label for="orderPromoCode">Промокод партнёра</label>
+        <input
+          id="orderPromoCode"
+          type="text"
+          maxlength="64"
+          placeholder="Например, MRAK"
+        >
+
+        <button class="primary" type="submit">
+          Создать заказ
+        </button>
+      </form>
+
+      <div id="orderCreateMessage"></div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <h2>Список заказов</h2>
+        <button class="secondary" id="refreshOrdersButton">
+          Обновить
+        </button>
+      </div>
+
+      <div id="ordersList">Нажмите «Обновить».</div>
+    </div>
+
+    <div class="panel" id="orderInvitePanel" style="display:none;">
+      <h2>Приглашение покупателя</h2>
+      <p>
+        Передайте этот код покупателю. Он действителен 24 часа.
+        Код больше не будет доступен после закрытия этой страницы.
+      </p>
+      <code id="generatedInviteCode"></code>
+    </div>
+  </section>
+  <section id="support" class="tab">
+    <h1>Связь и поддержка</h1>
+    <p class="subtitle">
+      Общая очередь обращений покупателей и переписка с администрацией.
+    </p>
+
+    <div class="support-layout">
+      <div class="panel support-queue">
+        <div class="support-panel-heading">
+          <h2>Обращения</h2>
+          <button class="secondary" id="refreshSupportButton">Обновить</button>
+        </div>
+
+        <label for="supportStatusFilter">Фильтр по статусу</label>
+        <select id="supportStatusFilter">
+          <option value="">Все обращения</option>
+          <option value="open">Открытые</option>
+          <option value="waiting_customer">Ожидают покупателя</option>
+          <option value="closed">Закрытые</option>
+        </select>
+
+        <div id="supportTicketsList" class="support-tickets-list">
+          Нажмите «Обновить», чтобы загрузить обращения.
+        </div>
+      </div>
+
+      <div class="panel support-conversation">
+        <div id="supportConversationHeader">
+          <h2>Переписка</h2>
+          <p class="subtitle">Выберите обращение из списка.</p>
+        </div>
+
+        <div id="supportMessages" class="support-messages">
+          <p class="subtitle">Сообщения появятся здесь.</p>
+        </div>
+
+        <form id="supportReplyForm" class="support-reply-form">
+          <label for="supportReplyInput">Ваш ответ</label>
+          <textarea
+            id="supportReplyInput"
+            maxlength="3000"
+            rows="4"
+            placeholder="Введите ответ покупателю..."
+            disabled
+          ></textarea>
+          <div class="support-reply-actions">
+            <button class="primary" id="supportReplyButton" type="submit" disabled>
+              Отправить ответ
+            </button>
+            <select id="supportStatusSelect" disabled>
+              <option value="open">Открыто</option>
+              <option value="waiting_customer">Ожидает покупателя</option>
+              <option value="closed">Закрыто</option>
+            </select>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="panel support-owner-contacts">
+      <h2>Контакты владельца проекта</h2>
+      <p>
+        Telegram:
+        <a href="https://t.me/QuantumMuse1" target="_blank" rel="noopener noreferrer">
+          @QuantumMuse1
+        </a>
+      </p>
+      <p>Discord владельца проекта: <strong>rumpelshtinkel</strong></p>
+      <p>Discord администратора поддержки: <strong>Bombameneri</strong></p>
+      <p class="subtitle">
+        Telegram и первый Discord — контакты владельца проекта. Второй Discord — контакт администратора поддержки.
+      </p>
+    </div>
+  </section></main>
+<footer class="site-footer">
+  <div class="footer-bottom">
+    RPM Attorney Assistant · RP-проект · Проверяйте ответы по первоисточникам
+  </div>
+</footer>
+
 
 <div id="toast"></div>
 
@@ -1148,298 +1652,6 @@
 
 
   /* АУДИТ ССЫЛОК И УВЕРЕННОСТЬ ИИ */
-
-
-  /* БИБЛИОТЕКА ЗАКОНОВ И УЛУЧШЕННЫЙ ПОИСК */
-
-  function getDocuments(){
-    if(Array.isArray(lawsData)) return lawsData;
-    if(lawsData && Array.isArray(lawsData.documents)) {
-      return lawsData.documents;
-    }
-    return [];
-  }
-
-  function getArticleText(article){
-    return article.text ||
-            article.content ||
-            article.fullText ||
-            article.description ||
-            "Текст статьи отсутствует.";
-  }
-
-  function getDocumentType(doc){
-    const name = normalizeSearch(
-            (doc.name || doc.title || "") + " " +
-            (doc.category || "")
-    );
-
-    if(name.includes("кодекс")) return "code";
-    if(name.includes("закон") || name.includes("положение")) {
-      return "law";
-    }
-
-    return "other";
-  }
-
-  async function loadLaws(){
-    try{
-      lawsData = await api("/api/laws");
-
-      const editor = $("lawsEditor");
-      if(editor){
-        editor.value = JSON.stringify(lawsData, null, 2);
-      }
-
-      renderLaws();
-    }catch(error){
-      $("lawsList").textContent =
-              "Ошибка загрузки законодательства: " + error.message;
-    }
-  }
-
-  function toggleLawEditor(){
-    $("lawEditorPanel").classList.toggle("hidden");
-  }
-
-  function getLawSearchText(doc, article){
-    return normalizeSearch([
-      doc.name,
-      doc.title,
-      doc.id,
-      doc.category,
-      article.number,
-      article.title,
-      article.status,
-      getArticleText(article),
-      formatLawValue(article.penalty),
-      formatLawValue(article.exceptions),
-      formatLawValue(article.notes)
-    ].filter(Boolean).join(" "));
-  }
-
-  function renderLaws(){
-    const list = $("lawsList");
-    if(!list) return;
-
-    const query = normalizeSearch($("lawSearch").value);
-    const type = $("lawTypeFilter").value;
-    const documents = getDocuments();
-
-    list.replaceChildren();
-
-    let totalArticles = 0;
-
-    documents.forEach(doc => {
-      totalArticles += Array.isArray(doc.articles)
-              ? doc.articles.length
-              : 0;
-    });
-
-    const stats = $("lawStats");
-    stats.replaceChildren();
-
-    [
-      ["Документов", documents.length],
-      ["Всего статей", totalArticles]
-    ].forEach(([name, value]) => {
-      const card = makeElement("div", "stat-card");
-      card.appendChild(makeElement("div", "stat-number", value));
-      card.appendChild(makeElement("div", "stat-label", name));
-      stats.appendChild(card);
-    });
-
-    const searchWords = query
-            .split(/\s+/)
-            .filter(Boolean);
-
-    const filtered = documents.map(doc => {
-      if(type !== "all" && getDocumentType(doc) !== type) {
-        return null;
-      }
-
-      const articles = Array.isArray(doc.articles)
-              ? doc.articles
-              : [];
-
-      const documentText = normalizeSearch([
-        doc.name,
-        doc.title,
-        doc.id,
-        doc.category
-      ].filter(Boolean).join(" "));
-
-      const documentMatches = searchWords.length > 0 &&
-              searchWords.every(word => documentText.includes(word));
-
-      let matchingArticles = articles.filter(article => {
-        if(!searchWords.length) return true;
-
-        const articleText = getLawSearchText(doc, article);
-
-        return searchWords.every(word => articleText.includes(word));
-      });
-
-      if(!searchWords.length || documentMatches) {
-        matchingArticles = articles;
-      }
-
-      if(!matchingArticles.length) return null;
-
-      return {
-        doc,
-        articles: matchingArticles
-      };
-    }).filter(Boolean);
-
-    const foundArticles = filtered.reduce(
-            (sum, item) => sum + item.articles.length,
-            0
-    );
-
-    $("lawSearchInfo").textContent =
-            "Найдено документов: " + filtered.length +
-            " · Найдено статей: " + foundArticles +
-            " · Всего документов: " + documents.length;
-
-    if(!filtered.length){
-      list.textContent =
-              "По вашему запросу ничего не найдено. Попробуйте изменить формулировку.";
-      return;
-    }
-
-    filtered.forEach(({doc, articles}) => {
-      const details = makeElement("details", "law-document");
-      const summary = makeElement("summary");
-
-      summary.appendChild(
-              makeElement(
-                      "h2",
-                      "",
-                      doc.name || doc.title || "Документ"
-              )
-      );
-
-      summary.appendChild(
-              makeElement(
-                      "div",
-                      "muted",
-                      doc.category || "Нормативный документ"
-              )
-      );
-
-      summary.appendChild(
-              makeElement(
-                      "span",
-                      "badge",
-                      articles.length + " статей"
-              )
-      );
-
-      const content = makeElement("div", "law-content");
-
-      articles.forEach(article => {
-        const articleBox = makeElement("details", "article");
-
-        const articleSummary = makeElement(
-                "summary",
-                "",
-                "Статья " +
-                (article.number ?? "—") +
-                ". " +
-                (article.title || "Без названия")
-        );
-
-        const body = makeElement("div", "article-body");
-
-        body.appendChild(
-                makeElement(
-                        "div",
-                        "article-status",
-                        "Статус: " + (article.status || "не указан")
-                )
-        );
-
-        body.appendChild(
-                makeElement("div", "", getArticleText(article))
-        );
-
-        if(article.penalty){
-          body.appendChild(
-                  makeElement("strong", "", "Наказание / санкция")
-          );
-
-          body.appendChild(
-                  makeElement(
-                          "div",
-                          "",
-                          formatLawValue(article.penalty)
-                  )
-          );
-        }
-
-        if(article.exceptions){
-          body.appendChild(
-                  makeElement("strong", "", "Исключения")
-          );
-
-          body.appendChild(
-                  makeElement(
-                          "div",
-                          "",
-                          formatLawValue(article.exceptions)
-                  )
-          );
-        }
-
-        if(article.notes){
-          body.appendChild(
-                  makeElement("strong", "", "Примечания")
-          );
-
-          body.appendChild(
-                  makeElement(
-                          "div",
-                          "",
-                          formatLawValue(article.notes)
-                  )
-          );
-        }
-
-        articleBox.append(articleSummary, body);
-        content.appendChild(articleBox);
-      });
-
-      details.append(summary, content);
-      list.appendChild(details);
-    });
-  }
-
-  async function saveLaws(){
-    try{
-      const parsed = JSON.parse($("lawsEditor").value);
-
-      if(
-              !Array.isArray(parsed) &&
-              (!parsed || !Array.isArray(parsed.documents))
-      ){
-        throw new Error("Не найден массив documents.");
-      }
-
-      await api("/api/laws", {
-        method: "PUT",
-        body: JSON.stringify(parsed)
-      });
-
-      lawsData = parsed;
-      renderLaws();
-
-      toast("Законы сохранены.");
-    }catch(error){
-      toast("Ошибка: " + error.message);
-    }
-  }
-
 
 
   /* АУДИТ ССЫЛОК И УВЕРЕННОСТЬ ИИ */
@@ -1730,33 +1942,62 @@
     return "confidence-medium";
   }
 
+  function auditFieldLabel(key){
+    const labels={
+      status:"Статус проверки",
+      result:"Результат",
+      message:"Сообщение",
+      matches:"Совпадения в указанном документе / возможные совпадения",
+      otherDocumentMatches:"Совпадения в других документах (не подтверждают ссылку)",
+      document:"Документ",
+      chapter:"Глава",
+      section:"Раздел",
+      sectionNumber:"Номер раздела",
+      number:"Номер статьи",
+      title:"Название",
+      explanation:"Пояснение",
+      confidence:"Уверенность",
+      reference:"Правовая ссылка",
+      article:"Статья",
+      reason:"Причина",
+      details:"Подробности"
+    };
+
+    const normalized=String(key)
+      .replace(/([a-z])([A-Z])/g,"$1_$2")
+      .toLowerCase()
+      .replace(/[-\s]/g,"_");
+
+    return labels[normalized]||
+      String(key).replace(/([a-z])([A-Z])/g,"$1 $2");
+  }
+
   function formatAuditValue(value){
     if(value===null||value===undefined||value==="")return "Не указано";
 
     if(Array.isArray(value)){
-      if(!value.length)return "Нет данных";
+      if(!value.length)return "Совпадений не найдено";
 
       return value.map(item=>{
         if(typeof item==="object"&&item!==null){
           return Object.entries(item)
-                  .map(([key,val])=>key+": "+formatAuditValue(val))
-                  .join("; ");
+            .map(([key,val])=>auditFieldLabel(key)+": "+formatAuditValue(val))
+            .join("\n");
         }
         return String(item);
-      }).join("\n");
+      }).join("\n\n");
     }
 
     if(typeof value==="object"){
       return Object.entries(value)
-              .map(([key,val])=>key+": "+formatAuditValue(val))
-              .join("\n");
+        .map(([key,val])=>auditFieldLabel(key)+": "+formatAuditValue(val))
+        .join("\n");
     }
 
     if(typeof value==="boolean")return value?"Да":"Нет";
 
     return String(value);
   }
-
   function addAuditItem(container,title,value,className="audit-neutral"){
     if(value===undefined||value===null||value==="")return;
 
@@ -1836,25 +2077,19 @@
 
           const details=Object.entries(item)
                   .filter(([key])=>
-                          !["reference","article","number","name"].includes(key)
+                          !["reference","article","number","name","status","result","message"].includes(key)
                   )
-                  .map(([key,value])=>key+": "+formatAuditValue(value))
-                  .join("\n");
+                  .map(([key,value])=>auditFieldLabel(key)+": "+formatAuditValue(value))
+                  .join("\n\n");
 
-          const status=normalizeSearch(
-                  item.status||item.result||item.message||""
-          );
+          const statusValue=item.status||item.result||item.message||"";
+          const status=normalizeSearch(statusValue);
+          const statusText=statusValue
+                  ? "Статус проверки: "+formatAuditValue(statusValue)
+                  : "";
+          const auditDetails=[statusText,details].filter(Boolean).join("\n\n");
 
           let cls="audit-neutral";
-
-          if(
-                  status.includes("найден")||
-                  status.includes("подтвержден")||
-                  status.includes("valid")||
-                  status.includes("существ")
-          ){
-            cls="audit-success";
-          }
 
           if(
                   status.includes("не найден")||
@@ -1863,20 +2098,28 @@
                   status.includes("invalid")
           ){
             cls="audit-danger";
-          }
-
-          if(
+          }else if(
+                  status.includes("недостаточно")||
+                  status.includes("не подтверж")||
+                  status.includes("не совпадает")||
+                  status.includes("не указан")||
                   status.includes("не провер")||
                   status.includes("неоднознач")||
                   status.includes("сомн")
           ){
             cls="audit-warning";
+          }else if(
+                  status==="подтверждено"||
+                  status==="confirmed"||
+                  status==="valid"
+          ){
+            cls="audit-success";
           }
 
           addAuditItem(
                   panel,
                   title,
-                  details||item.status||item.result||item.message||"Результат не указан",
+                  auditDetails||"Результат не указан",
                   cls
           );
         });
@@ -1894,10 +2137,18 @@
           ){
             cls="audit-danger";
           }else if(
-                  normalizedKey.includes("valid")||
-                  normalizedKey.includes("found")||
-                  normalizedKey.includes("найден")||
-                  normalizedKey.includes("подтвержден")
+                  normalizedKey.includes("недостаточно")||
+                  normalizedKey.includes("неподтверж")||
+                  normalizedKey.includes("не подтверж")||
+                  normalizedKey.includes("не найден")||
+                  normalizedKey.includes("не совпадает")||
+                  normalizedKey.includes("не указан")
+          ){
+            cls="audit-warning";
+          }else if(
+                  normalizedKey==="valid"||
+                  normalizedKey==="found"||
+                  normalizedKey==="подтверждено"
           ){
             cls="audit-success";
           }
@@ -1954,24 +2205,28 @@
             .trim();
 
     if(!clean||clean.length>150)return null;
+    const matchText = clean.toLowerCase();
+
+    // Предположения и неподтверждённые выводы не должны выглядеть как установленные факты
+    if(/возможн|предположительн|не подтвержден|не установлено|недостаточно данных|требует провер|сомнительн|спорные вопросы/.test(matchText)){
+      return {category:categoryByName("yellow"),heading:clean};
+    }
 
     const patterns=[
       ["purple",/рекомендац|совет адвокат|действия адвокат|ходатайств|тактика защит|позиция защит/],
       ["blue",/правовые основан|нормативн|законодательств|применимая стать|правовая норм|правовые положения|применимые нормы/],
-      ["red",/запрещено|нарушени|незакон|противоправ|состав правонарушен|возможная ответственность/],
-      ["green",/разрешено|законно|правомерно|имеет право|допускается|законные действия/],
+      ["yellow",/разрешено|законно|правомерно|имеет право|допускается|законные действия|нарушени|незакон|противоправ|запрещено|состав правонарушен|возможная ответственность/],
       ["yellow",/важно|внимани|не подтвержден|не установлено|недостаточно данных|требует провер|сомнительн|спорные вопросы/]
     ];
 
     for(const [name,regex] of patterns){
-      if(regex.test(clean)){
+      if(regex.test(matchText)){
         return {category:categoryByName(name),heading:clean};
       }
     }
 
     return null;
   }
-
   function appendFormattedText(container,text){
     const value=String(text||"");
 
@@ -2019,6 +2274,27 @@
     );
   }
 
+  function classifyResultSentence(sentence){
+    const value = String(sentence || "").toLowerCase();
+
+    // Рекомендации адвокату
+    if(/рекоменд|защит[аеы]|адвокат|следует запросить|необходимо запросить|целесообразно|требовани[ея]|ходатайств|тактик|запросить документы/.test(value)){
+      return "purple";
+    }
+
+    // Правовые утверждения и неопределённость требуют проверки
+    if(/возможн|предположительн|вероятн|отсутству|не подтвержд|не установл|недостаточно|не доказан|требует провер|неясно|сомнительн|спорн|нарушени|незакон|противоправ|запрещен|неправомер|не соблюд|не объявил|не разъяснил|не сообщил|не предоставил|не соответствует законодательств|разрешен|законно|правомер|имеет право|допускается|не вправе|не является/.test(value)){
+      return "yellow";
+    }
+
+    // Правовые основания без самостоятельного правового вывода
+    if(/согласно|в соответствии|на основании|правовые основан|стать[еяи]|кодекс|конституци|законодательств|епк|нормативн/.test(value)){
+      return "blue";
+    }
+
+    return "yellow";
+  }
+
   function showResult(id,text){
     const el=$(id);
     if(!el)return;
@@ -2026,54 +2302,70 @@
     el.replaceChildren();
     el.classList.remove("hidden");
 
-    const lines=String(text||"Ответ не получен.").split(/\r?\n/);
-    let current=null;
+    const source=String(text||"Ответ не получен.");
+    const lines=source.split(/\r?\n/);
+    const groups=new Map();
 
     lines.forEach(original=>{
-      let line=normalizeMarkdownLine(original);
+      const line=normalizeMarkdownLine(original);
       const trimmed=line.trim();
 
       if(!trimmed||/^[-_]{3,}$/.test(trimmed)){
-        current=null;
         return;
       }
 
-      const info=getHeadingCategory(trimmed);
+      // Пропускаем только явные Markdown-заголовки.
+      // Обычные предложения нельзя удалять как заголовки категорий.
+      if(/^#{1,6}\s*/.test(trimmed)){
+        return;
+      }
 
-      if(info){
-        current=makeElement(
-                "div",
-                "result-section "+info.category.className
-        );
+      const clean=trimmed
+        .replace(/^#{1,6}\s*/,"")
+        .replace(/^[-*]\s*/,"")
+        .replace(/^\d+[\.\)]\s*/,"")
+        .trim();
 
-        current.appendChild(
-                makeElement("h3","",info.category.name)
-        );
+      if(!clean)return;
 
-        if(info.heading){
-          current.appendChild(
-                  makeElement("p","",info.heading)
-          );
+      const sentences=clean
+        .split(/(?<=[.!?])\s+(?=[А-ЯЁA-Z])/u)
+        .filter(sentence=>sentence.trim());
+
+      sentences.forEach(sentence=>{
+        const value=sentence.trim();
+        const name=classifyResultSentence(value);
+
+        if(!groups.has(name)){
+          groups.set(name,[]);
         }
 
-        el.appendChild(current);
-        return;
-      }
+        groups.get(name).push(value);
+      });
+    });
 
-      line=line.replace(/^#{1,6}\s*/,"");
+    groups.forEach((sentences,name)=>{
+      const category=categoryByName(name);
+      if(!category)return;
 
-      if(!current){
-        current=makeElement("div","result-plain");
-        el.appendChild(current);
-      }
+      const section=makeElement(
+        "div",
+        "result-section "+category.className
+      );
 
-      const p=document.createElement("p");
-      appendFormattedText(p,line);
-      current.appendChild(p);
+      section.appendChild(
+        makeElement("h3","",category.name)
+      );
+
+      sentences.forEach(sentence=>{
+        const p=document.createElement("p");
+        appendFormattedText(p,sentence);
+        section.appendChild(p);
+      });
+
+      el.appendChild(section);
     });
   }
-
-
   /* АНАЛИЗ ИИ */
 
   function getCaseData(){
@@ -3464,6 +3756,849 @@
     }
   }
 
+  /* ПОКУПАТЕЛИ */
+
+  async function loadCustomers(){
+    const list = $("customersList");
+    const search = $("customerSearch").value.trim();
+
+    list.textContent = "Загрузка покупателей...";
+
+    try {
+      const data = await api(
+        "/api/admin/customers?search=" + encodeURIComponent(search)
+      );
+
+      const customers = Array.isArray(data.customers)
+        ? data.customers
+        : [];
+
+      $("customersTotal").textContent = customers.length;
+
+      $("customersActive").textContent =
+        customers.filter(c => c.license_active).length;
+
+      $("customersExpired").textContent =
+        customers.filter(c => c.plan_code && !c.license_active).length;
+
+      list.replaceChildren();
+
+      if (!customers.length) {
+        list.textContent = search
+          ? "Покупатели по вашему запросу не найдены."
+          : "Покупателей пока нет.";
+        return;
+      }
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const tbody = document.createElement("tbody");
+      const header = document.createElement("tr");
+
+      [
+        "Логин",
+        "RP-ник",
+        "Аккаунт",
+        "Лицензия",
+        "Действует до",
+        "Устройства"
+      ].forEach(label => {
+        const th = document.createElement("th");
+        th.textContent = label;
+        header.appendChild(th);
+      });
+
+      thead.appendChild(header);
+      table.append(thead, tbody);
+
+      customers.forEach(customer => {
+        const tr = document.createElement("tr");
+
+        tr.style.cursor = "pointer";
+        tr.title = "Открыть карточку покупателя";
+
+        tr.addEventListener("click", () => {
+          openCustomerDetails(customer.id);
+        });
+
+        const values = [
+          customer.username || "—",
+          customer.rp_nickname || "—",
+          customer.status === "blocked" ? "Заблокирован" : "Активен",
+          customer.license_active
+            ? (customer.plan_code || "Активна")
+            : (customer.plan_code ? "Истекла" : "Нет лицензии"),
+          customer.expires_at
+            ? new Date(customer.expires_at).toLocaleString("ru-RU")
+            : "—",
+          String(customer.active_devices ?? 0) + " / 2"
+        ];
+
+        values.forEach(value => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      });
+
+      list.appendChild(table);
+
+    } catch (error) {
+      list.textContent = "Ошибка загрузки покупателей: " + error.message;
+    }
+  }
+  /* ЗАКАЗЫ */
+
+  /* ПОДТВЕРЖДЕНИЕ ОПЛАТЫ */
+
+  async function confirmOrder(orderId) {
+    const approved = window.confirm(
+      "Подтвердить получение оплаты по заказу №" + orderId + "?"
+    );
+
+    if (!approved) return;
+
+    try {
+      const data = await api(
+        "/api/admin/orders/" + encodeURIComponent(orderId) + "/confirm",
+        { method: "POST", body: JSON.stringify({}) }
+      );
+
+      const panel = $("orderInvitePanel");
+      const codeElement = $("generatedInviteCode");
+      const oldCopyButton = $("copyInviteCodeButton");
+      const oldDetails = $("orderInviteDetails");
+
+      if (oldCopyButton) oldCopyButton.remove();
+      if (oldDetails) oldDetails.remove();
+
+      if (data.invite_code) {
+        if (!codeElement) {
+          throw new Error("Не найден элемент для отображения приглашения.");
+        }
+
+        codeElement.textContent = data.invite_code;
+        codeElement.style.display = "";
+
+        const copyButton = document.createElement("button");
+        copyButton.id = "copyInviteCodeButton";
+        copyButton.type = "button";
+        copyButton.className = "primary";
+        copyButton.textContent = "Скопировать код";
+
+        copyButton.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(data.invite_code);
+            toast("Код приглашения скопирован.");
+          } catch {
+            toast("Не удалось скопировать. Выделите код вручную.");
+          }
+        });
+
+        panel.appendChild(copyButton);
+      } else if (codeElement) {
+        codeElement.textContent = "";
+        codeElement.style.display = "none";
+      }
+
+      const details = document.createElement("p");
+      details.id = "orderInviteDetails";
+
+      details.textContent = data.message || "Оплата подтверждена.";
+
+      if (data.invite_code) {
+        details.textContent +=
+          " Приглашение действительно " +
+          String(data.invite_expires_in_hours || 24) + " ч.";
+      }
+
+      if (data.license) {
+        details.textContent +=
+          " Срок лицензии: " +
+          formatOrderDate(data.license.starts_at) +
+          " — " +
+          formatOrderDate(data.license.expires_at) +
+          ".";
+      }
+
+      if (data.commission) {
+        details.textContent +=
+          " Комиссия партнёра: " +
+          Number(data.commission.amount).toLocaleString("ru-RU") +
+          " RP (" + data.commission.rate + "%).";
+      }
+
+      panel.appendChild(details);
+      panel.style.display = "block";
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      toast(data.invite_code
+        ? "Оплата подтверждена. Приглашение создано."
+        : "Оплата подтверждена. Лицензия продлена."
+      );
+
+      await loadOrders();
+
+    } catch (error) {
+      toast("Ошибка подтверждения: " + error.message);
+    }
+  }
+  async function rejectOrder(orderId) {
+    const approved = window.confirm(
+      "Отклонить оплату и отменить заказ №" + orderId + "?"
+    );
+
+    if (!approved) return;
+
+    try {
+      const data = await api(
+        "/api/admin/orders/" + encodeURIComponent(orderId) + "/reject",
+        { method: "POST", body: JSON.stringify({}) }
+      );
+
+      toast(data.message || "Оплата отклонена. Заказ отменён.");
+      await loadOrders();
+    } catch (error) {
+      toast("Ошибка отклонения оплаты: " + error.message);
+    }
+  }
+
+  function formatOrderDate(value) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime())
+      ? "—"
+      : date.toLocaleString("ru-RU");
+  }
+
+  async function loadOrders() {
+    const list = $("ordersList");
+    list.textContent = "Загрузка заказов...";
+
+    try {
+      const data = await api("/api/admin/orders");
+      const orders = Array.isArray(data.orders) ? data.orders : [];
+
+      list.replaceChildren();
+
+      if (!orders.length) {
+        list.textContent = "Заказов пока нет.";
+        return;
+      }
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const tbody = document.createElement("tbody");
+      const header = document.createElement("tr");
+
+      [
+        "№",
+        "RP-ник",
+        "Тариф",
+        "Сумма",
+        "Промокод",
+        "Статус",
+        "Создан",
+        "Действие"
+      ].forEach(label => {
+        const th = document.createElement("th");
+        th.textContent = label;
+        header.appendChild(th);
+      });
+
+      thead.appendChild(header);
+      table.append(thead, tbody);
+
+      const planNames = {
+        "7_days": "7 дней",
+        "30_days": "30 дней",
+        "90_days": "90 дней"
+      };
+
+      orders.forEach(order => {
+        const tr = document.createElement("tr");
+
+        const statusNames = {
+          pending: "Ожидает оплаты",
+          confirmed: "Оплачен",
+          cancelled: "Отменён"
+        };
+
+        const values = [
+          String(order.id),
+          order.buyer_rp_nickname || "—",
+          planNames[order.plan_code] || order.plan_code || "—",
+          Number(order.amount || 0).toLocaleString("ru-RU") +
+            " " + (order.currency || "RP"),
+          order.promo_code || "—",
+          statusNames[order.status] || order.status || "—",
+          formatOrderDate(order.created_at)
+        ];
+
+        values.forEach(value => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        });
+
+        const actionCell = document.createElement("td");
+
+        if (order.status === "pending") {
+          const confirmButton = document.createElement("button");
+          confirmButton.type = "button";
+          confirmButton.className = "primary";
+          confirmButton.textContent = "Подтвердить оплату";
+
+          confirmButton.addEventListener("click", () => {
+            confirmOrder(order.id);
+          });
+
+          actionCell.appendChild(confirmButton);
+
+          if (isOwner) {
+            const rejectButton = document.createElement("button");
+            rejectButton.type = "button";
+            rejectButton.className = "secondary";
+            rejectButton.textContent = "Отклонить оплату";
+            rejectButton.style.marginLeft = "6px";
+
+            rejectButton.addEventListener("click", () => {
+              rejectOrder(order.id);
+            });
+
+            actionCell.appendChild(rejectButton);
+          }
+        } else {
+          actionCell.textContent = "—";
+        }
+
+        tr.appendChild(actionCell);
+        tbody.appendChild(tr);
+      });
+
+      list.appendChild(table);
+
+    } catch (error) {
+      list.textContent = "Ошибка загрузки заказов: " + error.message;
+    }
+  }
+  /* КАРТОЧКА ПОКУПАТЕЛЯ */
+
+  function formatCustomerDate(value) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime())
+      ? "—"
+      : date.toLocaleString("ru-RU");
+  }
+
+  function appendCustomerDetailSection(container, title, columns, rows) {
+    const section = document.createElement("div");
+    section.style.marginTop = "22px";
+
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    section.appendChild(heading);
+
+    if (!rows.length) {
+      const empty = document.createElement("p");
+      empty.textContent = "Нет данных.";
+      section.appendChild(empty);
+      container.appendChild(section);
+      return;
+    }
+
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const header = document.createElement("tr");
+
+    columns.forEach(column => {
+      const th = document.createElement("th");
+      th.textContent = column.label;
+      header.appendChild(th);
+    });
+
+    thead.appendChild(header);
+
+    const tbody = document.createElement("tbody");
+
+    rows.forEach(row => {
+      const tr = document.createElement("tr");
+
+      columns.forEach(column => {
+        const td = document.createElement("td");
+        const value = column.format
+          ? column.format(row[column.key])
+          : row[column.key];
+
+        td.textContent = value === null || value === undefined
+          ? "—"
+          : String(value);
+
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    table.append(thead, tbody);
+    section.appendChild(table);
+    container.appendChild(section);
+  }
+
+  async function openCustomerDetails(id) {
+    if (!id) return;
+
+    const panel = $("customerDetails");
+    const content = $("customerDetailsContent");
+
+    panel.style.display = "block";
+    content.textContent = "Загрузка информации...";
+
+    $("customerDetailsTitle").textContent = "Карточка покупателя";
+
+    try {
+      const data = await api(
+        "/api/admin/customers/" + encodeURIComponent(id)
+      );
+
+      if (!data.success || !data.customer) {
+        throw new Error("Не удалось получить данные покупателя.");
+      }
+
+      const customer = data.customer;
+
+      $("customerDetailsTitle").textContent =
+        "Покупатель: " + (customer.username || "—");
+
+      content.replaceChildren();
+
+      const statusButton = document.createElement("button");
+      statusButton.id = "customerStatusActionButton";
+      statusButton.type = "button";
+      statusButton.className = "secondary";
+      statusButton.textContent =
+        customer.status === "blocked"
+          ? "Разблокировать покупателя"
+          : "Заблокировать покупателя";
+
+      statusButton.style.marginBottom = "16px";
+
+      statusButton.addEventListener("click", async () => {
+        const nextStatus =
+          customer.status === "blocked" ? "active" : "blocked";
+
+        const actionText =
+          nextStatus === "blocked" ? "заблокировать" : "разблокировать";
+
+        if (!window.confirm(
+          "Вы уверены, что хотите " + actionText +
+          " покупателя " + (customer.username || "") + "?"
+        )) {
+          return;
+        }
+
+        statusButton.disabled = true;
+
+        try {
+          await api(
+            "/api/admin/customers/" +
+            encodeURIComponent(id) + "/status",
+            {
+              method: "POST",
+              body: JSON.stringify({ status: nextStatus })
+            }
+          );
+
+          toast(
+            nextStatus === "blocked"
+              ? "Покупатель заблокирован."
+              : "Покупатель разблокирован."
+          );
+
+          await openCustomerDetails(id);
+          await loadCustomers();
+        } catch (error) {
+          toast("Ошибка изменения статуса: " + error.message);
+          statusButton.disabled = false;
+        }
+      });
+
+      content.appendChild(statusButton);
+      appendCustomerDetailSection(
+        content,
+        "Профиль",
+        [
+          { key: "id", label: "ID" },
+          { key: "username", label: "Логин" },
+          { key: "rp_nickname", label: "RP-ник" },
+          {
+            key: "status",
+            label: "Статус",
+            format: value => value === "blocked"
+              ? "Заблокирован"
+              : "Активен"
+          },
+          {
+            key: "created_at",
+            label: "Дата регистрации",
+            format: formatCustomerDate
+          }
+        ],
+        [customer]
+      );
+
+      appendCustomerDetailSection(
+        content,
+        "Лицензии",
+        [
+          { key: "plan_code", label: "Тариф" },
+          { key: "status", label: "Статус" },
+          {
+            key: "starts_at",
+            label: "Начало",
+            format: formatCustomerDate
+          },
+          {
+            key: "expires_at",
+            label: "Окончание",
+            format: formatCustomerDate
+          }
+        ],
+        data.licenses || []
+      );
+
+      appendCustomerDetailSection(
+        content,
+        "История заказов",
+        [
+          { key: "plan_code", label: "Тариф" },
+          { key: "duration_days", label: "Дней" },
+          {
+            key: "amount",
+            label: "Сумма"
+          },
+          { key: "currency", label: "Валюта" },
+          { key: "status", label: "Статус" },
+          {
+            key: "created_at",
+            label: "Создан",
+            format: formatCustomerDate
+          }
+        ],
+        data.orders || []
+      );
+
+      appendCustomerDetailSection(
+        content,
+        "Устройства",
+        [
+          { key: "device_name", label: "Устройство" },
+          {
+            key: "created_at",
+            label: "Добавлено",
+            format: formatCustomerDate
+          },
+          {
+            key: "last_seen_at",
+            label: "Последняя активность",
+            format: formatCustomerDate
+          },
+          {
+            key: "revoked_at",
+            label: "Отключено",
+            format: formatCustomerDate
+          }
+        ],
+        data.devices || []
+      );
+
+      panel.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+
+    } catch (error) {
+      content.textContent =
+        "Ошибка загрузки карточки: " + error.message;
+    }
+  }
+
+  function closeCustomerDetails() {
+    $("customerDetails").style.display = "none";
+  }
+  /* SUPPORT ADMIN LOGIC */
+
+  let activeSupportTicketId = null;
+  let supportRefreshTimer = null;
+  let supportTicketsCache = [];
+  let supportTicketsLoading = false;
+  let supportThreadLoading = false;
+
+  const supportStatusNames = {
+    open: "Открыто",
+    waiting_customer: "Ожидает покупателя",
+    closed: "Закрыто"
+  };
+
+  function formatSupportDate(value) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+
+    return date.toLocaleString("ru-RU");
+  }
+
+  async function loadSupportTickets(options = {}) {
+    if (supportTicketsLoading) return;
+    supportTicketsLoading = true;
+
+    const list = $("supportTicketsList");
+
+    if (!options.silent) {
+      list.textContent = "Загрузка обращений...";
+    }
+
+    try {
+      const status = $("supportStatusFilter").value;
+      const query = status
+        ? "?status=" + encodeURIComponent(status)
+        : "";
+
+      const data = await api("/api/admin/support/tickets" + query);
+      supportTicketsCache = Array.isArray(data.tickets)
+        ? data.tickets
+        : [];
+
+      list.replaceChildren();
+
+      if (!supportTicketsCache.length) {
+        list.textContent = "Обращений пока нет.";
+        return;
+      }
+
+      supportTicketsCache.forEach(ticket => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "support-ticket-item";
+
+        if (String(ticket.id) === String(activeSupportTicketId)) {
+          button.classList.add("active");
+        }
+
+        const title = document.createElement("strong");
+        title.textContent =
+          "#" + ticket.id + " · " + (ticket.subject || "Без темы");
+
+        const buyer = document.createElement("span");
+        buyer.textContent =
+          (ticket.rp_nickname || ticket.username || "Покупатель") +
+          " · " + (ticket.username || "—");
+
+        const statusLine = document.createElement("span");
+        statusLine.textContent =
+          (supportStatusNames[ticket.status] || ticket.status) +
+          " · " + formatSupportDate(ticket.last_message_at);
+
+        const preview = document.createElement("span");
+        preview.textContent = ticket.last_message || "Нет сообщений";
+
+        button.append(title, buyer, statusLine, preview);
+
+        if (Number(ticket.unread_count) > 0) {
+          const unread = document.createElement("span");
+          unread.textContent =
+            "Непрочитанных сообщений: " + ticket.unread_count;
+          button.appendChild(unread);
+        }
+
+        button.addEventListener("click", () => {
+          loadSupportThread(ticket.id);
+        });
+
+        list.appendChild(button);
+      });
+    } catch (error) {
+      if (!options.silent) {
+        list.textContent = "Ошибка загрузки: " + error.message;
+      }
+    } finally {
+      supportTicketsLoading = false;
+    }
+  }
+
+  async function loadSupportThread(ticketId, options = {}) {
+    if (supportThreadLoading) return;
+    supportThreadLoading = true;
+
+    try {
+      const data = await api(
+        "/api/admin/support/tickets/" +
+        encodeURIComponent(ticketId) + "/messages"
+      );
+
+      activeSupportTicketId = String(ticketId);
+
+      const ticket = data.ticket;
+      const header = $("supportConversationHeader");
+      const messagesBox = $("supportMessages");
+
+      header.replaceChildren();
+
+      const heading = document.createElement("h2");
+      heading.textContent =
+        "Обращение #" + ticket.id + " · " + ticket.subject;
+
+      const details = document.createElement("p");
+      details.className = "subtitle";
+      details.textContent =
+        (ticket.rp_nickname || "Покупатель") +
+        " · Аккаунт: " + (ticket.username || "—");
+
+      header.append(heading, details);
+
+      messagesBox.replaceChildren();
+
+      const messages = Array.isArray(data.messages)
+        ? data.messages
+        : [];
+
+      if (!messages.length) {
+        messagesBox.textContent = "Сообщений пока нет.";
+      }
+
+      messages.forEach(message => {
+        const item = document.createElement("div");
+        item.className =
+          "support-message " +
+          (message.sender_type === "admin" ? "admin" : "customer");
+
+        const meta = document.createElement("div");
+        meta.className = "support-message-meta";
+        meta.textContent =
+          (message.sender_label || "Участник") +
+          " · " + formatSupportDate(message.created_at);
+
+        const body = document.createElement("div");
+        body.textContent = message.message || "";
+
+        item.append(meta, body);
+        messagesBox.appendChild(item);
+      });
+
+      $("supportReplyInput").disabled = false;
+      $("supportReplyButton").disabled = false;
+      $("supportStatusSelect").disabled = false;
+      $("supportStatusSelect").value = ticket.status;
+
+      if (!options.silent) {
+        messagesBox.scrollTop = messagesBox.scrollHeight;
+      }
+
+      await loadSupportTickets({ silent: true });
+    } catch (error) {
+      if (!options.silent) {
+        $("supportMessages").textContent =
+          "Ошибка загрузки переписки: " + error.message;
+      }
+    } finally {
+      supportThreadLoading = false;
+    }
+  }
+
+  async function sendSupportReply(event) {
+    event.preventDefault();
+
+    if (!activeSupportTicketId) return;
+
+    const input = $("supportReplyInput");
+    const message = input.value.trim();
+
+    if (!message) {
+      toast("Введите текст ответа.");
+      return;
+    }
+
+    const button = $("supportReplyButton");
+    button.disabled = true;
+
+    try {
+      await api(
+        "/api/admin/support/tickets/" +
+        encodeURIComponent(activeSupportTicketId) + "/messages",
+        {
+          method: "POST",
+          body: JSON.stringify({ message })
+        }
+      );
+
+      input.value = "";
+      toast("Ответ отправлен.");
+
+      await loadSupportThread(activeSupportTicketId);
+    } catch (error) {
+      toast("Не удалось отправить ответ: " + error.message);
+    } finally {
+      button.disabled = !activeSupportTicketId;
+    }
+  }
+
+  async function changeSupportStatus() {
+    if (!activeSupportTicketId) return;
+
+    const status = $("supportStatusSelect").value;
+
+    try {
+      await api(
+        "/api/admin/support/tickets/" +
+        encodeURIComponent(activeSupportTicketId) + "/status",
+        {
+          method: "POST",
+          body: JSON.stringify({ status })
+        }
+      );
+
+      toast("Статус обращения изменён.");
+      await loadSupportThread(activeSupportTicketId);
+    } catch (error) {
+      toast("Не удалось изменить статус: " + error.message);
+    }
+  }
+
+  function startSupportRefresh() {
+    if (supportRefreshTimer) {
+      clearInterval(supportRefreshTimer);
+    }
+
+    supportRefreshTimer = setInterval(() => {
+      if ($("support")?.classList.contains("active")) {
+        loadSupportTickets({ silent: true });
+
+        if (activeSupportTicketId) {
+          loadSupportThread(activeSupportTicketId, { silent: true });
+        }
+      }
+    }, 10000);
+  }
+
+  $("refreshSupportButton").addEventListener("click", () => {
+    loadSupportTickets();
+  });
+
+  $("supportStatusFilter").addEventListener("change", () => {
+    loadSupportTickets();
+  });
+
+  $("supportReplyForm").addEventListener("submit", sendSupportReply);
+
+  $("supportStatusSelect").addEventListener("change", changeSupportStatus);
   /* СЕРВЕР */
 
   async function checkHealth(){
@@ -3476,6 +4611,56 @@
 
     }catch(error){
       $("systemStatus").textContent="Сервер недоступен";
+    }
+  }
+
+  async function loadPanelProfile() {
+    try {
+      const data = await api("/api/panel/profile");
+      const profile = data.profile;
+      document.body.dataset.theme = profile.theme || "quantum-purple";
+      const link = $("panelProfile");
+      $("panelDisplayName").textContent = profile.display_name || profile.username;
+      if (profile.avatar_data) $("panelAvatar").src = profile.avatar_data;
+      else $("panelAvatar").src = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#514477"/><circle cx="20" cy="14" r="7" fill="#d8ccff"/><path d="M7 38c1-9 6-14 13-14s12 5 13 14" fill="#d8ccff"/></svg>');
+      link.hidden = false;
+    } catch (error) { console.warn("Panel profile unavailable:", error.message); }
+  }
+
+  /* ПРАВА ДОСТУПА */
+
+  let isOwner = false;
+
+  async function loadPermissions() {
+    try {
+      const data = await api("/api/panel/permissions");
+      isOwner = data.isOwner === true;
+      const isAdmin = data.isAdmin === true;
+      if (!isAdmin) {
+        ["customers", "orders", "support"].forEach((tab) => {
+          const button = document.querySelector(`nav button[data-tab="${tab}"]`);
+          const section = $(tab);
+          if (button) button.style.display = "none";
+          if (section) section.style.display = "none";
+        });
+      }
+    } catch (error) {
+      isOwner = false;
+    }
+
+    const ordersButton = document.querySelector('nav button[data-tab="orders"]');
+    const ordersSection = $("orders");
+
+    if (!isOwner) {
+      if (ordersButton) ordersButton.style.display = "none";
+      if (ordersSection) ordersSection.style.display = "none";
+    } else if (!document.getElementById("ownerDashboardShortcut")) {
+      const shortcut = document.createElement("a");
+      shortcut.id = "ownerDashboardShortcut";
+      shortcut.href = "/owner";
+      shortcut.textContent = "Панель владельца";
+      shortcut.style.cssText = "display:inline-block;margin:8px 0;padding:9px 13px;border-radius:9px;background:#8067e8;color:white;text-decoration:none;font-weight:bold";
+      document.querySelector("header")?.appendChild(shortcut);
     }
   }
 
@@ -3503,16 +4688,70 @@
       if(tabId==="backups"){
         loadBackups();
       }
+      if(tabId==="customers"){
+        loadCustomers();
+      }
+      if(tabId==="orders"){
+        loadOrders();
+      }
+      if(tabId==="support"){
+        loadSupportTickets();
+        startSupportRefresh();
+      } else if(supportRefreshTimer){
+        clearInterval(supportRefreshTimer);
+        supportRefreshTimer = null;
+      }
     });
   });
 
   $("lawSearch").addEventListener("input",renderLaws);
+  $("customerSearch").addEventListener("input",loadCustomers);
+  $("orderCreateForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const form = $("orderCreateForm");
+    const button = form.querySelector('button[type="submit"]');
+    const message = $("orderCreateMessage");
+
+    const buyerNickname = $("orderBuyerNickname").value.trim();
+    const planCode = $("orderPlan").value;
+    const promoCode = $("orderPromoCode").value.trim();
+
+    button.disabled = true;
+    message.textContent = "Создание заказа...";
+
+    try {
+      const data = await api("/api/admin/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          buyer_rp_nickname: buyerNickname,
+          plan_code: planCode,
+          promo_code: promoCode
+        })
+      });
+
+      message.textContent =
+        "Заказ №" + data.order.id + " успешно создан. Ожидает подтверждения оплаты.";
+
+      form.reset();
+      await loadOrders();
+
+    } catch (error) {
+      message.textContent = "Ошибка создания заказа: " + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("refreshOrdersButton").addEventListener("click", loadOrders);
+
   $("lawTypeFilter").addEventListener("change",renderLaws);
   $("glossarySearch").addEventListener("input",renderGlossary);
 
   /* ЗАПУСК */
 
   async function init(){
+    await Promise.allSettled([loadPermissions(), loadPanelProfile()]);
     renderPoliceQuestions();
     renderGlossary();
 
@@ -3521,6 +4760,10 @@
       loadLaws(),
       loadCases()
     ]);
+    const loader = $("appLoader");
+    if (loader) {
+      loader.classList.add("hidden");
+    }
   }
 
   init();

@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPM Attorney Assistant — Личный кабинет</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--page-bg,#0b0d14);color:var(--page-text,#eef0fa);font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;transition:background .2s,color .2s}
+main{width:100%;max-width:760px;background:var(--panel-bg,#151925);border:1px solid #292f40;border-radius:18px;padding:30px;box-shadow:0 20px 60px #0005}
+h1{margin:0 0 8px;font-size:25px}
+h2{font-size:19px;margin:30px 0 14px}
+.subtitle{color:#929bb2;margin-bottom:28px}
+.status{display:inline-block;padding:7px 12px;border-radius:20px;background:#173d30;color:#75e0ad;font-size:13px;margin-bottom:22px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.item{background:#1d2332;border:1px solid #30384c;border-radius:12px;padding:16px;min-width:0}
+.item small{display:block;color:#929bb2;margin-bottom:9px}
+.item strong{font-size:16px;overflow-wrap:anywhere}
+.actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+button{border:0;border-radius:10px;padding:12px 18px;font-weight:bold;cursor:pointer;background:#8067e8;color:white}
+button.secondary{background:#30384c;color:#eef0fa}
+button.danger{background:#71333d;color:#ffdce0;padding:9px 12px}
+button:disabled{opacity:.5;cursor:wait}
+.message{color:#ff9b9b;margin-top:18px;white-space:pre-wrap}
+.device{background:#1d2332;border:1px solid #30384c;border-radius:12px;padding:15px;margin-bottom:10px}
+.device-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.device-name{font-weight:bold;overflow-wrap:anywhere}
+.device-info{font-size:13px;color:#929bb2;margin-top:9px;line-height:1.6}
+.current{font-size:12px;color:#75e0ad}
+.device-actions{margin-top:12px}
+.empty{color:#929bb2;font-size:14px}
+.support-ticket{background:#1d2332;border:1px solid #30384c;border-radius:12px;padding:15px;margin-bottom:10px}
+.support-ticket-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.support-ticket-title{font-weight:bold;overflow-wrap:anywhere}
+.support-ticket-meta{font-size:13px;color:#929bb2;margin-top:8px}
+.support-ticket-status{font-size:12px;color:#75e0ad}
+.support-form{display:grid;gap:12px;margin-bottom:18px}
+.support-form input,.support-form textarea{width:100%;background:#1d2332;border:1px solid #39435a;border-radius:10px;padding:12px;color:#eef0fa;font:inherit}
+.support-form textarea{min-height:100px;resize:vertical}
+.support-form select{width:100%;background:#1d2332;border:1px solid #39435a;border-radius:10px;padding:12px;color:#eef0fa;font:inherit}
+.support-conversation{display:grid;gap:10px;margin:18px 0}
+.support-chat-message{padding:13px;border-radius:12px;background:#1d2332;border:1px solid #30384c;white-space:pre-wrap;overflow-wrap:anywhere}
+.support-chat-message.admin{border-color:#6753b8;background:#25213a}
+.support-chat-sender{font-size:12px;color:#a99be9;margin-bottom:7px}
+.support-chat-date{font-size:11px;color:#929bb2;margin-top:8px}
+.support-ticket-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.support-section{border-top:1px solid #30384c;margin-top:30px;padding-top:4px}
+.case-card{background:#1d2332;border:1px solid #30384c;border-radius:12px;padding:15px;margin-bottom:10px}
+.case-card-title{font-weight:bold;overflow-wrap:anywhere}
+.case-card-meta{font-size:12px;color:#929bb2;margin-top:7px}
+.case-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.case-actions button{padding:9px 12px}
+@media(max-width:480px){.grid{grid-template-columns:1fr}main{padding:22px}}
+.profile-head{display:flex;align-items:center;gap:14px;margin:14px 0 22px}.avatar{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#292f40;border:2px solid #8067e8}.profile-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.profile-form input,.profile-form select{width:100%;background:#1d2332;border:1px solid #39435a;border-radius:10px;padding:12px;color:#eef0fa;font:inherit}.profile-form label{font-size:12px;color:#929bb2;display:grid;gap:7px}.profile-form .wide{grid-column:1/-1}.theme-row{display:flex;gap:8px;flex-wrap:wrap}.theme-row button{padding:9px 12px}.theme-row button.selected{outline:2px solid #fff}.assistant-link{display:inline-flex;text-decoration:none;background:#8067e8;color:white;padding:13px 18px;border-radius:10px;font-weight:bold;margin:8px 0 18px}.theme-light{--page-bg:#edf0f7;--page-text:#202437;--panel-bg:#fff}.theme-graphite{--page-bg:#070809;--page-text:#f0f0f0;--panel-bg:#17191d}.theme-blue{--page-bg:#071321;--page-text:#e8f4ff;--panel-bg:#102238}
+</style>
+</head>
+<body>
+<main>
+<h1>Личный кабинет</h1>
+<div class="subtitle">RPM Attorney Assistant</div>
+<div id="status" class="status">Проверка лицензии...</div>
+<div class="profile-head"><img id="profileAvatar" class="avatar" alt="Аватар" src=""><div><strong id="profileDisplayName">Загрузка профиля…</strong><div class="empty" id="profileUsername"></div></div></div>
+<a class="assistant-link" id="assistantLink" href="/">Открыть панель помощника →</a>
+
+<section class="support-section"><h2>Мой профиль и оформление</h2><form id="profileForm" class="profile-form">
+<label>Логин<input id="profileLogin" name="username" minlength="3" maxlength="32" required></label>
+<label>Отображаемое имя<input id="profileName" name="display_name" maxlength="64" required></label>
+<label>RP-имя<input id="profileRpName" name="rp_nickname" maxlength="64" required></label>
+<label>Аватарка (PNG/JPG/WebP, до 500 КБ)<input id="profileAvatarFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
+<label class="wide">Тема интерфейса<select id="profileTheme" name="theme"><option value="quantum-purple">Quantum Purple</option><option value="minimal-light">Minimal Light</option><option value="graphite">Graphite</option><option value="cyber-blue">Cyber Blue</option></select></label>
+<div class="wide"><button type="submit">Сохранить профиль</button> <button type="button" class="secondary" id="removeAvatar">Убрать аватар</button></div>
+</form><div id="profileMessage" class="message"></div>
+<h2>Изменить пароль</h2><form id="passwordForm" class="profile-form"><label>Текущий пароль<input id="currentPassword" type="password" required></label><label>Новый пароль (от 12 символов)<input id="newPassword" type="password" minlength="12" required></label><div class="wide"><button type="submit">Изменить пароль</button></div></form><div id="passwordMessage" class="message"></div></section>
+
+<div class="grid">
+<div class="item"><small>Имя пользователя</small><strong id="username">—</strong></div>
+<div class="item"><small>RP-никнейм</small><strong id="nickname">—</strong></div>
+<div class="item"><small>Тариф</small><strong id="plan">—</strong></div>
+<div class="item"><small>Начало лицензии</small><strong id="starts">—</strong></div>
+<div class="item"><small>Окончание лицензии</small><strong id="expires">—</strong></div>
+<div class="item"><small>Статус</small><strong id="licenseStatus">—</strong></div>
+</div>
+
+<section id="renewalSection" class="support-section">
+<h2>Продление лицензии</h2>
+<p class="empty">Выбери тариф. Заказ появится после создания и будет ожидать подтверждения оплаты администрацией.</p>
+<form id="renewalForm" class="support-form">
+<select id="renewalPlan" required>
+<option value="7_days">7 дней — 300 000 RP</option>
+<option value="30_days" selected>30 дней — 2 000 000 RP</option>
+<option value="90_days">90 дней — 5 000 000 RP</option>
+</select>
+<button id="renewalButton" type="submit">Создать заказ на продление</button>
+</form>
+<div id="renewalMessage" class="message"></div>
+</section>
+
+<section id="casesSection" class="support-section">
+<h2>Мои дела</h2>
+<p class="empty">Дела и резервные копии доступны только из твоего аккаунта. Перед изменением или удалением дела сервер сохраняет резервную копию.</p>
+<form id="customerCaseForm" class="support-form">
+<input id="customerCaseTitle" type="text" maxlength="200" placeholder="Название дела" required>
+<textarea id="customerCaseDescription" maxlength="10000" placeholder="Описание ситуации..." required></textarea>
+<textarea id="customerCaseEvidence" maxlength="10000" placeholder="Доказательства и дополнительные сведения..."></textarea>
+<div class="case-actions">
+<button id="customerCaseSaveButton" type="submit">Сохранить дело</button>
+<button id="customerCaseNewButton" class="secondary" type="button">Новое дело</button>
+</div>
+</form>
+<div id="customerCaseMessage" class="message"></div>
+
+<h2>Сохранённые дела</h2>
+<div id="customerCases"><div class="empty">Загрузка дел...</div></div>
+
+<h2>Резервные копии</h2>
+<div id="customerCaseBackups"><div class="empty">Загрузка резервных копий...</div></div>
+</section>
+
+<h2>Мои устройства</h2>
+<div id="devices"><div class="empty">Загрузка устройств...</div></div>
+
+<section id="supportSection" class="support-section">
+<h2>Поддержка</h2>
+<p class="empty">Создай обращение, если нужна помощь. Ответы администрации появятся здесь.</p>
+<p>Discord администратора поддержки: <strong>Bombameneri</strong></p>
+
+<form id="supportCreateForm" class="support-form">
+<input id="supportSubject" type="text" maxlength="120" placeholder="Тема обращения" required>
+<textarea id="supportFirstMessage" maxlength="3000" placeholder="Опиши свой вопрос..." required></textarea>
+<button id="supportCreateButton" type="submit">Создать обращение</button>
+</form>
+
+<div id="supportMessage" class="message"></div>
+
+<h2>Мои обращения</h2>
+<div id="supportTickets">
+<div class="empty">Загрузка обращений...</div>
+</div>
+
+<div id="supportConversationPanel" hidden>
+<h2 id="supportConversationTitle">Переписка</h2>
+<p id="supportClosedNotice" class="empty" hidden>Обращение закрыто. Отправлять новые сообщения нельзя.</p>
+<button id="supportDeleteButton" type="button" class="secondary" hidden>Удалить обращение</button>
+<div id="supportConversation" class="support-conversation"></div>
+<form id="supportReplyForm" class="support-form">
+<textarea id="supportReplyText" maxlength="3000" placeholder="Напиши ответ..." required></textarea>
+<button id="supportReplyButton" type="submit">Отправить ответ</button>
+</form>
+</div>
+</section>
+<div class="actions">
+<button onclick="location.href='/app/'">На главную</button>
+<button class="secondary" id="logout">Выйти</button>
+</div>
+<div id="message" class="message"></div>
+</main>
+
+<script>
+const planNames = {
+  "7_days":"7 дней",
+  "30_days":"30 дней",
+  "90_days":"90 дней"
+};
+
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleString("ru-RU");
+}
+
+async function loadAccount() {
+  const status = document.getElementById("status");
+  const message = document.getElementById("message");
+
+  try {
+    const response = await fetch("/api/customer/me", {
+      credentials: "same-origin"
+    });
+
+    const data = await response.json();
+
+    if (response.status === 401) {
+      location.replace("/app/");
+      return;
+    }
+
+    if (!response.ok || !data.success) {
+      status.textContent = "Лицензия недействительна";
+      status.style.background = "#48252b";
+      status.style.color = "#ff9b9b";
+      message.textContent = data.error || "Не удалось загрузить аккаунт.";
+      return;
+    }
+
+    const user = data.user;
+
+    const isAdmin = user.role === "admin";
+    const licenseActive = user.has_license === true;
+
+    document.getElementById("username").textContent = user.username;
+    document.getElementById("nickname").textContent = user.rp_nickname;
+
+    document.getElementById("plan").textContent = isAdmin
+      ? "Бессрочный доступ (администратор)"
+      : (planNames[user.plan_code] || user.plan_code || "—");
+
+    document.getElementById("starts").textContent = isAdmin
+      ? "—"
+      : formatDate(user.starts_at);
+
+    document.getElementById("expires").textContent = isAdmin
+      ? "Бессрочно"
+      : formatDate(user.expires_at);
+
+    document.getElementById("licenseStatus").textContent = isAdmin
+      ? "Бессрочная (администратор)"
+      : (licenseActive ? "Активна" : "Истекла / отсутствует");
+
+    status.textContent = isAdmin
+      ? "Администратор: доступ без срока действия"
+      : (licenseActive ? "Лицензия активна" : "Лицензия не активна");
+
+    if (!licenseActive && !isAdmin) {
+      status.style.background = "#48252b";
+      status.style.color = "#ff9b9b";
+    }
+
+    document.getElementById("renewalSection").hidden = isAdmin;
+    document.getElementById("supportSection").hidden =
+      !(licenseActive || isAdmin);
+    document.getElementById("assistantLink").hidden = !(licenseActive || isAdmin);
+  } catch (error) {
+    status.textContent = "Ошибка соединения";
+    message.textContent = "Не удалось связаться с сервером.";
+  }
+}
+
+async function loadDevices() {
+  const container = document.getElementById("devices");
+
+  try {
+    const response = await fetch("/api/customer/devices", {
+      credentials: "same-origin"
+    });
+
+    const data = await response.json();
+
+    if (response.status === 401) {
+      location.replace("/app/");
+      return;
+    }
+
+    if (!response.ok || !data.success) {
+      container.textContent = "Не удалось загрузить устройства.";
+      return;
+    }
+
+    container.replaceChildren();
+
+    if (!data.devices || data.devices.length === 0) {
+      container.textContent = "Зарегистрированных устройств нет.";
+      return;
+    }
+
+    for (const device of data.devices) {
+      const card = document.createElement("div");
+      card.className = "device";
+
+      const top = document.createElement("div");
+      top.className = "device-top";
+
+      const name = document.createElement("div");
+      name.className = "device-name";
+      name.textContent = device.device_name || "Устройство";
+
+      top.appendChild(name);
+
+      if (device.current_device) {
+        const current = document.createElement("span");
+        current.className = "current";
+        current.textContent = "Текущее устройство";
+        top.appendChild(current);
+      }
+
+      const info = document.createElement("div");
+      info.className = "device-info";
+      info.textContent =
+        "Добавлено: " + formatDate(device.created_at) +
+        "\nПоследняя активность: " + formatDate(device.last_seen_at);
+
+      card.appendChild(top);
+      card.appendChild(info);
+
+      const actions = document.createElement("div");
+      actions.className = "device-actions";
+
+      const revokeButton = document.createElement("button");
+      revokeButton.className = "danger";
+      revokeButton.textContent = "Отключить";
+
+      revokeButton.addEventListener("click", async () => {
+        if (!confirm("Отключить это устройство?")) return;
+
+        revokeButton.disabled = true;
+
+        try {
+          const deleteResponse = await fetch(
+            "/api/customer/devices/" + encodeURIComponent(device.id),
+            {
+              method: "DELETE",
+              credentials: "same-origin"
+            }
+          );
+
+          const result = await deleteResponse.json();
+
+          if (!deleteResponse.ok || !result.success) {
+            document.getElementById("message").textContent =
+              result.error || "Не удалось отключить устройство.";
+            revokeButton.disabled = false;
+            return;
+          }
+
+          document.getElementById("message").textContent =
+            "Устройство отключено.";
+          await loadDevices();
+        } catch {
+          document.getElementById("message").textContent =
+            "Ошибка соединения при отключении устройства.";
+          revokeButton.disabled = false;
+        }
+      });
+
+      actions.appendChild(revokeButton);
+      card.appendChild(actions);
+      container.appendChild(card);
+    }
+  } catch {
+    container.textContent = "Ошибка соединения при загрузке устройств.";
+  }
+}
+
+/* CUSTOMER SUPPORT LOGIC */
+
+let activeSupportTicketId = null;
+
+const supportStatusNames = {
+  open: "Открыто",
+  waiting_customer: "Ожидает ответа покупателя",
+  closed: "Закрыто"
+};
+
+function supportDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleString("ru-RU");
+}
+
+function supportShowMessage(text, isError = false) {
+  const element = document.getElementById("supportMessage");
+  element.textContent = text;
+  element.style.color = isError ? "#ff9b9b" : "#75e0ad";
+}
+
+async function supportRequest(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (response.status === 401) {
+    location.replace("/app/");
+    throw new Error("Необходима повторная авторизация.");
+  }
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Ошибка сервера: " + response.status);
+  }
+
+  return data;
+}
+
+let activeCustomerCaseId = null;
+
+function showCustomerCaseMessage(text, isError = false) {
+  const element = document.getElementById("customerCaseMessage");
+  element.textContent = text;
+  element.style.color = isError ? "#ff9b9b" : "#75e0ad";
+}
+
+function resetCustomerCaseForm() {
+  activeCustomerCaseId = null;
+  document.getElementById("customerCaseForm").reset();
+  document.getElementById("customerCaseSaveButton").textContent = "Сохранить дело";
+  showCustomerCaseMessage("Создание нового дела.");
+}
+
+async function loadCustomerCases() {
+  const container = document.getElementById("customerCases");
+
+  try {
+    const data = await supportRequest("/api/customer/cases");
+    container.replaceChildren();
+
+    if (!data.cases || data.cases.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Сохранённых дел пока нет.";
+      container.appendChild(empty);
+      return;
+    }
+
+    for (const item of data.cases) {
+      const card = document.createElement("div");
+      card.className = "case-card";
+
+      const title = document.createElement("div");
+      title.className = "case-card-title";
+      title.textContent = item.title || "Без названия";
+
+      const meta = document.createElement("div");
+      meta.className = "case-card-meta";
+      meta.textContent = "Изменено: " + formatDate(item.updatedAt);
+
+      const actions = document.createElement("div");
+      actions.className = "case-actions";
+
+      const openButton = document.createElement("button");
+      openButton.type = "button";
+      openButton.className = "secondary";
+      openButton.textContent = "Открыть";
+      openButton.addEventListener("click", () => {
+        const caseData = item.data || {};
+        activeCustomerCaseId = String(item.id);
+        document.getElementById("customerCaseTitle").value = item.title || "";
+        document.getElementById("customerCaseDescription").value = caseData.description || "";
+        document.getElementById("customerCaseEvidence").value = caseData.evidence || "";
+        document.getElementById("customerCaseSaveButton").textContent = "Обновить дело";
+        showCustomerCaseMessage("Открыто дело для редактирования.");
+        document.getElementById("customerCaseForm").scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "danger";
+      deleteButton.textContent = "Удалить";
+      deleteButton.addEventListener("click", () => deleteCustomerCase(item.id));
+
+      actions.append(openButton, deleteButton);
+      card.append(title, meta, actions);
+      container.appendChild(card);
+    }
+  } catch (error) {
+    container.textContent = error.message;
+  }
+}
+
+async function loadCustomerCaseBackups() {
+  const container = document.getElementById("customerCaseBackups");
+
+  try {
+    const data = await supportRequest("/api/customer/case-backups");
+    container.replaceChildren();
+
+    if (!data.backups || data.backups.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Резервных копий пока нет. Они создаются автоматически при изменении дел.";
+      container.appendChild(empty);
+      return;
+    }
+
+    for (const backup of data.backups) {
+      const card = document.createElement("div");
+      card.className = "case-card";
+
+      const title = document.createElement("div");
+      title.className = "case-card-title";
+      title.textContent = "Резервная копия №" + backup.filename;
+
+      const meta = document.createElement("div");
+      meta.className = "case-card-meta";
+      meta.textContent =
+        "Создана: " + formatDate(backup.createdAt) +
+        " · Размер: " + (Number(backup.size || 0) / 1024).toFixed(1) + " КБ";
+
+      const restoreButton = document.createElement("button");
+      restoreButton.type = "button";
+      restoreButton.className = "secondary";
+      restoreButton.textContent = "Восстановить";
+      restoreButton.addEventListener("click", () => restoreCustomerCaseBackup(backup.filename));
+
+      const actions = document.createElement("div");
+      actions.className = "case-actions";
+      actions.appendChild(restoreButton);
+      card.append(title, meta, actions);
+      container.appendChild(card);
+    }
+  } catch (error) {
+    container.textContent = error.message;
+  }
+}
+
+async function deleteCustomerCase(caseId) {
+  if (!confirm("Удалить это дело? Перед удалением будет создана резервная копия.")) return;
+
+  try {
+    await supportRequest(
+      "/api/customer/cases/" + encodeURIComponent(caseId),
+      { method: "DELETE" }
+    );
+    if (String(activeCustomerCaseId) === String(caseId)) {
+      resetCustomerCaseForm();
+    }
+    showCustomerCaseMessage("Дело удалено. Резервная копия создана.");
+    await loadCustomerCases();
+    await loadCustomerCaseBackups();
+  } catch (error) {
+    showCustomerCaseMessage(error.message, true);
+  }
+}
+
+async function restoreCustomerCaseBackup(filename) {
+  if (!confirm("Восстановить резервную копию №" + filename + "? Текущие дела будут заменены. Перед этим сервер сохранит их отдельную копию.")) {
+    return;
+  }
+
+  try {
+    const result = await supportRequest("/api/customer/case-backups/restore", {
+      method: "POST",
+      body: JSON.stringify({ filename })
+    });
+    resetCustomerCaseForm();
+    showCustomerCaseMessage("Восстановление завершено. Дел восстановлено: " + result.restored);
+    await loadCustomerCases();
+    await loadCustomerCaseBackups();
+  } catch (error) {
+    showCustomerCaseMessage(error.message, true);
+  }
+}
+
+document.getElementById("customerCaseForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const button = document.getElementById("customerCaseSaveButton");
+  const title = document.getElementById("customerCaseTitle").value.trim();
+  const description = document.getElementById("customerCaseDescription").value.trim();
+  const evidence = document.getElementById("customerCaseEvidence").value.trim();
+
+  if (!title || !description) {
+    showCustomerCaseMessage("Заполни название и описание дела.", true);
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    await supportRequest("/api/customer/cases", {
+      method: "POST",
+      body: JSON.stringify({
+        id: activeCustomerCaseId,
+        title,
+        data: { description, evidence }
+      })
+    });
+
+    resetCustomerCaseForm();
+    showCustomerCaseMessage("Дело сохранено.");
+    await loadCustomerCases();
+    await loadCustomerCaseBackups();
+  } catch (error) {
+    showCustomerCaseMessage(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById("customerCaseNewButton").addEventListener(
+  "click",
+  resetCustomerCaseForm
+);
+
+async function loadSupportTickets() {
+  const container = document.getElementById("supportTickets");
+
+  try {
+    const data = await supportRequest("/api/customer/support/tickets");
+
+    container.replaceChildren();
+
+    if (!data.tickets || data.tickets.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "У тебя пока нет обращений.";
+      container.appendChild(empty);
+      return;
+    }
+
+    for (const ticket of data.tickets) {
+      const card = document.createElement("div");
+      card.className = "support-ticket";
+
+      const top = document.createElement("div");
+      top.className = "support-ticket-top";
+
+      const title = document.createElement("div");
+      title.className = "support-ticket-title";
+      title.textContent = ticket.subject;
+
+      const status = document.createElement("span");
+      status.className = "support-ticket-status";
+      status.textContent = supportStatusNames[ticket.status] || ticket.status;
+
+      top.appendChild(title);
+      top.appendChild(status);
+
+      const meta = document.createElement("div");
+      meta.className = "support-ticket-meta";
+      meta.textContent =
+        "Обращение №" + ticket.id +
+        " · Обновлено: " + supportDate(ticket.last_message_at);
+
+      const actions = document.createElement("div");
+      actions.className = "support-ticket-actions";
+
+      const openButton = document.createElement("button");
+      openButton.type = "button";
+      openButton.textContent =
+        "Открыть переписку" +
+        (Number(ticket.unread_count) > 0
+          ? " (" + ticket.unread_count + " новых)"
+          : "");
+
+      openButton.addEventListener("click", () => {
+        openSupportTicket(ticket.id, ticket.subject);
+      });
+
+      actions.appendChild(openButton);
+
+      card.appendChild(top);
+      card.appendChild(meta);
+      card.appendChild(actions);
+
+      container.appendChild(card);
+    }
+  } catch (error) {
+    container.textContent = error.message;
+  }
+}
+
+async function openSupportTicket(ticketId, subject) {
+  activeSupportTicketId = String(ticketId);
+
+  document.getElementById("supportConversationPanel").hidden = false;
+  document.getElementById("supportConversationTitle").textContent =
+    "Переписка: " + subject;
+
+  await loadSupportMessages(false);
+  await loadSupportTickets();
+}
+
+async function loadSupportMessages(silent = false) {
+  if (!activeSupportTicketId) return;
+
+  const container = document.getElementById("supportConversation");
+
+  try {
+    const data = await supportRequest(
+      "/api/customer/support/tickets/" +
+      encodeURIComponent(activeSupportTicketId) +
+      "/messages"
+    );
+
+    const isClosed = data.ticket?.status === "closed";
+    document.getElementById("supportReplyForm").hidden = isClosed;
+    document.getElementById("supportClosedNotice").hidden = !isClosed;
+    document.getElementById("supportDeleteButton").hidden = !isClosed;
+
+    container.replaceChildren();
+
+    if (!data.messages || data.messages.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Сообщений пока нет.";
+      container.appendChild(empty);
+    }
+
+    for (const message of data.messages || []) {
+      const card = document.createElement("div");
+      card.className =
+        "support-chat-message" +
+        (message.sender_type === "admin" ? " admin" : "");
+
+      const sender = document.createElement("div");
+      sender.className = "support-chat-sender";
+      sender.textContent =
+        message.sender_label ||
+        (message.sender_type === "admin" ? "Администрация" : "Ты");
+
+      const content = document.createElement("div");
+      content.textContent = message.message;
+
+      const date = document.createElement("div");
+      date.className = "support-chat-date";
+      date.textContent = supportDate(message.created_at);
+
+      card.appendChild(sender);
+      card.appendChild(content);
+      card.appendChild(date);
+
+      container.appendChild(card);
+    }
+
+    if (!silent) {
+      supportShowMessage("Переписка загружена.");
+    }
+  } catch (error) {
+    if (!silent) supportShowMessage(error.message, true);
+  }
+}
+
+document.getElementById("supportDeleteButton").addEventListener(
+  "click",
+  async () => {
+    if (!activeSupportTicketId) return;
+
+    if (!confirm("Удалить закрытое обращение вместе со всей перепиской? Это действие нельзя отменить.")) {
+      return;
+    }
+
+    const button = document.getElementById("supportDeleteButton");
+    button.disabled = true;
+
+    try {
+      await supportRequest(
+        "/api/customer/support/tickets/" +
+        encodeURIComponent(activeSupportTicketId),
+        { method: "DELETE" }
+      );
+
+      activeSupportTicketId = null;
+      document.getElementById("supportConversationPanel").hidden = true;
+
+      supportShowMessage("Обращение и вся переписка удалены.");
+      await loadSupportTickets();
+    } catch (error) {
+      supportShowMessage(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+);
+
+document.getElementById("supportCreateForm").addEventListener(
+  "submit",
+  async (event) => {
+    event.preventDefault();
+
+    const button = document.getElementById("supportCreateButton");
+    const subject = document.getElementById("supportSubject").value.trim();
+    const message = document.getElementById("supportFirstMessage").value.trim();
+
+    if (subject.length < 3 || !message) {
+      supportShowMessage("Заполни тему и сообщение.", true);
+      return;
+    }
+
+    button.disabled = true;
+
+    try {
+      const data = await supportRequest(
+        "/api/customer/support/tickets",
+        {
+          method: "POST",
+          body: JSON.stringify({ subject, message })
+        }
+      );
+
+      document.getElementById("supportCreateForm").reset();
+      supportShowMessage("Обращение успешно создано.");
+
+      await loadSupportTickets();
+
+      if (data.ticket) {
+        await openSupportTicket(data.ticket.id, data.ticket.subject);
+      }
+    } catch (error) {
+      supportShowMessage(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+);
+
+document.getElementById("supportReplyForm").addEventListener(
+  "submit",
+  async (event) => {
+    event.preventDefault();
+
+    if (!activeSupportTicketId) {
+      supportShowMessage("Сначала открой обращение.", true);
+      return;
+    }
+
+    const button = document.getElementById("supportReplyButton");
+    const message = document.getElementById("supportReplyText").value.trim();
+
+    if (!message) {
+      supportShowMessage("Напиши сообщение.", true);
+      return;
+    }
+
+    button.disabled = true;
+
+    try {
+      await supportRequest(
+        "/api/customer/support/tickets/" +
+        encodeURIComponent(activeSupportTicketId) +
+        "/messages",
+        {
+          method: "POST",
+          body: JSON.stringify({ message })
+        }
+      );
+
+      document.getElementById("supportReplyForm").reset();
+      supportShowMessage("Сообщение отправлено.");
+
+      await loadSupportMessages();
+      await loadSupportTickets();
+    } catch (error) {
+      supportShowMessage(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+);
+
+setInterval(() => {
+  loadSupportTickets();
+
+  if (activeSupportTicketId) {
+    loadSupportMessages(true);
+  }
+}, 10000);
+
+loadSupportTickets();
+
+/* END CUSTOMER SUPPORT LOGIC */
+
+document.getElementById("logout").addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/customer/logout", {
+      method: "POST",
+      credentials: "same-origin"
+    });
+
+    if (response.ok) {
+      location.replace("/app/");
+    } else {
+      document.getElementById("message").textContent =
+        "Не удалось выйти из аккаунта.";
+    }
+  } catch {
+    document.getElementById("message").textContent =
+      "Ошибка соединения при выходе.";
+  }
+});
+
+document.getElementById("renewalForm").addEventListener(
+  "submit",
+  async (event) => {
+    event.preventDefault();
+
+    const button = document.getElementById("renewalButton");
+    const message = document.getElementById("renewalMessage");
+    const planCode = document.getElementById("renewalPlan").value;
+
+    button.disabled = true;
+    message.textContent = "Создание заказа...";
+
+    try {
+      const response = await fetch("/api/customer/renewal-orders", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ plan_code: planCode })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        location.replace("/app/");
+        return;
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Не удалось создать заказ.");
+      }
+
+      message.style.color = "#75e0ad";
+      message.textContent =
+        "Заказ №" + data.order.id +
+        " создан. Сумма: " +
+        Number(data.order.amount).toLocaleString("ru-RU") +
+        " RP. Ожидает подтверждения администрацией.";
+
+    } catch (error) {
+      message.style.color = "#ff9b9b";
+      message.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+);
+
+let profileAvatarData = null;
+function applyTheme(theme) {
+  document.body.classList.remove("theme-light","theme-graphite","theme-blue");
+  if (theme === "minimal-light") document.body.classList.add("theme-light");
+  if (theme === "graphite") document.body.classList.add("theme-graphite");
+  if (theme === "cyber-blue") document.body.classList.add("theme-blue");
+}
+async function loadProfile() {
+  try {
+    const response = await fetch("/api/customer/profile", { credentials:"same-origin" });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || "Не удалось загрузить профиль.");
+    const p = data.profile;
+    document.getElementById("profileLogin").value = p.username || "";
+    document.getElementById("profileName").value = p.display_name || "";
+    document.getElementById("profileRpName").value = p.rp_nickname || "";
+    document.getElementById("profileTheme").value = p.theme || "quantum-purple";
+    profileAvatarData = p.avatar_data || null;
+    document.getElementById("profileAvatar").src = profileAvatarData || "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" rx="40" fill="#292f40"/><circle cx="40" cy="30" r="14" fill="#8e79e8"/><path d="M14 76c2-18 12-27 26-27s24 9 26 27" fill="#8e79e8"/></svg>');
+    document.getElementById("profileDisplayName").textContent = p.display_name || p.username;
+    document.getElementById("profileUsername").textContent = "@" + p.username;
+    applyTheme(p.theme);
+  } catch (error) { document.getElementById("profileMessage").textContent = error.message; }
+}
+document.getElementById("profileAvatarFile").addEventListener("change", async event => {
+  const file = event.target.files?.[0]; if (!file) return;
+  if (file.size > 500 * 1024) { document.getElementById("profileMessage").textContent = "Файл больше 500 КБ."; event.target.value=""; return; }
+  if (!['image/png','image/jpeg','image/webp'].includes(file.type)) { document.getElementById("profileMessage").textContent = "Поддерживаются PNG, JPG и WebP."; return; }
+  const reader = new FileReader(); reader.onload = () => { profileAvatarData = String(reader.result); document.getElementById("profileAvatar").src = profileAvatarData; }; reader.readAsDataURL(file);
+});
+document.getElementById("removeAvatar").addEventListener("click", () => { profileAvatarData = null; document.getElementById("profileAvatar").src = ""; });
+document.getElementById("profileTheme").addEventListener("change", e => applyTheme(e.target.value));
+document.getElementById("profileForm").addEventListener("submit", async event => {
+  event.preventDefault(); const message=document.getElementById("profileMessage");
+  const body={username:document.getElementById("profileLogin").value,display_name:document.getElementById("profileName").value,rp_nickname:document.getElementById("profileRpName").value,theme:document.getElementById("profileTheme").value,avatar_data:profileAvatarData};
+  try { const r=await fetch("/api/customer/profile",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); const d=await r.json(); if(!r.ok||!d.success)throw new Error(d.error||"Не удалось сохранить."); message.textContent="Профиль сохранён."; document.getElementById("profileDisplayName").textContent=d.profile.display_name; document.getElementById("profileUsername").textContent="@"+d.profile.username; document.getElementById("username").textContent=d.profile.username; document.getElementById("nickname").textContent=d.profile.rp_nickname; } catch(e){message.textContent=e.message;}
+});
+document.getElementById("passwordForm").addEventListener("submit", async event => { event.preventDefault(); const msg=document.getElementById("passwordMessage"); try { const r=await fetch("/api/customer/password",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({current_password:document.getElementById("currentPassword").value,new_password:document.getElementById("newPassword").value})}); const d=await r.json(); if(!r.ok||!d.success)throw new Error(d.error||"Не удалось изменить пароль."); msg.textContent=d.message; event.target.reset(); } catch(e){msg.textContent=e.message;} });
+
+loadAccount();
+loadProfile();
+loadDevices();
+loadCustomerCases();
+loadCustomerCaseBackups();
+</script>
+</body>
+</html>

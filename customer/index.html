@@ -1,0 +1,235 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPM Attorney Assistant — Личный кабинет</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #10111a;
+      color: #f1f1f7;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      width: 100%;
+      max-width: 440px;
+      padding: 32px;
+      background: #191b28;
+      border: 1px solid #303247;
+      border-radius: 18px;
+      box-shadow: 0 18px 60px #0006;
+    }
+    .logo {
+      text-align: center;
+      font-size: 25px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #999bb2;
+      font-size: 14px;
+      margin-bottom: 28px;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    button, input { font: inherit; }
+    .tab {
+      flex: 1;
+      padding: 11px;
+      border: 1px solid #383b52;
+      border-radius: 9px;
+      color: #b8bad0;
+      background: #222437;
+      cursor: pointer;
+    }
+    .tab.active {
+      color: white;
+      background: #6655c7;
+      border-color: #6655c7;
+    }
+    .field { margin-bottom: 16px; }
+    label {
+      display: block;
+      margin-bottom: 7px;
+      color: #c5c6d7;
+      font-size: 13px;
+    }
+    input {
+      width: 100%;
+      padding: 13px;
+      color: white;
+      background: #11131e;
+      border: 1px solid #383b52;
+      border-radius: 9px;
+      outline: none;
+    }
+    input:focus { border-color: #8876f0; }
+    .submit {
+      width: 100%;
+      margin-top: 8px;
+      padding: 14px;
+      border: 0;
+      border-radius: 9px;
+      color: white;
+      background: #6655c7;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .submit:disabled { opacity: .6; cursor: wait; }
+    .message {
+      display: none;
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 9px;
+      background: #292b3d;
+      color: #dedff0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .message.visible { display: block; }
+    .hint {
+      margin-top: 20px;
+      color: #85879e;
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: center;
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <div class="logo">RPM Attorney Assistant</div>
+    <div class="subtitle">Личный кабинет пользователя</div>
+
+    <div class="tabs">
+      <button class="tab active" id="loginTab" type="button">Вход</button>
+      <button class="tab" id="registerTab" type="button">Регистрация</button>
+    </div>
+
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginUsername">Логин</label>
+        <input id="loginUsername" name="username" required
+          autocomplete="username" maxlength="32">
+      </div>
+      <div class="field">
+        <label for="loginPassword">Пароль</label>
+        <input id="loginPassword" name="password" type="password"
+          required autocomplete="current-password" maxlength="72">
+      </div>
+      <button class="submit" type="submit">Войти</button>
+    </form>
+
+    <form id="registerForm" hidden>
+      <div class="field">
+        <label for="inviteCode">Одноразовый код приглашения</label>
+        <input id="inviteCode" name="inviteCode" required
+          autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="registerUsername">Логин</label>
+        <input id="registerUsername" name="username" required
+          autocomplete="username" minlength="3" maxlength="32">
+      </div>
+      <div class="field">
+        <label for="rpNickname">RP-никнейм</label>
+        <input id="rpNickname" name="rpNickname" required
+          autocomplete="off" maxlength="64">
+      </div>
+      <div class="field">
+        <label for="registerPassword">Пароль (минимум 12 символов)</label>
+        <input id="registerPassword" name="password" type="password"
+          required minlength="12" maxlength="72"
+          autocomplete="new-password">
+      </div>
+      <button class="submit" type="submit">Создать аккаунт</button>
+    </form>
+
+    <div class="message" id="message" role="status"></div>
+    <div class="hint">
+      Регистрация доступна только по одноразовому приглашению,
+      полученному после подтверждения оплаты администратором.
+    </div>
+  </main>
+
+  <script>
+    const loginTab = document.getElementById("loginTab");
+    const registerTab = document.getElementById("registerTab");
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+    const message = document.getElementById("message");
+
+    function showMessage(text) {
+      message.textContent = text;
+      message.classList.add("visible");
+    }
+
+    function switchTab(register) {
+      loginForm.hidden = register;
+      registerForm.hidden = !register;
+      loginTab.classList.toggle("active", !register);
+      registerTab.classList.toggle("active", register);
+      message.classList.remove("visible");
+    }
+
+    loginTab.addEventListener("click", () => switchTab(false));
+    registerTab.addEventListener("click", () => switchTab(true));
+
+    async function sendForm(form, endpoint) {
+      const button = form.querySelector("button[type=submit]");
+      button.disabled = true;
+      message.classList.remove("visible");
+
+      const data = Object.fromEntries(new FormData(form).entries());
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Не удалось выполнить запрос.");
+        }
+
+        if (result.success) {
+          window.location.href = "/app/account.html";
+          return;
+        }
+
+        showMessage("Сервер не подтвердил операцию.");
+      } catch (error) {
+        showMessage(error.message || "Ошибка подключения к серверу.");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    loginForm.addEventListener("submit", event => {
+      event.preventDefault();
+      sendForm(loginForm, "/api/customer/login");
+    });
+
+    registerForm.addEventListener("submit", event => {
+      event.preventDefault();
+      sendForm(registerForm, "/api/customer/register");
+    });
+  </script>
+</body>
+</html>
