@@ -8,10 +8,48 @@
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 15% 0%,#26204b 0,transparent 40%),var(--bg);color:var(--text);font:15px Inter,system-ui,Arial,sans-serif;min-height:100vh}
 .wrap{max-width:1280px;margin:auto;padding:30px 22px 60px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:26px}.brand{font-size:13px;letter-spacing:.16em;color:#b7aaff}.top h1{font-size:28px;margin:7px 0 0}.owner{border:1px solid var(--line);background:#171a2b;border-radius:999px;padding:10px 15px;color:#dcd6ff}
 .filters{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:0 0 16px}.filters label{min-width:150px} .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card,.section{background:linear-gradient(145deg,#171b2b,#111522);border:1px solid var(--line);border-radius:18px;padding:19px;box-shadow:0 14px 40px #0002}.metric small{color:var(--muted);display:block}.metric strong{font-size:26px;display:block;margin-top:10px;letter-spacing:-.03em}.metric em{font-style:normal;color:var(--muted);font-size:12px}.layout{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-top:16px}.section{margin-top:16px}.section h2{font-size:18px;margin:0 0 15px}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}button{border:0;border-radius:10px;padding:11px 15px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}button.secondary{background:#30364d}button.danger{background:#633440}button:disabled{opacity:.5;cursor:wait}input,select{width:100%;border:1px solid #343b59;background:#0e1220;color:var(--text);padding:12px;border-radius:10px;font:inherit}label{font-size:12px;color:var(--muted);display:grid;gap:7px}.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.form .wide{grid-column:1/-1}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:740px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #2a3046;white-space:nowrap}th{color:var(--muted);font-size:12px;font-weight:600}td{font-size:13px}.money{font-variant-numeric:tabular-nums;font-weight:700}.muted{color:var(--muted)}.bar-list{display:grid;gap:12px}.bar-row{display:grid;grid-template-columns:90px 1fr 110px;align-items:center;gap:10px;font-size:12px}.track{height:12px;background:#272d43;border-radius:99px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#7056db,#b09bff);border-radius:99px}.chart-legend{display:flex;gap:16px;color:var(--muted);font-size:12px;margin-top:14px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px}.notice{color:var(--muted);font-size:13px;min-height:20px;margin-top:10px}.partner-actions{display:flex;gap:7px}.pill{padding:5px 8px;border-radius:99px;background:#252b41;color:#c6cbea;font-size:11px}.modal{display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;padding:20px}.modal.open{display:flex}.dialog{width:min(560px,100%);background:#151a2a;border:1px solid var(--line);border-radius:18px;padding:22px}.dialog h2{margin-top:0}.close{float:right;background:#343a50}.empty{padding:18px;color:var(--muted);text-align:center}@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.layout{grid-template-columns:1fr}}@media(max-width:520px){.wrap{padding:20px 13px}.grid{grid-template-columns:1fr 1fr}.metric strong{font-size:21px}.form{grid-template-columns:1fr}.form .wide{grid-column:auto}.top h1{font-size:23px}}
-</style></head>
+[hidden]{display:none!important}
+.tabbar{display:flex;gap:9px;margin:0 0 16px;flex-wrap:wrap}
+.tab-btn{background:#252b41;color:#c6cbea}
+.tab-btn.active{background:#9276ff;color:white}
+.order-tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}
+.order-tools input,.order-tools select{max-width:260px}
+.order-status{display:inline-block;padding:5px 9px;border-radius:20px;background:#252b41;font-size:12px}</style></head>
 <body><div class="wrap">
 <header class="top"><div><div class="brand">RPM ATTORNEY ASSISTANT / OWNER</div><h1>Панель владельца</h1></div><div class="owner">QuantumMuse · Владелец</div></header>
 <div class="filters"><label>С даты<input id="dateFrom" type="date"></label><label>По дату<input id="dateTo" type="date"></label><button id="applyDates">Применить период</button><button class="secondary" id="exportCsv">Экспорт CSV</button><a href="/" style="color:#c8bdff;align-self:center">← Панель помощника</a></div>
+<div class="tabbar" id="mainTabs">
+<button type="button" class="tab-btn active" id="tabOverview">Обзор</button>
+<button type="button" class="tab-btn" id="tabOrders">Заказы</button>
+</div>
+<section class="section" id="ordersSection" hidden>
+<div class="toolbar">
+<h2>Заказы покупателей</h2>
+<button type="button" id="refreshOrders">Обновить</button>
+</div>
+<div class="order-tools">
+<input id="orderSearch" type="search" placeholder="Поиск: покупатель, промокод, ID">
+<select id="orderStatus">
+<option value="">Все статусы</option>
+<option value="pending">Ожидает подтверждения</option>
+<option value="confirmed">Подтверждён</option>
+<option value="cancelled">Отменён</option>
+</select>
+</div>
+<div id="ordersMessage" class="notice">Загрузка заказов...</div>
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>ID</th><th>Покупатель</th><th>Аккаунт</th><th>Тариф</th>
+<th>Сумма</th><th>Промокод</th><th>Статус</th>
+<th>Создан</th><th>Подтверждён</th>
+</tr></thead>
+<tbody id="ordersTable">
+<tr><td colspan="9" class="empty">Загрузка...</td></tr>
+</tbody>
+</table>
+</div>
+</section>
 <div class="grid">
 <div class="card metric"><small>Общий доход</small><strong id="revenue">—</strong><em>Подтверждённые заказы</em></div>
 <div class="card metric"><small>К выплате партнёрам</small><strong id="due">—</strong><em>Непогашенные начисления</em></div>
@@ -31,6 +69,125 @@
 const $=id=>document.getElementById(id);const money=n=>'$'+Number(n||0).toLocaleString('ru-RU');const date=v=>v?new Date(v).toLocaleString('ru-RU'):'—';
 async function api(url,options={}){const r=await fetch(url,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.message||'Ошибка '+r.status);return d}
 function dateQuery(){const f=$('dateFrom').value,t=$('dateTo').value;return '?from='+encodeURIComponent(f)+'&to='+encodeURIComponent(t)}
+let cachedOrders = [];
+
+function activateOwnerTab(tab) {
+    const wrap = document.querySelector('.wrap');
+    const header = wrap.querySelector('.top');
+    const filters = wrap.querySelector('.filters');
+    const tabs = document.getElementById('mainTabs');
+    const ordersSection = document.getElementById('ordersSection');
+    const isOrders = tab === 'orders';
+
+    Array.from(wrap.children).forEach(el => {
+        if (el !== header && el !== filters && el !== tabs && el !== ordersSection) {
+            el.hidden = isOrders;
+        }
+    });
+
+    filters.hidden = isOrders;
+    ordersSection.hidden = !isOrders;
+
+    document.getElementById('tabOverview').classList.toggle('active', !isOrders);
+    document.getElementById('tabOrders').classList.toggle('active', isOrders);
+
+    if (isOrders) loadOrders();
+}
+
+function orderStatusLabel(status) {
+    const labels = {
+        pending: 'Ожидает',
+        confirmed: 'Подтверждён',
+        cancelled: 'Отменён'
+    };
+    return labels[status] || status || 'Неизвестен';
+}
+
+function renderOrders() {
+    const body = document.getElementById('ordersTable');
+    const search = document.getElementById('orderSearch').value.trim().toLowerCase();
+    const status = document.getElementById('orderStatus').value;
+
+    body.replaceChildren();
+
+    const rows = cachedOrders.filter(order => {
+        const text = [
+            order.id,
+            order.buyer_rp_nickname,
+            order.username,
+            order.promo_code,
+            order.plan_code
+        ].join(' ').toLowerCase();
+
+        return (!search || text.includes(search)) &&
+               (!status || order.status === status);
+    });
+
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="9" class="empty">Заказы не найдены.</td></tr>';
+        return;
+    }
+
+    for (const order of rows) {
+        const tr = document.createElement('tr');
+        const amount = Number(order.amount || 0).toLocaleString('ru-RU');
+        const currency = order.currency || 'RP';
+
+        const values = [
+            '#' + order.id,
+            order.buyer_rp_nickname || '—',
+            order.username || '—',
+            order.plan_code || '—',
+            amount + ' ' + currency,
+            order.promo_code || '—',
+            orderStatusLabel(order.status),
+            order.created_at ? date(order.created_at) : '—',
+            order.confirmed_at ? date(order.confirmed_at) : '—'
+        ];
+
+        values.forEach((value, index) => {
+            const td = document.createElement('td');
+            td.textContent = value;
+            if (index === 4) td.className = 'money';
+            if (index === 6) {
+                const badge = document.createElement('span');
+                badge.className = 'order-status';
+                badge.textContent = value;
+                td.replaceChildren(badge);
+            }
+            tr.append(td);
+        });
+
+        body.append(tr);
+    }
+
+    document.getElementById('ordersMessage').textContent =
+        'Показано заказов: ' + rows.length + ' · Всего загружено: ' + cachedOrders.length;
+}
+
+async function loadOrders() {
+    const message = document.getElementById('ordersMessage');
+    message.textContent = 'Загрузка заказов...';
+
+    try {
+        const result = await api('/api/admin/orders');
+        cachedOrders = Array.isArray(result.orders) ? result.orders : [];
+        renderOrders();
+    } catch (error) {
+        message.textContent = 'Не удалось загрузить заказы: ' + error.message;
+        document.getElementById('ordersTable').innerHTML =
+            '<tr><td colspan="9" class="empty">Ошибка загрузки.</td></tr>';
+    }
+}
+
+document.getElementById('tabOverview').addEventListener('click', () => activateOwnerTab('overview'));
+document.getElementById('tabOrders').addEventListener('click', () => activateOwnerTab('orders'));
+document.getElementById('refreshOrders').addEventListener('click', loadOrders);
+document.getElementById('orderSearch').addEventListener('input', renderOrders);
+document.getElementById('orderStatus').addEventListener('change', renderOrders);
+
+activateOwnerTab('overview');
+
 async function load(){try{const q=dateQuery();const [o,p,h,n,a]=await Promise.all([api('/api/owner/overview'+q),api('/api/owner/partners'+q),api('/api/owner/payouts'),api('/api/owner/notifications'),api('/api/owner/audit')]);const s=o.summary;$('revenue').textContent=money(s.revenue);$('due').textContent=money(s.due);$('paid').textContent=money(s.paid);$('net').textContent=money(s.net);$('activePartners').textContent=s.partners.active;$('allPartners').textContent=s.partners.total;$('customers').textContent=s.customers.total;$('orders').textContent=s.confirmedOrders;$('pendingOrders').textContent=s.pendingOrders;renderChart(o.monthly);renderPartners(p.partners);renderPayouts(h.payouts);renderNotifications(n);renderAudit(a.logs)}catch(e){$('globalMessage').textContent=e.message+' Если миграция ещё не выполнена, сначала запусти SQL-файл migrations/001_owner_partners_profiles.sql.'}}
 
 function renderChart(rows){const el=$('chart');el.replaceChildren();if(!rows.length){el.textContent='Пока нет подтверждённых продаж за последние месяцы.';return}const max=Math.max(1,...rows.map(x=>Number(x.revenue)));for(const row of rows){const line=document.createElement('div');line.className='bar-row';const label=document.createElement('span');label.textContent=row.month;const track=document.createElement('div');track.className='track';const fill=document.createElement('div');fill.className='fill';fill.style.width=(Number(row.revenue)/max*100)+'%';track.append(fill);const val=document.createElement('strong');val.className='money';val.textContent=money(row.revenue);line.append(label,track,val);el.append(line)}}
