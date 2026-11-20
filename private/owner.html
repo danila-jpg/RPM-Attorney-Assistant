@@ -247,7 +247,7 @@ $("adminForm").addEventListener("submit", async event => {
   try {
     await api("/api/owner/admins", {method:"POST", body:JSON.stringify(form)});
     $("adminFormMessage").textContent = "Администратор создан.";
-    event.currentTarget.reset();
+    $("adminForm").reset();
     await loadAdmins();
   } catch (error) {
     $("adminFormMessage").textContent = error.message;
