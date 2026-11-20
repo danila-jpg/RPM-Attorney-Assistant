@@ -389,6 +389,8 @@ registerCustomerAuth(app, pool);
 
 app.use("/app", express.static(path.join(__dirname, "customer")));
 
+app.get("/admin-login", (req, res) => res.sendFile(path.join(__dirname, "private", "admin-login.html")));
+
 app.use(requireAuth);
 
 function requireAdmin(req, res, next) {
@@ -429,6 +431,69 @@ async function writeOwnerAudit(req, action, entityType, entityId, details = {}) 
   }
 }
 
+app.get("/api/owner/admins", requireOwner, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, username, rp_nickname, display_name, status, created_at
+       FROM rpm_users
+       WHERE role = 'admin' AND LOWER(username) <> $1
+       ORDER BY created_at DESC`,
+      [String(OWNER_USER).toLowerCase()]
+    );
+    return res.json({ success: true, admins: result.rows });
+  } catch (error) {
+    console.error("Owner admin list error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Не удалось загрузить список администраторов."
+    });
+  }
+});
+app.post("/api/owner/admins", requireOwner, async (req, res) => {
+  const username = String(req.body?.username || "").trim().toLowerCase();
+  const password = String(req.body?.password || "");
+  const displayName = String(req.body?.display_name || username).trim();
+
+  if (!/^[a-zA-Z0-9_.-]{3,32}$/.test(username)) {
+    return res.status(400).json({ success: false, message: "Логин: 3–32 символа, латинские буквы, цифры, точка, дефис или подчёркивание." });
+  }
+
+  if (username === String(OWNER_USER).toLowerCase()) {
+    return res.status(400).json({ success: false, message: "Нельзя создать дубликат аккаунта владельца." });
+  }
+
+  if (Buffer.byteLength(password, "utf8") < 12 || Buffer.byteLength(password, "utf8") > 72) {
+    return res.status(400).json({ success: false, message: "Пароль должен содержать от 12 до 72 байт." });
+  }
+
+  if (!displayName || displayName.length > 80) {
+    return res.status(400).json({ success: false, message: "Имя должно содержать от 1 до 80 символов." });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 12);
+    const result = await pool.query(
+      `INSERT INTO rpm_users
+         (username, password_hash, rp_nickname, display_name, role, status)
+       VALUES ($1, $2, $3, $3, 'admin', 'active')
+       RETURNING id, username, rp_nickname, role, status, created_at`,
+      [username, passwordHash, displayName]
+    );
+
+    const admin = result.rows[0];
+    await writeOwnerAudit(req, "admin_created", "user", admin.id, {
+      username: admin.username
+    });
+
+    return res.status(201).json({ success: true, admin });
+  } catch (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({ success: false, message: "Такой логин уже существует." });
+    }
+    console.error("Owner admin creation error:", error);
+    return res.status(500).json({ success: false, message: "Не удалось создать администратора." });
+  }
+});
 function ownerDateRange(req) {
   const from = String(req.query.from || "").trim();
   const to = String(req.query.to || "").trim();

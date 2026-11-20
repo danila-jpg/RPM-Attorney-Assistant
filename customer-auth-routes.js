@@ -280,7 +280,39 @@ export default function registerCustomerAuth(app, pool) {
     }
   });
 
-  app.post("/api/customer/login", async (req, res) => {
+  app.post("/api/admin/login", async (req, res) => {
+  const username = String(req.body?.username || "").trim().toLowerCase();
+  const password = String(req.body?.password || "");
+
+  if (!username || !password || Buffer.byteLength(password, "utf8") > 72) {
+    return res.status(401).json({ success: false, error: "Неверный логин или пароль." });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, username, password_hash, status, role
+       FROM rpm_users WHERE LOWER(username) = $1 LIMIT 1`,
+      [username]
+    );
+
+    const user = result.rows[0];
+    if (!user || user.role !== "admin" || user.status !== "active") {
+      return res.status(401).json({ success: false, error: "Неверный логин или пароль." });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatches) {
+      return res.status(401).json({ success: false, error: "Неверный логин или пароль." });
+    }
+
+    const deviceId = await registerDevice(user.id, req, res);
+    return saveSession(req, res, user, deviceId);
+  } catch (error) {
+    console.error("Admin login error:", error);
+    return res.status(500).json({ success: false, error: "Ошибка входа администратора." });
+  }
+});
+app.post("/api/customer/login", async (req, res) => {
     const username = String(req.body?.username || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
 
