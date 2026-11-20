@@ -305,8 +305,11 @@ export default function registerCustomerAuth(app, pool) {
       return res.status(401).json({ success: false, error: "Неверный логин или пароль." });
     }
 
-    const deviceId = await registerDevice(user.id, req, res);
-    return saveSession(req, res, user, deviceId);
+    const device = await registerDevice(user.id, req, res);
+    if (!device.ok) {
+      return res.status(403).json({ success: false, error: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u043e." });
+    }
+    return saveSession(req, res, user, device.deviceId);
   } catch (error) {
     console.error("Admin login error:", error);
     return res.status(500).json({ success: false, error: "Ошибка входа администратора." });
