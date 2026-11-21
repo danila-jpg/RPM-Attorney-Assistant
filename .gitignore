@@ -25,6 +25,10 @@ private/
 !private/
 private/*
 !private/owner.html
+!private/admin.html
+!private/library.html
+!private/training.html
+.workspace-test/
 *.backup*
 *.backup.*
 *.before-*

@@ -1,5 +1,22 @@
+import { isTheme } from "./public/theme-catalog.js";
+import { saveAppearance } from "./appearance.js";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+
+export async function recordAdminAuth(pool, userId, action) {
+  try {
+    await pool.query("INSERT INTO rpm_admin_activity (user_id, action, result) VALUES ($1, $2, 'Выполнен')", [userId, action]);
+  } catch (error) {
+    console.error("Admin authentication activity:", error.code || error.name);
+  }
+}
+
+export async function destroyLoginSession(req, res, { clearDevice = true } = {}) {
+  await new Promise((resolve, reject) => req.session.destroy(error => error ? reject(error) : resolve()));
+  const options = { httpOnly: true, secure: req.secure, sameSite: "lax", path: "/" };
+  res.clearCookie("rpm.sid", options);
+  if (clearDevice) res.clearCookie("rpm.device", options);
+}
 
 export default function registerCustomerAuth(app, pool) {
   const hashInvite = (code) =>
@@ -119,7 +136,7 @@ export default function registerCustomerAuth(app, pool) {
   const saveSession = (req, res, user, deviceId) => {
     req.session.regenerate((error) => {
       if (error) {
-        console.error("Session regeneration failed:", error);
+        console.error("Session regeneration failed:", error.code || error.name);
         return res.status(500).json({ error: "Не удалось создать сессию. Попробуйте войти." });
       }
 
@@ -128,12 +145,13 @@ export default function registerCustomerAuth(app, pool) {
       req.session.role = user.role || "customer";
       req.session.deviceId = String(deviceId);
 
-      req.session.save((saveError) => {
+      req.session.save(async (saveError) => {
         if (saveError) {
-          console.error("Session save failed:", saveError);
+          console.error("Session save failed:", saveError.code || saveError.name);
           return res.status(500).json({ error: "Не удалось сохранить сессию. Попробуйте войти." });
         }
 
+        if (user.role === "admin") await recordAdminAuth(pool, user.id, "Вход");
         res.json({ success: true });
       });
     });
@@ -311,7 +329,7 @@ export default function registerCustomerAuth(app, pool) {
     }
     return saveSession(req, res, user, device.deviceId);
   } catch (error) {
-    console.error("Admin login error:", error);
+    console.error("Admin login error:", error.code || error.name);
     return res.status(500).json({ success: false, error: "Ошибка входа администратора." });
   }
 });
@@ -364,28 +382,14 @@ app.post("/api/customer/login", async (req, res) => {
     }
   });
 
-  app.post("/api/customer/logout", (req, res) => {
-    req.session.destroy((error) => {
-      if (error) {
-        console.error("Customer logout error:", error);
-        return res.status(500).json({ error: "Не удалось завершить сессию." });
-      }
-
-      res.clearCookie("rpm.sid", {
-        httpOnly: true,
-        secure: "auto",
-        sameSite: "lax"
-      });
-
-      res.clearCookie("rpm.device", {
-        httpOnly: true,
-        secure: req.secure,
-        sameSite: "lax",
-        path: "/"
-      });
-
+  app.post("/api/customer/logout", async (req, res) => {
+    try {
+      await destroyLoginSession(req, res);
       res.json({ success: true });
-    });
+    } catch (error) {
+      console.error("Customer logout:", error.code || error.name);
+      res.status(500).json({ error: "Не удалось завершить сессию." });
+    }
   });
 
   // =====================================================
@@ -711,14 +715,24 @@ app.post("/api/customer/login", async (req, res) => {
       if (!(await checkCustomerDevice(req, res))) return;
       const result = await pool.query(
         `SELECT id, username, rp_nickname, COALESCE(display_name,rp_nickname) AS display_name,
-                avatar_data, COALESCE(theme,'quantum-purple') AS theme
+                avatar_data, COALESCE(theme,'quantum-purple') AS theme, appearance_preferences AS preferences
          FROM rpm_users WHERE id=$1 AND status='active'`, [req.session.userId]
       );
       if (!result.rowCount) return res.status(404).json({ success:false,error:"Профиль не найден." });
-      res.json({ success:true, profile:result.rows[0] });
+      res.set("Cache-Control", "no-store").json({ success:true, profile:result.rows[0] });
     } catch (error) {
       console.error("Customer profile load error:", error);
       res.status(500).json({ success:false,error:"Не удалось загрузить профиль." });
+    }
+  });
+
+  app.patch("/api/customer/profile", async (req, res) => {
+    try {
+      if (!(await checkCustomerDevice(req, res))) return;
+      await saveAppearance(pool, req.session.userId, req.body, res);
+    } catch (error) {
+      console.error("Customer appearance update error:", error.code || error.name);
+      res.status(500).json({ success: false, error: "Не удалось сохранить оформление." });
     }
   });
 
@@ -729,9 +743,8 @@ app.post("/api/customer/login", async (req, res) => {
       const displayName = String(req.body?.display_name || "").trim();
       const rpNickname = String(req.body?.rp_nickname || "").trim();
       const avatarData = req.body?.avatar_data === null ? null : String(req.body?.avatar_data || "");
-      const theme = String(req.body?.theme || "quantum-purple");
-      const allowedThemes = ["quantum-purple","minimal-light","graphite","cyber-blue"];
-      if (!/^[a-z0-9_.-]{3,32}$/.test(username) || !displayName || displayName.length > 64 || !rpNickname || rpNickname.length > 64 || !allowedThemes.includes(theme)) {
+      const theme = req.body?.theme;
+      if (!/^[a-z0-9_.-]{3,32}$/.test(username) || !displayName || displayName.length > 64 || !rpNickname || rpNickname.length > 64 || (theme !== undefined && !isTheme(theme))) {
         return res.status(400).json({ success:false,error:"Проверьте логин, имя, RP-имя и тему оформления." });
       }
       if (avatarData && (!/^data:image\/(png|jpeg|webp);base64,/.test(avatarData) || avatarData.length > 700000)) {
@@ -744,7 +757,7 @@ app.post("/api/customer/login", async (req, res) => {
       }
       const result = await pool.query(
         `UPDATE rpm_users SET username=$1, display_name=$2, rp_nickname=$3,
-           avatar_data=$4, theme=$5
+           avatar_data=$4, theme=COALESCE($5,theme)
          WHERE id=$6 AND status='active'
          RETURNING id,username,rp_nickname,display_name,avatar_data,theme`,
         [username,displayName,rpNickname,avatarData || null,theme,req.session.userId]

@@ -32,7 +32,10 @@ vm.runInContext(
 );
 
 const { extractArticles, auditReferences, calculateAuditSummary } = sandbox.__auditTest;
-const all = extractArticles(laws.documents);
+// Keep the original article-only audit assertions against their original revision.
+const archived = laws.archivedDocuments.find(doc => doc.documentId === "epk");
+assert.ok(archived);
+const all = extractArticles(laws.documents.map(doc => doc.id === "epk" ? { ...archived, id: "epk" } : doc));
 
 function auditOne(reference) {
   const result = auditReferences([reference], all);

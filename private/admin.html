@@ -1,0 +1,43 @@
+<div id="admin" class="tab workspace-view"><div class="admin-nav" aria-label="Навигация">
+  <a class="nav-tab" href="#dashboard">Кабинет</a>
+  <a class="nav-tab" href="#profile">Мой профиль</a>
+  <a class="nav-tab" href="#security">Безопасность</a>
+  <a class="nav-tab" href="#activity">Моя активность</a>
+</div>
+  <h1 id="greeting">Кабинет администратора</h1>
+  <p id="loadStatus" class="status" role="status">Загрузка…</p>
+  <section id="dashboard" class="panel admin-view">
+    <h2>Рабочая панель</h2><p id="stats" class="subtitle">Загрузка статистики…</p>
+    <div class="actions"><a href="/">Рабочие инструменты</a><a href="#activity">Последние действия</a></div>
+  </section>
+    <section id="profile" class="panel admin-view" hidden>
+      <h2>Мой профиль</h2>
+      <img class="avatar" id="avatar" alt="Аватар" hidden>
+      <form id="profileForm">
+        <label>Имя пользователя<input name="username" autocomplete="username" readonly></label>
+        <label>RP-имя<input name="rp_nickname" maxlength="64" required></label>
+        <label>Отображаемое имя<input name="display_name" maxlength="64" required></label>
+        <label>Аватар<input name="avatar" type="file" accept="image/png,image/jpeg,image/webp"></label>
+        <p id="avatarStatus" class="status" role="status"></p>
+        <label><span><input type="checkbox" name="remove"> Убрать аватар</span></label>
+        <button class="primary">Сохранить профиль</button>
+      </form>
+      <div id="appearanceSettings" class="appearance"></div>
+      <p id="profileStatus" class="status" role="status"></p>
+    </section>
+    <section id="security" class="panel admin-view" hidden>
+      <h2>Безопасность</h2>
+      <form id="passwordForm">
+        <input name="username" autocomplete="username" hidden>
+        <label>Текущий пароль<input name="current" type="password" autocomplete="current-password" required></label>
+        <label>Новый пароль<input name="password" type="password" autocomplete="new-password" minlength="12" required></label>
+        <label>Повторите новый пароль<input name="confirmation" type="password" autocomplete="new-password" minlength="12" required></label>
+        <button class="primary">Сменить пароль</button>
+      </form>
+      <h3>Активные сессии</h3><ul id="sessions"></ul>
+      <h3>Устройства</h3><ul id="devices"></ul>
+      <div class="actions"><button class="secondary" id="revoke">Завершить остальные сессии</button><button class="danger" id="logout">Выйти</button></div>
+      <p id="securityStatus" class="status" role="status"></p>
+    </section>
+  <section id="activity" class="panel admin-view" hidden><h2>Моя активность</h2><ul id="adminHistory"></ul></section>
+</div>

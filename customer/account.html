@@ -4,55 +4,61 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RPM Attorney Assistant — Личный кабинет</title>
+<link rel="stylesheet" href="/rpm-base.css">
+<link rel="stylesheet" href="/appearance.css">
+<script type="module" src="/appearance.js"></script>
 <style>
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:var(--page-bg,#0b0d14);color:var(--page-text,#eef0fa);font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;transition:background .2s,color .2s}
-main{width:100%;max-width:760px;background:var(--panel-bg,#151925);border:1px solid #292f40;border-radius:18px;padding:30px;box-shadow:0 20px 60px #0005}
-h1{margin:0 0 8px;font-size:25px}
-h2{font-size:19px;margin:30px 0 14px}
-.subtitle{color:#929bb2;margin-bottom:28px}
-.status{display:inline-block;padding:7px 12px;border-radius:20px;background:#173d30;color:#75e0ad;font-size:13px;margin-bottom:22px}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px;transition:background .2s,color .2s}
+main{width:100%;max-width:760px;background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:var(--panel-padding);box-shadow:0 20px 60px #0005}
+h1{margin:0 0 8px;font-size:1.5625rem}
+h2{font-size:1.1875rem;margin:30px 0 14px}
+.subtitle{color:var(--muted);margin-bottom:28px}
+.status{display:inline-block;padding:7px 12px;border-radius:20px;background:var(--success-bg);color:var(--green);font-size:0.8125rem;margin-bottom:22px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.item{background:#1d2332;border:1px solid #30384c;border-radius:12px;padding:16px;min-width:0}
-.item small{display:block;color:#929bb2;margin-bottom:9px}
-.item strong{font-size:16px;overflow-wrap:anywhere}
+.item{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px;min-width:0}
+.item small{display:block;color:var(--muted);margin-bottom:9px}
+.item strong{font-size:1rem;overflow-wrap:anywhere}
 .actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
-button{border:0;border-radius:10px;padding:12px 18px;font-weight:bold;cursor:pointer;background:#8067e8;color:white}
-button.secondary{background:#30384c;color:#eef0fa}
-button.danger{background:#71333d;color:#ffdce0;padding:9px 12px}
+button{border:0;border-radius:10px;padding:12px 18px;font-weight:bold;cursor:pointer;background:var(--accent);color:var(--accent-text)}
+button.secondary{background:var(--border);color:var(--text)}
+button.danger{background:var(--danger-bg);color:var(--danger);padding:9px 12px}
 button:disabled{opacity:.5;cursor:wait}
-.message{color:#ff9b9b;margin-top:18px;white-space:pre-wrap}
-.device{background:#1d2332;border:1px solid #30384c;border-radius:12px;padding:15px;margin-bottom:10px}
+.message{color:var(--danger);margin-top:18px;white-space:pre-wrap}
+.device{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:15px;margin-bottom:10px}
 .device-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
 .device-name{font-weight:bold;overflow-wrap:anywhere}
-.device-info{font-size:13px;color:#929bb2;margin-top:9px;line-height:1.6}
-.current{font-size:12px;color:#75e0ad}
+.device-info{font-size:0.8125rem;color:var(--muted);margin-top:9px;line-height:1.6}
+.current{font-size:0.75rem;color:var(--green)}
 .device-actions{margin-top:12px}
-.empty{color:#929bb2;font-size:14px}
-.support-ticket{background:#1d2332;border:1px solid #30384c;border-radius:12px;padding:15px;margin-bottom:10px}
+.empty{color:var(--muted);font-size:0.875rem}
+.support-ticket{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:15px;margin-bottom:10px}
 .support-ticket-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .support-ticket-title{font-weight:bold;overflow-wrap:anywhere}
-.support-ticket-meta{font-size:13px;color:#929bb2;margin-top:8px}
-.support-ticket-status{font-size:12px;color:#75e0ad}
+.support-ticket-meta{font-size:0.8125rem;color:var(--muted);margin-top:8px}
+.support-ticket-status{font-size:0.75rem;color:var(--green)}
 .support-form{display:grid;gap:12px;margin-bottom:18px}
-.support-form input,.support-form textarea{width:100%;background:#1d2332;border:1px solid #39435a;border-radius:10px;padding:12px;color:#eef0fa;font:inherit}
+.support-form input,.support-form textarea{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:var(--control-padding);color:var(--text);font:inherit}
 .support-form textarea{min-height:100px;resize:vertical}
-.support-form select{width:100%;background:#1d2332;border:1px solid #39435a;border-radius:10px;padding:12px;color:#eef0fa;font:inherit}
+.support-form select{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:var(--control-padding);color:var(--text);font:inherit}
 .support-conversation{display:grid;gap:10px;margin:18px 0}
-.support-chat-message{padding:13px;border-radius:12px;background:#1d2332;border:1px solid #30384c;white-space:pre-wrap;overflow-wrap:anywhere}
-.support-chat-message.admin{border-color:#6753b8;background:#25213a}
-.support-chat-sender{font-size:12px;color:#a99be9;margin-bottom:7px}
-.support-chat-date{font-size:11px;color:#929bb2;margin-top:8px}
+.support-chat-message{padding:13px;border-radius:12px;background:var(--panel2);border:1px solid var(--border);white-space:pre-wrap;overflow-wrap:anywhere}
+.support-chat-message.admin{border-color:var(--purple2);background:var(--panel2)}
+.support-chat-sender{font-size:0.75rem;color:var(--violet);margin-bottom:7px}
+.support-chat-date{font-size:0.6875rem;color:var(--muted);margin-top:8px}
 .support-ticket-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.support-section{border-top:1px solid #30384c;margin-top:30px;padding-top:4px}
-.case-card{background:#1d2332;border:1px solid #30384c;border-radius:12px;padding:15px;margin-bottom:10px}
+.support-section{border-top:1px solid var(--border);margin-top:30px;padding-top:4px}
+.case-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:15px;margin-bottom:10px}
 .case-card-title{font-weight:bold;overflow-wrap:anywhere}
-.case-card-meta{font-size:12px;color:#929bb2;margin-top:7px}
+.case-card-meta{font-size:0.75rem;color:var(--muted);margin-top:7px}
 .case-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .case-actions button{padding:9px 12px}
 @media(max-width:480px){.grid{grid-template-columns:1fr}main{padding:22px}}
-.profile-head{display:flex;align-items:center;gap:14px;margin:14px 0 22px}.avatar{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#292f40;border:2px solid #8067e8}.profile-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.profile-form input,.profile-form select{width:100%;background:#1d2332;border:1px solid #39435a;border-radius:10px;padding:12px;color:#eef0fa;font:inherit}.profile-form label{font-size:12px;color:#929bb2;display:grid;gap:7px}.profile-form .wide{grid-column:1/-1}.theme-row{display:flex;gap:8px;flex-wrap:wrap}.theme-row button{padding:9px 12px}.theme-row button.selected{outline:2px solid #fff}.assistant-link{display:inline-flex;text-decoration:none;background:#8067e8;color:white;padding:13px 18px;border-radius:10px;font-weight:bold;margin:8px 0 18px}.theme-light{--page-bg:#edf0f7;--page-text:#202437;--panel-bg:#fff}.theme-graphite{--page-bg:#070809;--page-text:#f0f0f0;--panel-bg:#17191d}.theme-blue{--page-bg:#071321;--page-text:#e8f4ff;--panel-bg:#102238}
+.profile-head{display:flex;align-items:center;gap:14px;margin:14px 0 22px}.avatar{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--border);border:2px solid var(--purple2)}.profile-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.profile-form input,.profile-form select{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:var(--control-padding);color:var(--text);font:inherit}.profile-form label{font-size:0.75rem;color:var(--muted);display:grid;gap:7px}.profile-form .wide{grid-column:1/-1}.theme-row{display:flex;gap:8px;flex-wrap:wrap}.theme-row button{padding:9px 12px}.theme-row button.selected{outline:2px solid #fff}.assistant-link{display:inline-flex;text-decoration:none;background:var(--accent);color:var(--accent-text);padding:13px 18px;border-radius:10px;font-weight:bold;margin:8px 0 18px}
+.profile-form input,.profile-form select,.support-form input,.support-form select,.support-form textarea{background:var(--field);border-radius:8px}.profile-form label{min-width:0}.profile-form button.password-visibility{background:var(--panel2);color:var(--text);border:1px solid var(--border);margin:0;padding:.3rem}
 </style>
+<link rel="stylesheet" href="/password-visibility.css">
+<script defer src="/password-visibility.js"></script>
 </head>
 <body>
 <main>
@@ -67,10 +73,10 @@ button:disabled{opacity:.5;cursor:wait}
 <label>Отображаемое имя<input id="profileName" name="display_name" maxlength="64" required></label>
 <label>RP-имя<input id="profileRpName" name="rp_nickname" maxlength="64" required></label>
 <label>Аватарка (PNG/JPG/WebP, до 500 КБ)<input id="profileAvatarFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
-<label class="wide">Тема интерфейса<select id="profileTheme" name="theme"><option value="quantum-purple">Quantum Purple</option><option value="minimal-light">Minimal Light</option><option value="graphite">Graphite</option><option value="cyber-blue">Cyber Blue</option></select></label>
 <div class="wide"><button type="submit">Сохранить профиль</button> <button type="button" class="secondary" id="removeAvatar">Убрать аватар</button></div>
 </form><div id="profileMessage" class="message"></div>
-<h2>Изменить пароль</h2><form id="passwordForm" class="profile-form"><label>Текущий пароль<input id="currentPassword" type="password" required></label><label>Новый пароль (от 12 символов)<input id="newPassword" type="password" minlength="12" required></label><div class="wide"><button type="submit">Изменить пароль</button></div></form><div id="passwordMessage" class="message"></div></section>
+<div id="appearanceSettings" class="appearance"></div>
+<h2>Изменить пароль</h2><form id="passwordForm" class="profile-form"><label>Текущий пароль<input id="currentPassword" name="current_password" type="password" autocomplete="current-password" required></label><label>Новый пароль (от 12 символов)<input id="newPassword" name="new_password" type="password" autocomplete="new-password" minlength="12" required></label><div class="wide"><button type="submit">Изменить пароль</button></div></form><div id="passwordMessage" class="message"></div></section>
 
 <div class="grid">
 <div class="item"><small>Имя пользователя</small><strong id="username">—</strong></div>
@@ -188,8 +194,8 @@ async function loadAccount() {
 
     if (!response.ok || !data.success) {
       status.textContent = "Лицензия недействительна";
-      status.style.background = "#48252b";
-      status.style.color = "#ff9b9b";
+      status.style.background = "var(--danger-bg)";
+      status.style.color = "var(--danger)";
       message.textContent = data.error || "Не удалось загрузить аккаунт.";
       return;
     }
@@ -223,8 +229,8 @@ async function loadAccount() {
       : (licenseActive ? "Лицензия активна" : "Лицензия не активна");
 
     if (!licenseActive && !isAdmin) {
-      status.style.background = "#48252b";
-      status.style.color = "#ff9b9b";
+      status.style.background = "var(--danger-bg)";
+      status.style.color = "var(--danger)";
     }
 
     document.getElementById("renewalSection").hidden = isAdmin;
@@ -363,7 +369,7 @@ function supportDate(value) {
 function supportShowMessage(text, isError = false) {
   const element = document.getElementById("supportMessage");
   element.textContent = text;
-  element.style.color = isError ? "#ff9b9b" : "#75e0ad";
+  element.style.color = isError ? "var(--danger)" : "var(--success)";
 }
 
 async function supportRequest(url, options = {}) {
@@ -395,7 +401,7 @@ let activeCustomerCaseId = null;
 function showCustomerCaseMessage(text, isError = false) {
   const element = document.getElementById("customerCaseMessage");
   element.textContent = text;
-  element.style.color = isError ? "#ff9b9b" : "#75e0ad";
+  element.style.color = isError ? "var(--danger)" : "var(--success)";
 }
 
 function resetCustomerCaseForm() {
@@ -910,7 +916,7 @@ document.getElementById("renewalForm").addEventListener(
         throw new Error(data.error || "Не удалось создать заказ.");
       }
 
-      message.style.color = "#75e0ad";
+      message.style.color = "var(--success)";
       message.textContent =
         "Заказ №" + data.order.id +
         " создан. Сумма: " +
@@ -918,7 +924,7 @@ document.getElementById("renewalForm").addEventListener(
         " RP. Ожидает подтверждения администрацией.";
 
     } catch (error) {
-      message.style.color = "#ff9b9b";
+      message.style.color = "var(--danger)";
       message.textContent = error.message;
     } finally {
       button.disabled = false;
@@ -927,12 +933,6 @@ document.getElementById("renewalForm").addEventListener(
 );
 
 let profileAvatarData = null;
-function applyTheme(theme) {
-  document.body.classList.remove("theme-light","theme-graphite","theme-blue");
-  if (theme === "minimal-light") document.body.classList.add("theme-light");
-  if (theme === "graphite") document.body.classList.add("theme-graphite");
-  if (theme === "cyber-blue") document.body.classList.add("theme-blue");
-}
 async function loadProfile() {
   try {
     const response = await fetch("/api/customer/profile", { credentials:"same-origin" });
@@ -942,12 +942,12 @@ async function loadProfile() {
     document.getElementById("profileLogin").value = p.username || "";
     document.getElementById("profileName").value = p.display_name || "";
     document.getElementById("profileRpName").value = p.rp_nickname || "";
-    document.getElementById("profileTheme").value = p.theme || "quantum-purple";
     profileAvatarData = p.avatar_data || null;
     document.getElementById("profileAvatar").src = profileAvatarData || "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" rx="40" fill="#292f40"/><circle cx="40" cy="30" r="14" fill="#8e79e8"/><path d="M14 76c2-18 12-27 26-27s24 9 26 27" fill="#8e79e8"/></svg>');
     document.getElementById("profileDisplayName").textContent = p.display_name || p.username;
     document.getElementById("profileUsername").textContent = "@" + p.username;
-    applyTheme(p.theme);
+    const { mountAppearance } = await import("/appearance.js");
+    mountAppearance(document.getElementById("appearanceSettings"), "/api/customer/profile", p);
   } catch (error) { document.getElementById("profileMessage").textContent = error.message; }
 }
 document.getElementById("profileAvatarFile").addEventListener("change", async event => {
@@ -957,10 +957,9 @@ document.getElementById("profileAvatarFile").addEventListener("change", async ev
   const reader = new FileReader(); reader.onload = () => { profileAvatarData = String(reader.result); document.getElementById("profileAvatar").src = profileAvatarData; }; reader.readAsDataURL(file);
 });
 document.getElementById("removeAvatar").addEventListener("click", () => { profileAvatarData = null; document.getElementById("profileAvatar").src = ""; });
-document.getElementById("profileTheme").addEventListener("change", e => applyTheme(e.target.value));
 document.getElementById("profileForm").addEventListener("submit", async event => {
   event.preventDefault(); const message=document.getElementById("profileMessage");
-  const body={username:document.getElementById("profileLogin").value,display_name:document.getElementById("profileName").value,rp_nickname:document.getElementById("profileRpName").value,theme:document.getElementById("profileTheme").value,avatar_data:profileAvatarData};
+  const body={username:document.getElementById("profileLogin").value,display_name:document.getElementById("profileName").value,rp_nickname:document.getElementById("profileRpName").value,avatar_data:profileAvatarData};
   try { const r=await fetch("/api/customer/profile",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); const d=await r.json(); if(!r.ok||!d.success)throw new Error(d.error||"Не удалось сохранить."); message.textContent="Профиль сохранён."; document.getElementById("profileDisplayName").textContent=d.profile.display_name; document.getElementById("profileUsername").textContent="@"+d.profile.username; document.getElementById("username").textContent=d.profile.username; document.getElementById("nickname").textContent=d.profile.rp_nickname; } catch(e){message.textContent=e.message;}
 });
 document.getElementById("passwordForm").addEventListener("submit", async event => { event.preventDefault(); const msg=document.getElementById("passwordMessage"); try { const r=await fetch("/api/customer/password",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({current_password:document.getElementById("currentPassword").value,new_password:document.getElementById("newPassword").value})}); const d=await r.json(); if(!r.ok||!d.success)throw new Error(d.error||"Не удалось изменить пароль."); msg.textContent=d.message; event.target.reset(); } catch(e){msg.textContent=e.message;} });

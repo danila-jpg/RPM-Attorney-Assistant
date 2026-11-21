@@ -5,171 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RPM Attorney Assistant</title>
 
+  <link rel="stylesheet" href="/rpm-base.css">
+<link rel="stylesheet" href="/appearance.css">
+<script type="module" src="/appearance.js"></script>
+
+  <link rel="stylesheet" href="/workspace-admin.css">
+  <link rel="stylesheet" href="/password-visibility.css">
+  <script defer src="/password-visibility.js"></script>
+  <script type="module" src="/workspace-router.js"></script>
   <style>
-    :root {
-      --bg:#090711;
-      --panel:#151121;
-      --panel2:#211832;
-      --border:#39294f;
-      --purple:#9865ed;
-      --purple2:#7044bd;
-      --text:#f1eafa;
-      --muted:#aa9cbd;
-      --green:#62d6a0;
-      --red:#ed647b;
-      --yellow:#f3ca68;
-      --blue:#82b7ff;
-      --violet:#c49aff;
-    }
 
-    body[data-theme="minimal-light"]{--bg:#f1f3f8;--panel:#ffffff;--panel2:#e8ebf3;--border:#d4d9e5;--purple:#6754c8;--purple2:#5743b3;--text:#202638;--muted:#66718a}
-    body[data-theme="graphite"]{--bg:#08090b;--panel:#17191e;--panel2:#22252c;--border:#343943;--purple:#9a9fae;--purple2:#646b79;--text:#f1f2f4;--muted:#a0a5af}
-    body[data-theme="cyber-blue"]{--bg:#061321;--panel:#102238;--panel2:#18324d;--border:#234866;--purple:#43b8ff;--purple2:#247dbd;--text:#e9f5ff;--muted:#9db9d1}
-    body[data-theme="minimal-light"] header{background:linear-gradient(120deg,#fff,#e9ecf6)}
-    body[data-theme="minimal-light"] nav{background:#e5e9f2}
-    body[data-theme="minimal-light"] nav button:hover,body[data-theme="minimal-light"] nav button.active{color:#202638;background:#dce1ee;border-color:#aeb8d0}
-    body[data-theme="minimal-light"] input,body[data-theme="minimal-light"] textarea,body[data-theme="minimal-light"] select{background:#f8f9fc;color:#202638}
-    body[data-theme="graphite"] header,body[data-theme="cyber-blue"] header{background:linear-gradient(120deg,var(--panel2),var(--panel))}
-    body[data-theme="graphite"] nav,body[data-theme="cyber-blue"] nav{background:var(--panel)}
-    body[data-theme="minimal-light"] .ai-disclaimer{background:#fff;color:#48536b}
-    *{box-sizing:border-box}
-
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font-family:Segoe UI,Arial,sans-serif;
-    }
-
-    header{
-      padding:22px 30px;
-      background:linear-gradient(120deg,#211532,#100d1b);
-      border-bottom:1px solid var(--border);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      flex-wrap:wrap;
-      gap:12px;
-    }
-
-    .logo{font-size:22px;font-weight:800}
-    .logo span{color:var(--purple)}
-    .panel-profile{display:flex;align-items:center;gap:9px;margin-left:auto;text-decoration:none;color:var(--text);padding:5px 10px;border:1px solid var(--border);border-radius:999px;background:var(--panel)}
-    .panel-profile img{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--panel2)}
-    .panel-profile span{font-size:13px;font-weight:650;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .status{font-size:13px;color:var(--muted)}
-
-    nav{
-      display:flex;
-      gap:7px;
-      padding:13px 20px;
-      background:#100d19;
-      border-bottom:1px solid var(--border);
-      overflow-x:auto;
-    }
-
-    nav button{
-      white-space:nowrap;
-      background:transparent;
-      color:var(--muted);
-      border:1px solid transparent;
-      padding:11px 14px;
-      border-radius:9px;
-      cursor:pointer;
-    }
-
-    nav button:hover,nav button.active{
-      color:white;
-      background:#291d40;
-      border-color:#67439a;
-    }
-
-    main{
-      max-width:1250px;
-      margin:25px auto;
-      padding:0 20px 50px;
-    }
-
-    .tab{display:none}
-    .tab.active{display:block}
-
-    h1{font-size:25px;margin:0 0 8px}
-    h2{font-size:19px;margin-top:0}
-    h3{font-size:16px}
-
-    .subtitle{
-      color:var(--muted);
-      margin-bottom:23px;
-      line-height:1.5;
-    }
-
-    .panel{
-      background:var(--panel);
-      border:1px solid var(--border);
-      border-radius:13px;
-      padding:21px;
-      margin-bottom:17px;
-    }
-
-    label{
-      display:block;
-      margin:14px 0 7px;
-      color:#d9cbea;
-      font-size:14px;
-    }
-
-    input,textarea,select{
-      width:100%;
-      background:#0e0b17;
-      border:1px solid var(--border);
-      color:var(--text);
-      border-radius:8px;
-      padding:12px;
-      outline:none;
-      font:inherit;
-    }
-
-    input:focus,textarea:focus,select:focus{
-      border-color:var(--purple);
-    }
-
-    textarea{
-      min-height:110px;
-      resize:vertical;
-      line-height:1.5;
-    }
-
-    button{font:inherit}
-
-    button.primary{
-      background:linear-gradient(120deg,var(--purple2),var(--purple));
-      color:white;
-      border:0;
-      border-radius:8px;
-      padding:12px 18px;
-      margin-top:14px;
-      cursor:pointer;
-      font-weight:650;
-    }
-
-    button.secondary{
-      background:#292039;
-      border:1px solid var(--border);
-      color:var(--text);
-      border-radius:8px;
-      padding:10px 14px;
-      cursor:pointer;
-      margin:5px 5px 0 0;
-    }
-
-    button.danger{
-      background:#3b1926;
-      border:1px solid #773044;
-      color:#ffb5c1;
-      border-radius:8px;
-      padding:9px 12px;
-      cursor:pointer;
-    }
 
     button:disabled{opacity:.5;cursor:wait}
 
@@ -177,7 +22,7 @@
       margin-top:18px;
       padding:18px;
       border-radius:10px;
-      background:#100d19;
+      background:var(--nav);
       border:1px solid var(--border);
       line-height:1.65;
       overflow-wrap:anywhere;
@@ -194,18 +39,18 @@
       line-height:1.65;
     }
 
-    .result-section h3{margin:0 0 10px;font-size:14px}
+    .result-section h3{margin:0 0 10px;font-size:0.875rem}
     .result-section p{margin:7px 0;white-space:pre-wrap}
 
-    .result-green{background:rgba(40,150,100,.10);border-color:#398c68}
+    .result-green{background:var(--success-bg);border-color:var(--success)}
     .result-green h3,.highlight-green{color:var(--green)}
-    .result-red{background:rgba(200,55,80,.10);border-color:#a94359}
-    .result-red h3,.highlight-red{color:#ff788e}
-    .result-yellow{background:rgba(210,160,40,.10);border-color:#a78332}
+    .result-red{background:var(--danger-bg);border-color:var(--danger)}
+    .result-red h3,.highlight-red{color:var(--danger)}
+    .result-yellow{background:var(--warning-bg);border-color:var(--warning)}
     .result-yellow h3,.highlight-yellow{color:var(--yellow)}
-    .result-blue{background:rgba(65,125,210,.10);border-color:#456eae}
+    .result-blue{background:var(--info-bg);border-color:var(--info)}
     .result-blue h3,.highlight-blue{color:var(--blue)}
-    .result-purple{background:rgba(145,90,220,.12);border-color:#8052bd}
+    .result-purple{background:var(--surface-hover);border-color:var(--accent)}
     .result-purple h3,.highlight-purple{color:var(--violet)}
     .result-highlight{font-weight:700}
 
@@ -222,12 +67,12 @@
       gap:6px;
       padding:6px 9px;
       border-radius:7px;
-      background:#211832;
-      font-size:12px;
+      background:var(--panel2);
+      font-size:0.75rem;
     }
 
     .hidden{display:none!important}
-    .muted{color:var(--muted);font-size:13px;line-height:1.5}
+    .muted{color:var(--muted);font-size:0.8125rem;line-height:1.5}
 
     .case-item,.law-item,.question-card,.glossary-item{
       background:var(--panel2);
@@ -249,8 +94,8 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      background:#302044;
-      color:#d8baff;
+      background:var(--surface-hover);
+      color:var(--accent);
       border-radius:9px;
       font-weight:800;
     }
@@ -260,7 +105,7 @@
 
     .glossary-item h3{
       margin:0 0 8px;
-      color:#d3b5ff;
+      color:var(--accent);
     }
 
     .glossary-item p{
@@ -272,9 +117,9 @@
       display:inline-block;
       padding:4px 9px;
       border-radius:20px;
-      background:#302044;
-      color:#d8baff;
-      font-size:12px;
+      background:var(--surface-hover);
+      color:var(--accent);
+      font-size:0.75rem;
     }
 
     .law-document{
@@ -296,7 +141,7 @@
     .law-content{padding:0 17px 17px}
 
     .article{
-      background:#100d19;
+      background:var(--nav);
       border:1px solid var(--border);
       border-radius:9px;
       margin:10px 0;
@@ -306,7 +151,7 @@
     .article summary{
       padding:13px 15px;
       font-weight:650;
-      color:#e9dafa;
+      color:var(--text);
       cursor:pointer;
     }
 
@@ -317,7 +162,7 @@
       overflow-wrap:anywhere;
     }
 
-    .article-status{font-size:12px;color:var(--green);margin-bottom:10px}
+    .article-status{font-size:0.75rem;color:var(--green);margin-bottom:10px}
 
     .stats-grid{
       display:grid;
@@ -327,20 +172,20 @@
     }
 
     .stat-card{
-      background:#211832;
+      background:var(--panel2);
       border:1px solid var(--border);
       padding:13px;
       border-radius:9px;
     }
 
-    .stat-number{font-size:23px;font-weight:750;color:#c9a9ff}
-    .stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+    .stat-number{font-size:1.4375rem;font-weight:750;color:var(--accent)}
+    .stat-label{font-size:0.75rem;color:var(--muted);margin-top:4px}
 
     #toast{
       position:fixed;
       bottom:20px;
       right:20px;
-      background:#281d3d;
+      background:var(--surface-hover);
       border:1px solid var(--purple);
       padding:13px 18px;
       border-radius:9px;
@@ -363,21 +208,21 @@
     }
 
     .reasoning-panel{
-      background:#151121;
-      border:1px solid #67439a;
+      background:var(--panel);
+      border:1px solid var(--nav-border);
       border-radius:12px;
       padding:16px;
       min-width:0;
     }
 
     .reasoning-panel h2{
-      color:#d3b5ff;
+      color:var(--accent);
       margin:0 0 8px;
     }
 
     .reasoning-card{
-      background:#211832;
-      border:1px solid #49345f;
+      background:var(--panel2);
+      border:1px solid var(--border);
       border-radius:9px;
       padding:13px;
       margin-top:12px;
@@ -385,19 +230,19 @@
     }
 
     .reasoning-card h3{
-      color:#d8baff;
+      color:var(--accent);
       margin:0 0 10px;
     }
 
     .reasoning-field{
       margin-top:12px;
       line-height:1.55;
-      font-size:13px;
+      font-size:0.8125rem;
     }
 
     .reasoning-field strong{
       display:block;
-      color:#c49aff;
+      color:var(--violet);
       margin-bottom:4px;
     }
 
@@ -411,22 +256,22 @@
       border-radius:7px;
       padding:6px 9px;
       margin-top:8px;
-      font-size:12px;
-      background:#302044;
-      color:#d8baff;
+      font-size:0.75rem;
+      background:var(--surface-hover);
+      color:var(--accent);
     }
 
     .reasoning-empty{
-      color:#aa9cbd;
+      color:var(--muted);
       line-height:1.6;
-      font-size:13px;
+      font-size:0.8125rem;
     }
 
     /* ПРОВЕРКА ДЕЙСТВИЙ ПОЛИЦИИ */
 
     .police-check-card{
-      background:#211832;
-      border:1px solid #49345f;
+      background:var(--panel2);
+      border:1px solid var(--border);
       border-radius:10px;
       padding:16px;
       margin-top:14px;
@@ -435,7 +280,7 @@
 
     .police-check-card h3{
       margin:0 0 10px;
-      color:#d8baff;
+      color:var(--accent);
     }
 
     .police-check-status{
@@ -443,45 +288,45 @@
       padding:6px 10px;
       border-radius:7px;
       margin:5px 0 12px;
-      font-size:12px;
+      font-size:0.75rem;
       font-weight:700;
-      background:#302044;
-      color:#d8baff;
+      background:var(--surface-hover);
+      color:var(--accent);
     }
 
     .police-status-danger{
-      background:rgba(200,55,80,.14);
-      color:#ff788e;
-      border:1px solid #a94359;
+      background:var(--danger-bg);
+      color:var(--danger);
+      border:1px solid var(--danger);
     }
 
     .police-status-warning{
-      background:rgba(210,160,40,.12);
+      background:var(--warning-bg);
       color:var(--yellow);
-      border:1px solid #a78332;
+      border:1px solid var(--warning);
     }
 
     .police-status-success{
-      background:rgba(40,150,100,.10);
+      background:var(--success-bg);
       color:var(--green);
-      border:1px solid #398c68;
+      border:1px solid var(--success);
     }
 
     .police-status-neutral{
-      background:rgba(65,125,210,.10);
+      background:var(--info-bg);
       color:var(--blue);
-      border:1px solid #456eae;
+      border:1px solid var(--info);
     }
 
     .police-check-field{
       margin-top:12px;
       line-height:1.6;
-      font-size:13px;
+      font-size:0.8125rem;
     }
 
     .police-check-field strong{
       display:block;
-      color:#c49aff;
+      color:var(--violet);
       margin-bottom:5px;
     }
 
@@ -494,8 +339,8 @@
 
     .police-check-summary{
       padding:16px;
-      background:#151121;
-      border:1px solid #67439a;
+      background:var(--panel);
+      border:1px solid var(--nav-border);
       border-radius:10px;
       margin-top:16px;
       line-height:1.65;
@@ -504,8 +349,8 @@
     /* АУДИТ ССЫЛОК И УВЕРЕННОСТЬ ИИ */
 
     .audit-panel{
-      background:#151121;
-      border:1px solid #67439a;
+      background:var(--panel);
+      border:1px solid var(--nav-border);
       border-radius:10px;
       padding:16px;
       margin-top:15px;
@@ -513,23 +358,23 @@
     }
 
     .audit-panel h2{
-      color:#d3b5ff;
+      color:var(--accent);
       margin:0 0 12px;
     }
 
     .audit-panel h3{
-      color:#d8baff;
+      color:var(--accent);
       margin:14px 0 8px;
     }
 
     .audit-item{
-      background:#211832;
-      border:1px solid #49345f;
+      background:var(--panel2);
+      border:1px solid var(--border);
       border-radius:8px;
       padding:11px;
       margin-top:8px;
       line-height:1.55;
-      font-size:13px;
+      font-size:0.8125rem;
       overflow-wrap:anywhere;
       white-space:pre-wrap;
     }
@@ -540,7 +385,7 @@
     .audit-neutral{border-left:4px solid var(--blue)}
 
     .audit-label{
-      color:#c49aff;
+      color:var(--violet);
       font-weight:700;
       display:block;
       margin-bottom:4px;
@@ -551,31 +396,31 @@
       padding:6px 10px;
       border-radius:7px;
       margin:5px 0;
-      font-size:12px;
+      font-size:0.75rem;
       font-weight:700;
     }
 
     .confidence-high{
       color:var(--green);
-      background:rgba(40,150,100,.12);
-      border:1px solid #398c68;
+      background:var(--success-bg);
+      border:1px solid var(--success);
     }
 
     .confidence-medium{
       color:var(--yellow);
-      background:rgba(210,160,40,.12);
-      border:1px solid #a78332;
+      background:var(--warning-bg);
+      border:1px solid var(--warning);
     }
 
     .confidence-low{
-      color:#ff788e;
-      background:rgba(200,55,80,.12);
-      border:1px solid #a94359;
+      color:var(--danger);
+      background:var(--danger-bg);
+      border:1px solid var(--danger);
     }
 
     .audit-note{
       color:var(--muted);
-      font-size:12px;
+      font-size:0.75rem;
       line-height:1.5;
       margin-top:10px;
     }
@@ -585,10 +430,6 @@
     }
 
     @media(max-width:700px){
-      header{padding:18px}
-      nav{padding:10px}
-      main{padding:0 12px 35px}
-      .panel{padding:15px}
       .result{padding:12px}
       .question-top{align-items:flex-start}
     }
@@ -607,30 +448,30 @@
       table-layout:fixed;
       border-collapse:separate;
       border-spacing:0;
-      font-size:13px;
+      font-size:0.8125rem;
     }
 
     #customersList th,#ordersList th {
       padding:13px 10px;
-      background:#211832;
-      color:#cdb8f5;
+      background:var(--panel2);
+      color:var(--text);
       text-align:left;
       font-weight:600;
-      border-bottom:1px solid #49345f;
+      border-bottom:1px solid var(--border);
       overflow-wrap:anywhere;
     }
 
     #customersList td,#ordersList td {
       padding:12px 10px;
-      color:#e7e0f1;
-      border-bottom:1px solid rgba(120,90,155,.18);
+      color:var(--text);
+      border-bottom:1px solid var(--surface-hover);
       vertical-align:middle;
       overflow-wrap:anywhere;
       line-height:1.45;
     }
 
     #customersList tbody tr:hover,#ordersList tbody tr:hover {
-      background:rgba(157,105,230,.12);
+      background:var(--surface-hover);
     }
 
     #ordersList td:last-child {
@@ -641,7 +482,7 @@
       width:100%;
       min-width:0;
       padding:9px 10px;
-      font-size:12px;
+      font-size:0.75rem;
       white-space:normal;
     }
 
@@ -655,7 +496,7 @@
       align-items:center;
       justify-content:center;
       gap:18px;
-      background:#090711;
+      background:var(--bg);
       opacity:1;
       visibility:visible;
       transition:opacity .45s ease,visibility .45s ease;
@@ -668,7 +509,7 @@
     }
 
     .loader-logo {
-      font-size:25px;
+      font-size:1.5625rem;
       font-weight:800;
       letter-spacing:2px;
     }
@@ -680,16 +521,16 @@
     .loader-spinner {
       width:48px;
       height:48px;
-      border:4px solid #302342;
+      border:4px solid var(--border);
       border-top-color:var(--purple);
       border-radius:50%;
       animation:loaderSpin .8s linear infinite;
-      box-shadow:0 0 25px rgba(152,101,237,.2);
+      box-shadow:0 0 25px var(--surface-hover);
     }
 
     .loader-caption {
       color:var(--muted);
-      font-size:13px;
+      font-size:0.8125rem;
     }
 
     @keyframes loaderSpin {
@@ -701,11 +542,11 @@
       max-width:1250px;
       margin:16px auto 0;
       padding:13px 18px;
-      border:1px solid rgba(243,202,104,.3);
+      border:1px solid var(--warning-bg);
       border-radius:11px;
-      background:rgba(243,202,104,.055);
-      color:#e8d8ae;
-      font-size:13px;
+      background:var(--warning-bg);
+      color:var(--text);
+      font-size:0.8125rem;
       line-height:1.6;
     }
 
@@ -734,7 +575,7 @@
       padding:15px;
       border:1px solid var(--border);
       border-radius:10px;
-      background:rgba(255,255,255,.02);
+      background:var(--surface-hover);
     }
 
     .footer-contact h3 {
@@ -745,12 +586,12 @@
     .footer-contact p {
       margin:7px 0;
       color:var(--muted);
-      font-size:13px;
+      font-size:0.8125rem;
       overflow-wrap:anywhere;
     }
 
     .footer-contact a {
-      color:#c49aff;
+      color:var(--violet);
       text-decoration:none;
     }
 
@@ -763,7 +604,7 @@
       padding-top:14px;
       border-top:1px solid var(--border);
       color:var(--muted);
-      font-size:12px;
+      font-size:0.75rem;
       text-align:center;
     }
 
@@ -807,26 +648,26 @@
   width: 100%;
   text-align: left;
   padding: 12px;
-  border: 1px solid #51436f;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #211a32;
-  color: #f3edff !important;
+  background: var(--input-bg);
+  color: var(--text) !important;
   cursor: pointer;
   overflow-wrap: anywhere;
 }
 .support-ticket-item:hover {
-  background: #302442;
-  border-color: #8b6cff;
+  background: var(--surface-hover);
+  border-color: var(--accent);
 }
 .support-ticket-item.active {
-  border-color: #a78bfa;
-  background: #34264d;
+  border-color: var(--accent);
+  background: var(--surface-hover);
 }
 .support-ticket-item strong,
 .support-ticket-item span {
   display: block;
   margin-bottom: 5px;
-  color: #f3edff !important;
+  color: var(--text) !important;
 }
 .support-ticket-item span {
   font-size: 0.88em;
@@ -843,7 +684,7 @@
 }
 .support-message {
   padding: 12px;
-  border: 1px solid var(--border, #444);
+  border: 1px solid var(--border, var(--border));
   border-radius: 10px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -891,7 +732,7 @@
   <a class="panel-profile" href="/app/account.html" id="panelProfile" hidden><img id="panelAvatar" alt=""><span id="panelDisplayName">Профиль</span></a>
 </header>
 
-<nav>
+<nav id="mainNavigation" aria-label="Разделы RPM">
   <button class="active" data-tab="analysis">Анализ дела</button>
   <button data-tab="police">Проверка полиции</button>
   <button data-tab="questions">Вопросы сотруднику</button>
@@ -900,6 +741,9 @@
   <button data-tab="history">История дел</button>
   <button data-tab="backups">Резервные копии</button>
   <button data-tab="laws">Все законы</button>
+  <a class="nav-tab" href="/charters" data-tab="charters">Уставы</a>
+  <a class="nav-tab" href="/training" data-tab="training">Обучение</a>
+  <a class="nav-tab" id="adminWorkspaceLink" href="/admin" data-tab="admin" hidden>Кабинет администратора</a>
   <button data-tab="customers">Покупатели</button>
   <button data-tab="orders">Заказы</button>
   <button data-tab="support">Поддержка</button></nav>
@@ -1150,7 +994,7 @@
       Автоматические копии истории дел, сохранённые на сервере.
     </p>
 
-    <p style="color:#e0b85c;">
+    <p style="color:var(--warning);">
       Восстановление заменит текущую историю дел выбранной резервной копией.
       Перед восстановлением текущая версия также будет сохранена.
     </p>
@@ -1385,7 +1229,9 @@
         Telegram и первый Discord — контакты владельца проекта. Второй Discord — контакт администратора поддержки.
       </p>
     </div>
-  </section></main>
+  </section>
+  <!-- WORKSPACE_VIEWS -->
+</main>
 <footer class="site-footer">
   <div class="footer-bottom">
     RPM Attorney Assistant · RP-проект · Проверяйте ответы по первоисточникам
@@ -1570,7 +1416,6 @@
             description:context||"Обстоятельства дела не предоставлены.",
             evidence:article?"Предполагаемая статья: "+article:"Дополнительные сведения отсутствуют."
           },
-          laws:lawsData,
           officerAnswer
         })
       });
@@ -1602,6 +1447,7 @@
 
   async function api(url,options={}){
     const response=await fetch(url,{
+      signal:AbortSignal.timeout(12000),
       ...options,
       headers:{
         "Content-Type":"application/json",
@@ -1660,9 +1506,9 @@
   /* БИБЛИОТЕКА ЗАКОНОВ И УЛУЧШЕННЫЙ ПОИСК */
 
   function getDocuments(){
-    if(Array.isArray(lawsData)) return lawsData;
+    if(Array.isArray(lawsData)) return lawsData.filter(doc => !doc.type || doc.type === "law");
     if(lawsData && Array.isArray(lawsData.documents)) {
-      return lawsData.documents;
+      return lawsData.documents.filter(doc => !doc.type || doc.type === "law");
     }
     return [];
   }
@@ -2427,7 +2273,6 @@
         body:JSON.stringify({
           mode,
           caseData,
-          laws:lawsData,
           officerAnswer:$("officerAnswer").value.trim()
         })
       });
@@ -2604,8 +2449,7 @@
             policeDescription:description,
             description,
             evidence
-          },
-          laws:lawsData
+          }
         })
       });
 
@@ -2684,7 +2528,7 @@
               makeElement(
                       "h3",
                       "",
-                      item.article||"Статья не указана"
+                      item.article||"Норма не указана"
               )
       );
 
@@ -2696,7 +2540,13 @@
               )
       );
 
-      addField(card,"Почему применяется",item.whyApplied);
+      if (item.normText) addField(card,"Содержание нормы",item.normText);
+      if (item.normDocument && item.normAnchor) {
+        const source=makeElement("a","","Открыть норму");
+        source.href="/charters?doc="+encodeURIComponent(item.normDocument)+"#"+encodeURIComponent(item.normAnchor);
+        card.appendChild(source);
+      }
+      addField(card,"Применение",item.whyApplied);
       addField(card,"Подтверждённые признаки",item.establishedElements);
       addField(card,"Подтверждающие доказательства",item.evidence);
       addField(card,"Недостающие доказательства",item.missingEvidence);
@@ -3734,7 +3584,8 @@
     }
 
     renderLegalReasoning(lastLegalReasoning);
-    activateTab("analysis");
+    if (window.rpmNavigate) window.rpmNavigate("/");
+    else activateTab("analysis");
 
     toast("Дело загружено.");
   }
@@ -4614,18 +4465,25 @@
     }
   }
 
-  async function loadPanelProfile() {
-    try {
-      const data = await api("/api/panel/profile");
-      const profile = data.profile;
-      document.body.dataset.theme = profile.theme || "quantum-purple";
+  function showPanelProfile(profile) {
       const link = $("panelProfile");
       $("panelDisplayName").textContent = profile.display_name || profile.username;
       if (profile.avatar_data) $("panelAvatar").src = profile.avatar_data;
       else $("panelAvatar").src = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#514477"/><circle cx="20" cy="14" r="7" fill="#d8ccff"/><path d="M7 38c1-9 6-14 13-14s12 5 13 14" fill="#d8ccff"/></svg>');
       link.hidden = false;
+  }
+
+  async function loadPanelProfile() {
+    try {
+      const data = await api("/api/panel/profile");
+      if (!document.getElementById("appearanceSettings")?.dataset.ready) {
+        const { applyAppearance } = await import("/appearance.js");
+        if (!document.getElementById("appearanceSettings")?.dataset.ready) applyAppearance(data.profile);
+      }
+      showPanelProfile(data.profile);
     } catch (error) { console.warn("Panel profile unavailable:", error.message); }
   }
+  window.addEventListener("rpm-profile-updated", event => showPanelProfile(event.detail));
 
   /* ПРАВА ДОСТУПА */
 
@@ -4636,6 +4494,8 @@
       const data = await api("/api/panel/permissions");
       isOwner = data.isOwner === true;
       const isAdmin = data.isAdmin === true;
+      $("adminWorkspaceLink").hidden = !isAdmin || !$("admin");
+      if (isAdmin) $("panelProfile").href = "/admin";
       if (!isAdmin) {
         ["customers", "orders", "support"].forEach((tab) => {
           const button = document.querySelector(`nav button[data-tab="${tab}"]`);
@@ -4659,7 +4519,7 @@
       shortcut.id = "ownerDashboardShortcut";
       shortcut.href = "/owner";
       shortcut.textContent = "Панель владельца";
-      shortcut.style.cssText = "display:inline-block;margin:8px 0;padding:9px 13px;border-radius:9px;background:#8067e8;color:white;text-decoration:none;font-weight:bold";
+      shortcut.style.cssText = "display:inline-block;margin:8px 0;padding:9px 13px;border-radius:9px;background:var(--accent);color:var(--accent-text);text-decoration:none;font-weight:bold";
       document.querySelector("header")?.appendChild(shortcut);
     }
   }
@@ -4670,21 +4530,20 @@
     // Исправлено: раньше здесь была ошибка if(!$ (id)).
     if(!$(id))return;
 
-    document.querySelectorAll("nav button[data-tab]").forEach(button=>{
-      button.classList.toggle("active",button.dataset.tab===id);
+    document.querySelectorAll("#mainNavigation [data-tab]").forEach(button=>{
+      const selected = button.dataset.tab===id;
+      button.classList.toggle("active",selected);
+      if (selected) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     });
 
-    document.querySelectorAll("main .tab").forEach(tab=>{
+    document.querySelectorAll("main > .tab").forEach(tab=>{
       tab.classList.toggle("active",tab.id===id);
     });
   }
 
-  document.querySelectorAll("nav button[data-tab]").forEach(button=>{
-    button.addEventListener("click",()=>{
-      const tabId=button.dataset.tab;
-
+  function activateWorkspaceTab(tabId) {
       activateTab(tabId);
-
       if(tabId==="backups"){
         loadBackups();
       }
@@ -4701,8 +4560,7 @@
         clearInterval(supportRefreshTimer);
         supportRefreshTimer = null;
       }
-    });
-  });
+  }
 
   $("lawSearch").addEventListener("input",renderLaws);
   $("customerSearch").addEventListener("input",loadCustomers);

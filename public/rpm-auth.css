@@ -1,0 +1,8 @@
+.auth-page { min-height: 100vh; display: grid; align-items: start; }
+.auth-card { width: min(100%, 470px); margin: 8vh auto 0; }
+.auth-card .submit { width: 100%; }
+.auth-card .message { display: none; padding: 12px; margin-top: 12px; background: var(--panel2); border-radius: 8px; color: var(--text); }
+.auth-card .message.visible { display: block; }
+.auth-card nav { padding: 0; margin-bottom: 12px; background: transparent; }
+.auth-card nav button { flex: 1; }
+.auth-card label > :is(input,.password-field) { margin-top: 7px; }

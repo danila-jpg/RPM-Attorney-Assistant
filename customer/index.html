@@ -5,119 +5,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RPM Attorney Assistant — Личный кабинет</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: #10111a;
-      color: #f1f1f7;
-      font-family: Arial, sans-serif;
-    }
-    .container {
-      width: 100%;
-      max-width: 440px;
-      padding: 32px;
-      background: #191b28;
-      border: 1px solid #303247;
-      border-radius: 18px;
-      box-shadow: 0 18px 60px #0006;
-    }
-    .logo {
-      text-align: center;
-      font-size: 25px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-    .subtitle {
-      text-align: center;
-      color: #999bb2;
-      font-size: 14px;
-      margin-bottom: 28px;
-    }
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
-    }
-    button, input { font: inherit; }
-    .tab {
-      flex: 1;
-      padding: 11px;
-      border: 1px solid #383b52;
-      border-radius: 9px;
-      color: #b8bad0;
-      background: #222437;
-      cursor: pointer;
-    }
-    .tab.active {
-      color: white;
-      background: #6655c7;
-      border-color: #6655c7;
-    }
-    .field { margin-bottom: 16px; }
-    label {
-      display: block;
-      margin-bottom: 7px;
-      color: #c5c6d7;
-      font-size: 13px;
-    }
-    input {
-      width: 100%;
-      padding: 13px;
-      color: white;
-      background: #11131e;
-      border: 1px solid #383b52;
-      border-radius: 9px;
-      outline: none;
-    }
-    input:focus { border-color: #8876f0; }
-    .submit {
-      width: 100%;
-      margin-top: 8px;
-      padding: 14px;
-      border: 0;
-      border-radius: 9px;
-      color: white;
-      background: #6655c7;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .submit:disabled { opacity: .6; cursor: wait; }
-    .message {
-      display: none;
-      margin-top: 16px;
-      padding: 12px;
-      border-radius: 9px;
-      background: #292b3d;
-      color: #dedff0;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .message.visible { display: block; }
-    .hint {
-      margin-top: 20px;
-      color: #85879e;
-      font-size: 12px;
-      line-height: 1.5;
-      text-align: center;
-    }
-    [hidden] { display: none !important; }
-  </style>
+<link rel="stylesheet" href="/rpm-base.css">
+<link rel="stylesheet" href="/rpm-auth.css">
+<link rel="stylesheet" href="/password-visibility.css">
+<script defer src="/password-visibility.js"></script>
+<script type="module" src="/appearance.js"></script>
 </head>
-<body>
-  <main class="container">
+<body class="auth-page" data-appearance-cache>
+  <main class="auth-card">
     <div class="logo">RPM Attorney Assistant</div>
     <div class="subtitle">Личный кабинет пользователя</div>
 
-    <div class="tabs">
-      <button class="tab active" id="loginTab" type="button">Вход</button>
-      <button class="tab" id="registerTab" type="button">Регистрация</button>
-    </div>
+    <nav aria-label="Авторизация">
+      <button class="nav-tab active" id="loginTab" type="button">Вход</button>
+      <button class="nav-tab" id="registerTab" type="button">Регистрация</button>
+    </nav>
 
+    <section class="panel">
     <form id="loginForm">
       <div class="field">
         <label for="loginUsername">Логин</label>
@@ -129,7 +33,7 @@
         <input id="loginPassword" name="password" type="password"
           required autocomplete="current-password" maxlength="72">
       </div>
-      <button class="submit" type="submit">Войти</button>
+      <button class="submit primary" type="submit">Войти</button>
     </form>
 
     <form id="registerForm" hidden>
@@ -154,7 +58,7 @@
           required minlength="12" maxlength="72"
           autocomplete="new-password">
       </div>
-      <button class="submit" type="submit">Создать аккаунт</button>
+      <button class="submit primary" type="submit">Создать аккаунт</button>
     </form>
 
     <div class="message" id="message" role="status"></div>
@@ -162,6 +66,7 @@
       Регистрация доступна только по одноразовому приглашению,
       полученному после подтверждения оплаты администратором.
     </div>
+  </section>
   </main>
 
   <script>

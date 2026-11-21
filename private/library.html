@@ -1,0 +1,37 @@
+<div id="charters" class="tab workspace-view">
+  <h1 id="libraryTop">Уставы</h1>
+  <section class="panel">
+    <div id="libraryCatalog">
+    <div class="grid">
+    <label>Организация<select id="libraryOrganization"></select></label>
+    <label>Поиск документов<input id="libraryCatalogSearch" type="search" placeholder="Название или организация"></label>
+    <label>Документ<select id="documents"></select></label>
+    </div>
+    <div id="documentCards" class="document-cards"></div>
+    </div>
+    <details id="documentHistory" hidden><summary>История редакций</summary><ul></ul></details>
+  </section>
+  <section class="panel">
+    <form id="resolve">
+      <label>Проверить ссылку<input name="reference" required maxlength="800" placeholder="Устав CPD, глава II, пункт 2.3"></label>
+      <button class="secondary">Найти норму</button>
+    </form>
+    <div id="resolution" aria-live="polite"></div>
+  </section>
+  <p class="status" id="libraryStatus" role="status"></p>
+  <button class="secondary" id="retryLibrary" type="button" hidden>Повторить загрузку</button>
+  <section class="panel" id="reader" hidden>
+    <h2 id="title"></h2><p id="metadata"></p>
+    <div class="library-actions">
+      <a href="/charters" id="libraryBack">К списку документов</a>
+      <button class="secondary" id="copyDocument" type="button">Копировать документ</button>
+      <a id="trainOnDocument" href="/training">Изучить этот устав</a>
+    </div>
+    <label>Прогресс чтения <progress id="readingProgress" max="100" value="0"></progress></label>
+    <label>Поиск по документу<input id="search" type="search" placeholder="Слово, фраза или номер пункта"></label>
+    <ol id="matches" hidden></ol>
+    <details id="contents" hidden><summary>Оглавление</summary><ul></ul></details>
+    <div id="text" class="source"></div>
+    <button class="secondary" id="libraryBackTop" type="button">Наверх</button>
+  </section>
+</div>

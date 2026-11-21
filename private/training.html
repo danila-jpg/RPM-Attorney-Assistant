@@ -1,0 +1,31 @@
+<div id="training" class="tab workspace-view">
+  <h1>RPM Training</h1>
+  <section class="panel">
+    <form id="setup">
+      <div class="grid">
+        <label>Категория<select name="category"><option value="law">Законодательство</option><option value="charters">Обучение по уставам</option></select></label>
+        <label id="organization" hidden>Организация<select name="organization"></select></label>
+        <div>
+          <label>Поиск документов<input type="search" name="documentSearch" placeholder="Название документа"></label>
+          <label>Доступные документы<select name="documents"></select></label>
+          <button class="secondary" type="button" id="addTrainingDocument">Добавить</button>
+          <ul id="selectedTrainingDocuments"></ul>
+        </div>
+        <div>
+          <label>Режим<select name="mode">
+            <option value="cards">Карточки</option><option value="quiz">Тестирование</option><option value="practice">Практические ситуации</option><option value="exam">Экзамен</option>
+          </select></label>
+          <label>Количество<select name="size"><option>5</option><option>10</option><option>20</option></select></label>
+        </div>
+      </div>
+      <div class="actions"><button class="primary">Начать</button><a id="study" href="/charters">Изучить документ</a></div>
+    </form>
+    <p class="status" id="trainingStatus" role="status"></p>
+    <button class="secondary" id="retryTraining" type="button" hidden>Обновить данные обучения</button>
+  </section>
+  <section class="panel" id="exercise" hidden>
+    <h2 id="position"></h2><progress id="trainingProgress" value="0" aria-label="Прогресс занятия"></progress><p class="source" id="prompt"></p>
+    <div id="choices"></div><div id="feedback" aria-live="polite"></div>
+  </section>
+  <section class="panel" id="progress"><h2>Мой прогресс</h2><p id="summary"></p><ul id="topics"></ul></section>
+</div>

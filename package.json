@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check customer-auth-routes.js",
+    "check": "node --check server.js && node --check customer-auth-routes.js && node --check workspace-routes.js && node --check documents.js && node --check training.js && node --check appearance.js && node --check public/appearance.js && node --check public/theme-catalog.js",
+    "test": "node --test tests/*.mjs",
     "test:audit": "node tests/reference-audit-regression.mjs",
     "test:parsing": "node tests/ai-response-parsing.test.mjs"
   },

@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE rpm_users ADD COLUMN IF NOT EXISTS appearance_preferences JSONB NOT NULL DEFAULT '{}';
+COMMIT;
