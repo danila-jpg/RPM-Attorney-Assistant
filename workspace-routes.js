@@ -180,7 +180,9 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     category: entry ? (doc.type === "law" ? "law" : "charter") : "document",
     target: entry ? doc.id + ":" + entry.id : doc.id,
     title: entry ? citation(doc, entry) : doc.name,
-    href: documentLink(doc.id, entry?.id)
+    href: documentLink(doc.id, entry?.id),
+    type: entry ? "article" : doc.type === "law" ? "law" : "document",
+    description: entry ? doc.name : doc.organization
   });
   const caseResult = record => ({ category: "case", target: String(record.id), title: record.title,
     href: "/?tab=history&case=" + encodeURIComponent(record.id) });
@@ -232,10 +234,13 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
   app.get("/api/workspace/favorites", route(async (req, res) => {
     const [laws, favorite] = await Promise.all([
       loadLaws(),
-      pool.query("SELECT category,target FROM rpm_workspace_favorites WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100", [req.userId])
+      pool.query("SELECT category,target,created_at FROM rpm_workspace_favorites WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100", [req.userId])
     ]);
     const documents = getDocuments(laws);
-    const results = await Promise.all(favorite.rows.map(({ category, target }) => resolveFavorite(req.userId, category, target, documents)));
+    const results = await Promise.all(favorite.rows.map(async ({ category, target, created_at }) => {
+      const item = await resolveFavorite(req.userId, category, target, documents);
+      return item && { ...item, created_at };
+    }));
     res.set("Cache-Control", "no-store").json(results.filter(Boolean));
   }));
   app.put("/api/workspace/favorites", route(async (req, res) => {
@@ -254,21 +259,55 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     res.json({ saved });
   }));
 
-  const upcomingEvents = userId => pool.query(`SELECT id,title,starts_at FROM rpm_workspace_events
-    WHERE user_id=$1 AND starts_at>=now() ORDER BY starts_at LIMIT 30`, [userId]);
+  const upcomingEvents = userId => pool.query(`SELECT e.id,e.title,e.starts_at,e.category,c.id::text AS case_id
+    FROM rpm_workspace_events e LEFT JOIN rpm_cases c ON c.user_id=e.user_id AND c.id::text=e.case_id
+    WHERE e.user_id=$1 AND e.starts_at>=now() ORDER BY e.starts_at LIMIT 30`, [userId]);
   app.get("/api/workspace/events", route(async (req, res) => {
-    res.set("Cache-Control", "no-store").json((await upcomingEvents(req.userId)).rows);
-  }));
-  app.post("/api/workspace/events", route(async (req, res) => {
-    const { title, startsAt } = req.body || {};
-    const date = typeof startsAt === "string" && /^\d{4}-\d{2}-\d{2}T/.test(startsAt) ? new Date(startsAt) : null;
-    if (typeof title !== "string" || !title.trim() || title.length > 120 || !date ||
-        !Number.isFinite(date.getTime()) || date.getTime() <= Date.now()) {
-      return res.status(400).json({ error: "Укажите название и время будущего события." });
+    if (req.query.from === undefined && req.query.to === undefined) {
+      return res.set("Cache-Control", "no-store").json((await upcomingEvents(req.userId)).rows);
     }
-    const { rows: [event] } = await pool.query(`INSERT INTO rpm_workspace_events(id,user_id,title,starts_at)
-      VALUES($1,$2,$3,$4) RETURNING id,title,starts_at`, [randomUUID(), req.userId, title.trim(), date]);
+    const from = new Date(String(req.query.from));
+    const to = new Date(String(req.query.to));
+    if (!Number.isFinite(+from) || !Number.isFinite(+to) || to <= from || to - from > 370 * 86_400_000) {
+      return res.status(400).json({ error: "Укажите корректный период календаря." });
+    }
+    const { rows } = await pool.query(`SELECT e.id,e.title,e.starts_at,e.category,c.id::text AS case_id
+      FROM rpm_workspace_events e LEFT JOIN rpm_cases c ON c.user_id=e.user_id AND c.id::text=e.case_id
+      WHERE e.user_id=$1 AND e.starts_at >= $2 AND e.starts_at < $3 ORDER BY e.starts_at`, [req.userId, from, to]);
+    res.set("Cache-Control", "no-store").json(rows);
+  }));
+  app.get("/api/workspace/event-cases", route(async (req, res) => {
+    const { rows } = await pool.query("SELECT id::text, title FROM rpm_cases WHERE user_id=$1 ORDER BY updated_at DESC", [req.userId]);
+    res.set("Cache-Control", "no-store").json(rows);
+  }));
+  function eventFields(body, updating) {
+    const { title, startsAt, category = "personal", caseId = null } = body || {};
+    const date = typeof startsAt === "string" && /^\d{4}-\d{2}-\d{2}T/.test(startsAt) ? new Date(startsAt) : null;
+    if (typeof title !== "string" || !title.trim() || title.length > 120 || !date || !Number.isFinite(+date) ||
+        (!updating && +date <= Date.now()) || !["court", "meeting", "consultation", "deadline", "personal"].includes(category) ||
+        (caseId !== null && (typeof caseId !== "string" || !caseId || caseId.length > 200))) return null;
+    return [title.trim(), date, category, caseId];
+  }
+  app.post("/api/workspace/events", route(async (req, res) => {
+    const values = eventFields(req.body, false);
+    if (!values) return res.status(400).json({ error: "Проверьте название, категорию и будущую дату события." });
+    const { rows: [event] } = await pool.query(`INSERT INTO rpm_workspace_events(id,user_id,title,starts_at,category,case_id)
+      SELECT $1,$2,$3,$4,$5,$6 WHERE $6::text IS NULL OR EXISTS
+        (SELECT 1 FROM rpm_cases WHERE user_id=$2 AND id::text=$6)
+      RETURNING id,title,starts_at,category,case_id`, [randomUUID(), req.userId, ...values]);
+    if (!event) return res.status(404).json({ error: "Дело не найдено." });
     res.status(201).json(event);
+  }));
+  app.patch("/api/workspace/events/:id", route(async (req, res) => {
+    if (!uuid.test(req.params.id)) return res.status(404).json({ error: "Событие не найдено." });
+    const values = eventFields(req.body, true);
+    if (!values) return res.status(400).json({ error: "Проверьте название, категорию и дату события." });
+    const { rows: [event] } = await pool.query(`UPDATE rpm_workspace_events SET title=$3,starts_at=$4,category=$5,case_id=$6
+      WHERE id=$1 AND user_id=$2 AND ($6::text IS NULL OR EXISTS
+        (SELECT 1 FROM rpm_cases WHERE user_id=$2 AND id::text=$6))
+      RETURNING id,title,starts_at,category,case_id`, [req.params.id, req.userId, ...values]);
+    if (!event) return res.status(404).json({ error: "Событие или дело не найдено." });
+    res.json(event);
   }));
   app.delete("/api/workspace/events/:id", route(async (req, res) => {
     if (!uuid.test(req.params.id)) return res.status(404).json({ error: "Событие не найдено." });
@@ -293,11 +332,38 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     return { name: profile.rows[0]?.name, expires: license.rows[0]?.expires_at,
       cases: cases.rows.slice(0, 5).map(caseResult), attempts: attempts.rows, events: events.rows.slice(0, 5) };
   }
+  const exportTypes = {
+    analysis: ["Анализ дела (PDF)", "/?tab=analysis#documentExport"],
+    police: ["Проверка полиции (PDF)", "/?tab=police"],
+    case: ["Материалы дела (PDF)", "/?tab=history"],
+    archive: ["Архив дел (PDF)", "/?tab=history"]
+  };
+  app.post("/api/workspace/exports", route(async (req, res) => {
+    const kind = req.body?.kind;
+    if (typeof kind !== "string" || !Object.hasOwn(exportTypes, kind)) {
+      return res.status(400).json({ error: "Неизвестный тип документа." });
+    }
+    await pool.query("INSERT INTO rpm_workspace_exports(id,user_id,kind) VALUES($1,$2,$3)",
+      [randomUUID(), req.userId, kind]);
+    res.status(201).json({ recorded: true });
+  }));
   app.get("/api/workspace/dashboard", route(async (req, res) => {
-    const [{ attempts, ...overview }, laws] = await Promise.all([personalOverview(req.userId), loadLaws()]);
-    const recentDocuments = getDocuments(laws).filter(doc => doc.addedAt)
-      .sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt)).slice(0, 5).map(doc => normResult(doc));
+    const id = req.userId;
+    const [{ attempts, ...overview }, { rows: [counts] }, { rows: exports }, { rows: announcements }] = await Promise.all([
+      personalOverview(id),
+      pool.query(`SELECT
+        (SELECT count(*) FROM rpm_cases WHERE user_id=$1)::int AS cases,
+        (SELECT count(*) FROM rpm_workspace_exports WHERE user_id=$1)::int AS documents,
+        (SELECT count(*) FROM rpm_training_attempts WHERE user_id=$1 AND mode='exam' AND completed_at IS NOT NULL)::int AS exams,
+        (SELECT count(*) FROM rpm_workspace_favorites WHERE user_id=$1 AND category IN ('law','charter'))::int AS norms`, [id]),
+      pool.query("SELECT kind,created_at FROM rpm_workspace_exports WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5", [id]),
+      pool.query("SELECT id,title FROM rpm_workspace_announcements WHERE published_at<=now() ORDER BY published_at DESC LIMIT 3")
+    ]);
+    const recentDocuments = exports.map(({ kind, created_at }) => ({
+      category: "document", title: exportTypes[kind][0], href: exportTypes[kind][1], created_at
+    }));
     res.set("Cache-Control", "no-store").json({ ...overview, progress: summarizeTraining(attempts), recentDocuments,
+      counts, announcements, isAdmin: req.isAdmin === true,
       canAnnounce: Boolean(req.isOwner && req.adminSessionVerified) });
   }));
   async function notifications(userId) {

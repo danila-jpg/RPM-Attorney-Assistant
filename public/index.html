@@ -718,9 +718,10 @@
     max-height: 420px;
   }
 }</style>
+<link rel="stylesheet" href="/rpm-dashboard.css">
 </head>
 
-<body>
+<body class="rpm-shell">
 <div id="appLoader">
   <div class="loader-logo">RPM <span>ATTORNEY ASSISTANT</span></div>
   <div class="loader-spinner"></div>
@@ -728,32 +729,66 @@
 </div>
 
 
-<header>
-  <div class="logo">RPM <span>ATTORNEY ASSISTANT</span></div>
-  <div class="status" id="systemStatus">Проверка сервера...</div>
-  <button type="button" class="secondary" id="workspaceSearch" aria-keyshortcuts="Control+K">Поиск</button>
-  <button type="button" class="secondary" id="workspaceNotifications" aria-label="Уведомления">🔔</button>
-  <a class="panel-profile" href="/app/account.html" id="panelProfile" hidden><img id="panelAvatar" alt=""><span id="panelDisplayName">Профиль</span></a>
+<a class="rpm-skip" href="#rpmContent">К основному содержанию</a>
+<button id="sidebarBackdrop" type="button" aria-label="Закрыть меню" hidden></button>
+<aside id="rpmSidebar" aria-label="Боковая панель">
+  <div class="rpm-brand"><span data-icon="scale"></span><a href="/">RPM <small>Attorney Assistant</small></a>
+    <button id="collapseSidebar" class="rpm-icon-button" type="button" title="Свернуть панель" aria-label="Свернуть панель" aria-controls="mainNavigation" aria-expanded="true" data-icon="panel"></button></div>
+  <nav id="mainNavigation" aria-label="Разделы RPM">
+    <div class="rpm-nav-group"><p>Основное</p>
+      <button type="button" data-tab="dashboard" aria-label="Главная" title="Главная"><span data-icon="layout-dashboard"></span><span class="rpm-nav-label">Главная</span></button>
+      <button type="button" data-tab="calendar" aria-label="Календарь" title="Календарь"><span data-icon="calendar"></span><span class="rpm-nav-label">Календарь</span></button>
+      <button type="button" data-tab="favorites" aria-label="Избранное" title="Избранное"><span data-icon="bookmark"></span><span class="rpm-nav-label">Избранное</span></button>
+      <button type="button" id="sidebarSearch" aria-label="Поиск" title="Поиск"><span data-icon="search"></span><span class="rpm-nav-label">Поиск</span></button>
+    </div>
+    <div class="rpm-nav-group"><p>Юридические инструменты</p>
+      <button type="button" data-tab="analysis" aria-label="Анализ дела" title="Анализ дела"><span data-icon="scale"></span><span class="rpm-nav-label">Анализ дела</span></button>
+      <button type="button" data-tab="police" aria-label="Проверка полиции" title="Проверка полиции"><span data-icon="shield"></span><span class="rpm-nav-label">Проверка полиции</span></button>
+      <button type="button" data-tab="questions" aria-label="Вопросы сотруднику" title="Вопросы сотруднику"><span data-icon="message"></span><span class="rpm-nav-label">Вопросы сотруднику</span></button>
+      <button type="button" data-tab="reference" aria-label="Справочник адвоката" title="Справочник адвоката"><span data-icon="book"></span><span class="rpm-nav-label">Справочник адвоката</span></button>
+      <button type="button" data-tab="glossary" aria-label="Словарь терминов" title="Словарь терминов"><span data-icon="book"></span><span class="rpm-nav-label">Словарь терминов</span></button>
+    </div>
+    <div class="rpm-nav-group"><p>Рабочее пространство</p>
+      <a class="nav-tab" href="/app/account.html#casesSection" data-section="cases" data-role="customer" hidden aria-label="Мои дела" title="Мои дела"><span data-icon="briefcase"></span><span class="rpm-nav-label">Мои дела</span></a>
+      <a class="nav-tab" href="/charters" data-section="library" aria-label="Документы" title="Документы"><span data-icon="files"></span><span class="rpm-nav-label">Документы</span></a>
+      <button type="button" data-tab="history" aria-label="История дел" title="История дел"><span data-icon="history"></span><span class="rpm-nav-label">История дел</span></button>
+      <a class="nav-tab" href="/training" data-section="training" data-tab="training" aria-label="RPM Training" title="RPM Training"><span data-icon="graduation"></span><span class="rpm-nav-label">RPM Training</span></a>
+    </div>
+    <div class="rpm-nav-group"><p>Законодательство</p>
+      <button type="button" data-tab="laws" aria-label="Все законы" title="Все законы"><span data-icon="book"></span><span class="rpm-nav-label">Все законы</span></button>
+      <a class="nav-tab" href="/charters?type=charter" data-section="charters" data-tab="charters" aria-label="Уставы" title="Уставы"><span data-icon="book"></span><span class="rpm-nav-label">Уставы</span></a>
+      <a class="nav-tab" href="/charters?view=history" data-section="revisions" aria-label="История редакций" title="История редакций"><span data-icon="history"></span><span class="rpm-nav-label">История редакций</span></a>
+    </div>
+    <div class="rpm-nav-group" id="rpmManagement" hidden><p>Управление</p>
+      <a class="nav-tab" href="/owner" data-section="owner" data-role="owner" hidden aria-label="Панель владельца" title="Панель владельца"><span data-icon="scale"></span><span class="rpm-nav-label">Панель владельца</span></a>
+      <a class="nav-tab" href="/admin" data-section="admin" data-tab="admin" id="adminWorkspaceLink" data-role="admin" hidden aria-label="Кабинет администратора" title="Кабинет администратора"><span data-icon="shield"></span><span class="rpm-nav-label">Кабинет администратора</span></a>
+      <button type="button" data-tab="customers" data-role="admin" hidden aria-label="Покупатели" title="Покупатели"><span data-icon="users"></span><span class="rpm-nav-label">Покупатели</span></button>
+      <button type="button" data-tab="orders" data-role="owner" hidden aria-label="Заказы" title="Заказы"><span data-icon="files"></span><span class="rpm-nav-label">Заказы</span></button>
+      <button type="button" data-tab="support" data-role="admin" hidden aria-label="Поддержка" title="Поддержка"><span data-icon="message"></span><span class="rpm-nav-label">Поддержка</span></button>
+      <button type="button" data-tab="backups" data-role="admin" hidden aria-label="Резервные копии" title="Резервные копии"><span data-icon="database"></span><span class="rpm-nav-label">Резервные копии</span></button>
+    </div>
+  </nav>
+</aside>
+<header class="rpm-topbar">
+  <div class="rpm-topbar-title"><button id="openSidebar" class="rpm-icon-button" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="rpmSidebar" data-icon="menu"></button><span id="workspaceTitle">Главная</span></div>
+  <div class="rpm-topbar-actions">
+    <button type="button" class="rpm-command" id="workspaceSearch" aria-label="Глобальный поиск" aria-keyshortcuts="Control+K Meta+K"><span data-icon="search"></span><span class="rpm-action-label">Поиск</span><kbd>Ctrl K</kbd></button>
+    <button type="button" class="rpm-icon-button" id="workspaceNotifications" aria-label="Уведомления" title="Уведомления" data-icon="bell"></button>
+    <div class="status rpm-ai" id="systemStatus" role="status">Проверка сервера...</div>
+    <details class="rpm-profile" id="panelProfile" hidden>
+      <summary class="panel-profile" aria-label="Меню профиля"><span class="rpm-avatar" data-icon="user"><img id="panelAvatar" alt="" hidden></span><span id="panelDisplayName">Профиль</span></summary>
+      <div class="rpm-profile-menu">
+        <a id="workspaceAccount" href="/app/account.html">Личный кабинет</a>
+        <a id="workspaceSettings" href="/app/account.html#profileForm">Настройки</a>
+        <a id="workspaceSecurity" href="/app/account.html#passwordForm">Безопасность</a>
+        <a id="workspaceAppearance" href="/app/account.html#appearanceSettings">Выбор темы</a>
+        <button type="button" id="workspaceLogout">Выход</button>
+        <p role="status" id="workspaceProfileStatus"></p>
+      </div>
+    </details>
+  </div>
 </header>
-
-<nav id="mainNavigation" aria-label="Разделы RPM">
-  <button class="active" data-tab="dashboard">Главная</button>
-  <button data-tab="calendar">Календарь</button>
-  <button data-tab="favorites">Избранное</button>
-  <button data-tab="analysis">Анализ дела</button>
-  <button data-tab="police">Проверка полиции</button>
-  <button data-tab="questions">Вопросы сотруднику</button>
-  <button data-tab="reference">Справочник адвоката</button>
-  <button data-tab="glossary">Словарь терминов</button>
-  <button data-tab="history">История дел</button>
-  <button data-tab="backups">Резервные копии</button>
-  <button data-tab="laws">Все законы</button>
-  <a class="nav-tab" href="/charters" data-tab="charters">Уставы</a>
-  <a class="nav-tab" href="/training" data-tab="training">Обучение</a>
-  <a class="nav-tab" id="adminWorkspaceLink" href="/admin" data-tab="admin" hidden>Кабинет администратора</a>
-  <button data-tab="customers">Покупатели</button>
-  <button data-tab="orders">Заказы</button>
-  <button data-tab="support">Поддержка</button></nav>
+<main id="rpmContent" tabindex="-1">
 <div class="ai-disclaimer">
   <strong>Важно:</strong> RPM Attorney Assistant — информационный ИИ-помощник
   для ролевой игры (RP). Ответы могут содержать ошибки и не являются официальной
@@ -762,8 +797,7 @@
 </div>
 
 
-<main>
-  <section id="dashboard" class="tab active"><h1>Главная</h1><div id="personalDashboard"></div></section>
+  <section id="dashboard" class="tab active"><div id="personalDashboard"></div></section>
   <section id="calendar" class="tab"><h1>Календарь</h1><div id="personalCalendar"></div></section>
   <section id="favorites" class="tab"><h1>Избранное</h1><div id="personalFavorites"></div></section>
 
@@ -808,7 +842,7 @@
 
       <button class="secondary" onclick="saveCurrentCase()">Сохранить дело</button>
 
-      <button class="secondary" onclick="exportAnalysisPDF()">📄 Скачать анализ в PDF</button>
+      <button id="documentExport" class="secondary" onclick="exportAnalysisPDF()">Сформировать анализ в PDF</button>
     </div>
 
     <div class="panel">
@@ -2572,6 +2606,11 @@
   }
   /* ЭКСПОРТ АНАЛИЗА В PDF */
 
+  function recordWorkspaceExport(kind) {
+    api("/api/workspace/exports", { method: "POST", body: JSON.stringify({ kind }) })
+      .catch(error => console.warn("PDF statistics unavailable:", error.message));
+  }
+
   function exportAnalysisPDF(){
     if(!lastAnalysis){
       toast("Сначала проведи анализ дела.");
@@ -2789,6 +2828,7 @@
   `);
 
     printWindow.document.close();
+    recordWorkspaceExport("analysis");
 
     setTimeout(() => {
       printWindow.focus();
@@ -2935,6 +2975,7 @@
   `);
 
     printWindow.document.close();
+    recordWorkspaceExport("police");
 
     setTimeout(() => {
       printWindow.focus();
@@ -3146,6 +3187,7 @@
   `);
 
     printWindow.document.close();
+    recordWorkspaceExport("case");
 
     setTimeout(()=>{
       printWindow.focus();
@@ -3445,6 +3487,7 @@
   `);
 
     printWindow.document.close();
+    recordWorkspaceExport("archive");
 
     setTimeout(()=>{
       printWindow.focus();
@@ -4470,20 +4513,23 @@
     try{
       const data=await api("/api/health");
 
-      $("systemStatus").textContent=data.aiConfigured
-              ?"ИИ подключён · Сервер работает"
-              :"Сервер работает · ИИ не настроен";
+      $("systemStatus").textContent=data.aiConfigured ? "ИИ доступен" : "ИИ не настроен";
+      $("systemStatus").dataset.state=data.aiConfigured ? "ready" : "unconfigured";
+      $("systemStatus").title=$("systemStatus").textContent;
 
     }catch(error){
       $("systemStatus").textContent="Сервер недоступен";
+      $("systemStatus").dataset.state="offline";
+      $("systemStatus").title=$("systemStatus").textContent;
     }
   }
 
   function showPanelProfile(profile) {
       const link = $("panelProfile");
       $("panelDisplayName").textContent = profile.display_name || profile.username;
+      $("panelAvatar").hidden = !profile.avatar_data;
       if (profile.avatar_data) $("panelAvatar").src = profile.avatar_data;
-      else $("panelAvatar").src = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#514477"/><circle cx="20" cy="14" r="7" fill="#d8ccff"/><path d="M7 38c1-9 6-14 13-14s12 5 13 14" fill="#d8ccff"/></svg>');
+      else $("panelAvatar").removeAttribute("src");
       link.hidden = false;
   }
 
@@ -4502,43 +4548,19 @@
   /* ПРАВА ДОСТУПА */
 
   let isOwner = false;
-
   async function loadPermissions() {
     try {
-      const data = await api("/api/panel/permissions");
-      isOwner = data.isOwner === true;
-      const isAdmin = data.isAdmin === true;
-      $("adminWorkspaceLink").hidden = !isAdmin || !$("admin");
-      if (isAdmin) $("panelProfile").href = "/admin";
-      if (!isAdmin) {
-        ["customers", "orders", "support"].forEach((tab) => {
-          const button = document.querySelector(`nav button[data-tab="${tab}"]`);
-          const section = $(tab);
-          if (button) button.style.display = "none";
-          if (section) section.style.display = "none";
-        });
-      }
+      const permissions = await api("/api/panel/permissions");
+      isOwner = permissions.isOwner === true;
+      window.rpmPermissions = permissions;
+      window.dispatchEvent(new CustomEvent("rpm-permissions", { detail: permissions }));
     } catch (error) {
-      isOwner = false;
-    }
-
-    const ordersButton = document.querySelector('nav button[data-tab="orders"]');
-    const ordersSection = $("orders");
-
-    if (!isOwner) {
-      if (ordersButton) ordersButton.style.display = "none";
-      if (ordersSection) ordersSection.style.display = "none";
-    } else if (!document.getElementById("ownerDashboardShortcut")) {
-      const shortcut = document.createElement("a");
-      shortcut.id = "ownerDashboardShortcut";
-      shortcut.href = "/owner";
-      shortcut.textContent = "Панель владельца";
-      shortcut.style.cssText = "display:inline-block;margin:8px 0;padding:9px 13px;border-radius:9px;background:var(--accent);color:var(--accent-text);text-decoration:none;font-weight:bold";
-      document.querySelector("header")?.appendChild(shortcut);
+      console.warn("Panel permissions unavailable:", error.message);
+    } finally {
+      window.rpmPermissionsReady = true;
+      window.dispatchEvent(new Event("rpm-permissions-ready"));
     }
   }
-
-  /* ВКЛАДКИ */
 
   function activateTab(id){
     // Исправлено: раньше здесь была ошибка if(!$ (id)).
@@ -4581,6 +4603,18 @@
         supportRefreshTimer = null;
       }
   }
+
+  window.resetWorkspaceAnalysis = () => {
+    for (const id of ["caseTitle", "caseDescription", "caseEvidence", "officerAnswer", "analysisRevision"]) $(id).value = "";
+    for (const id of ["analysisResult", "evaluationResult", "followupResult"]) {
+      $(id).replaceChildren();
+      $(id).classList.add("hidden");
+    }
+    lastAnalysis = "";
+    lastLegalReasoning = [];
+    renderLegalReasoning([]);
+    $("caseTitle").focus();
+  };
 
   $("lawSearch").addEventListener("input",renderLaws);
   api("/api/law-revisions").then(({ revisions }) => {

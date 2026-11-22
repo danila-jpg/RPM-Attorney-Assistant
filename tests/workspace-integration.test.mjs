@@ -11,7 +11,7 @@ const testTools = new URL("../.workspace-test/node_modules/", import.meta.url);
 const pgliteModule = new URL("@electric-sql/pglite/dist/index.js", testTools);
 const hasPostgres = await access(pgliteModule).then(() => true, () => false);
 
-test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !hasPostgres, timeout: 240_000 }, async t => {
+test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !hasPostgres, timeout: 360_000 }, async t => {
   const { PGlite } = await import(pgliteModule);
   const db = new PGlite();
   t.after(() => db.close());
@@ -294,7 +294,9 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   const favorite = { category: "case", target: own.data[0].target, saved: true };
   assert.equal((await send("/api/workspace/favorites", { method: "PUT", cookie: other.cookie, body: favorite })).status, 404);
   assert.equal((await send("/api/workspace/favorites", { method: "PUT", cookie, body: favorite })).status, 200);
-  assert.deepEqual((await send("/api/workspace/favorites", { cookie })).data, own.data);
+  const [{ created_at, ...savedCase }] = (await send("/api/workspace/favorites", { cookie })).data;
+  assert.deepEqual([savedCase], own.data);
+  assert.ok(Number.isFinite(Date.parse(created_at)));
   assert.deepEqual((await send("/api/workspace/favorites", { cookie: other.cookie })).data, []);
   const inbox = (await send("/api/workspace/notifications", { cookie: customerAgain.cookie })).data.filter(item => item.id.startsWith("subscription:"));
   assert.equal(inbox.length, 1);
@@ -305,6 +307,15 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   const event = await send("/api/workspace/events", { method: "POST", cookie,
     body: { title: "Fixture court meeting", startsAt: new Date(Date.now() + 3600_000).toISOString() } });
   assert.equal(event.status, 201);
+  const eventPath = "/api/workspace/events/" + event.data.id;
+  const eventChanges = { title: event.data.title, startsAt: event.data.starts_at, category: "court", caseId: own.data[0].target };
+  assert.equal((await send(eventPath, { method: "PATCH", cookie: other.cookie, body: eventChanges })).status, 404);
+  assert.equal((await send(eventPath, { method: "PATCH", cookie, body: { ...eventChanges, caseId: "missing" } })).status, 404);
+  const changed = await send(eventPath, { method: "PATCH", cookie, body: eventChanges });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.data.case_id, eventChanges.caseId);
+  const eventRange = new URLSearchParams({ from: new Date().toISOString(), to: new Date(Date.now() + 86400_000).toISOString() });
+  assert.ok((await send("/api/workspace/events?" + eventRange, { cookie })).data.some(item => item.category === "court"));
   assert.deepEqual((await send("/api/workspace/events", { cookie: other.cookie })).data, []);
   assert.equal((await send("/api/workspace/events/" + event.data.id, { method: "DELETE", cookie: other.cookie })).status, 404);
   assert.ok((await send("/api/workspace/notifications", { cookie })).data.some(item => item.id === "event:" + event.data.id));
@@ -445,6 +456,49 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
         return [body.fontFamily, body.backgroundColor, panel.backgroundColor, panel.borderRadius];
       });
       const cabinetStyles = await themeStyles();
+      await page.goto(origin + "/");
+      await page.locator(".rpm-metrics .rpm-metric").last().waitFor();
+      for (const width of [360, 390, 768, 1024, 1440, 1920]) {
+        await page.setViewportSize({ width, height: 900 });
+        for (const tab of ["dashboard", "calendar", "favorites"]) {
+          await page.evaluate(tab => window.rpmNavigate("/?tab=" + tab), tab);
+          const ready = { dashboard: ".rpm-metrics", calendar: ".rpm-calendar-grid", favorites: ".rpm-favorite" };
+          await page.locator(ready[tab]).first().waitFor();
+          assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), tab + " @ " + width);
+        }
+      }
+      await page.locator("#collapseSidebar").click();
+      await page.reload();
+      await page.waitForFunction(() => document.body.classList.contains("rpm-collapsed"));
+      await page.locator("#collapseSidebar").click();
+      await page.getByRole("button",{name:"Список",exact:true}).click();
+      await page.locator(".rpm-favorites-list").waitFor();
+      await page.getByRole("button",{name:"Сетка",exact:true}).click();
+      await page.goto(origin + "/?tab=calendar");
+      await page.getByRole("button", { name: "Создать событие" }).click();
+      await page.getByLabel("Название", { exact: true }).fill("Событие браузерной проверки");
+      await page.getByLabel("Категория", { exact: true }).selectOption("consultation");
+      await page.getByLabel("Дело", { exact: true }).selectOption(own.data[0].target);
+      await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+      await page.getByRole("button", { name: "День", exact: true }).click();
+      await page.locator(".rpm-calendar-details:visible button").filter({ hasText: "Событие браузерной проверки" }).first().click();
+      await page.waitForFunction(id => document.querySelector('dialog[open] select[aria-label="Дело"]')?.value === id, own.data[0].target);
+      page.once("dialog", confirmation => confirmation.accept());
+      await page.getByRole("button", { name: "Удалить", exact: true }).click();
+      await page.getByRole("dialog").waitFor({ state: "hidden" });
+      if (process.env.WORKSPACE_TEST_SCREENSHOTS) {
+        for (const [tab, selector] of Object.entries({ dashboard: ".rpm-metrics", calendar: ".rpm-calendar-grid", favorites: ".rpm-favorite" })) {
+          await page.goto(origin + "/?tab=" + tab);
+          await page.locator(selector).first().waitFor();
+          await page.locator("#appLoader").waitFor({ state: "hidden" });
+          await page.evaluate(async () => (await import("/appearance.js")).applyAppearance({ theme: "quantum-purple" }));
+          await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === "rgb(11, 9, 18)");
+          await page.screenshot({ path: `.workspace-test/rpm-${tab}.png`, fullPage: true, animations: "disabled" });
+        }
+      }
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.goto(origin + "/admin");
+      await page.getByRole("heading", { name: "Рабочая панель" }).waitFor();
       await page.evaluate(() => { window.workspaceMarker = "same-document"; });
       await page.getByRole("link", { name: "Рабочие инструменты" }).click();
       assert.deepEqual(await themeStyles(), cabinetStyles);
@@ -475,15 +529,17 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.getByRole("link", { name: "Кабинет", exact: true }).click();
       await page.getByRole("heading", { name: "Рабочая панель" }).waitFor();
       await page.evaluate(() => { window.workspaceMarker = "same-document"; });
+      await page.locator("#openSidebar").click();
       await page.getByRole("link", { name: "Уставы", exact: true }).click();
-      await page.waitForURL("**/charters");
-      assert.equal(await page.getByRole("link", { name: "Уставы", exact: true }).getAttribute("aria-current"), "page");
-      await page.getByRole("link", { name: "Обучение", exact: true }).click();
+      await page.waitForURL("**/charters?type=charter");
+      assert.equal(await page.locator('#mainNavigation [data-section="charters"]').getAttribute("aria-current"), "page");
+      await page.locator("#openSidebar").click();
+      await page.getByRole("link", { name: "RPM Training", exact: true }).click();
       await page.waitForURL("**/training");
       assert.equal(await page.evaluate(() => window.workspaceMarker), "same-document");
       assert.equal(await page.locator("body").getAttribute("data-theme"), "graphite");
       await page.goBack();
-      await page.waitForURL("**/charters");
+      await page.waitForURL("**/charters?type=charter");
       await page.getByRole("heading", { name: "Уставы", exact: true }).waitFor();
       await page.locator("#documents").waitFor();
       await page.route("**/api/documents/charter-cpd", route => route.abort(), { times: 1 });

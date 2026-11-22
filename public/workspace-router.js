@@ -1,3 +1,5 @@
+import "./rpm-shell.js";
+
 const paths = { admin: "/admin", charters: "/charters", training: "/training" };
 const modules = {
   admin: () => import("./workspace-admin.js"),
@@ -8,16 +10,26 @@ const modules = {
   favorites: () => import("./workspace-personal.js")
 };
 let current;
+let lastReset;
 
 function renderRoute() {
   const url = new URL(location.href);
   const path = url.pathname.toLowerCase().replace(/\/$/, "");
   let tab = Object.keys(paths).find(id => paths[id] === path) || url.searchParams.get("tab") || "dashboard";
-  if (!document.querySelector(`#mainNavigation [data-tab="${CSS.escape(tab)}"]`) ||
-      !document.getElementById(tab)) tab = "analysis";
+  const item = document.querySelector(`#mainNavigation [data-tab="${CSS.escape(tab)}"]`);
+  if (item?.dataset.role && !window.rpmPermissionsReady) return;
+  if (!item || item.hidden || !document.getElementById(tab)) tab = "dashboard";
   if (tab !== current) {
     current = tab;
     window.activateWorkspaceTab(tab);
+  }
+  window.dispatchEvent(new CustomEvent("rpm-route", { detail: { tab, url } }));
+  if (tab === "analysis" && url.searchParams.has("new")) {
+    if (lastReset !== url.href) window.resetWorkspaceAnalysis();
+    lastReset = url.href;
+  } else lastReset = undefined;
+  if (tab === "analysis" && ["#documentExport", "#caseTitle"].includes(url.hash)) {
+    document.getElementById(url.hash.slice(1))?.focus();
   }
   if (tab === "history" && url.searchParams.has("case")) window.openOwnedWorkspaceCase(url.searchParams.get("case"));
   if (Object.hasOwn(modules, tab)) {
@@ -41,7 +53,7 @@ document.addEventListener("click", event => {
   const button = event.target.closest("#mainNavigation button[data-tab]");
   if (button) return navigate("/?tab=" + encodeURIComponent(button.dataset.tab));
   const link = event.target.closest("a[href]");
-  if (!link || link.target || link.hasAttribute("download")) return;
+  if (!link || link.target || link.hasAttribute("download") || link.classList.contains("rpm-skip")) return;
   const url = new URL(link.href);
   if (url.origin !== location.origin || (!Object.values(paths).includes(url.pathname) && url.pathname !== "/")) return;
   if (url.pathname === "/admin" && !document.getElementById("admin")) return;
@@ -50,5 +62,6 @@ document.addEventListener("click", event => {
   navigate(url);
 });
 window.addEventListener("popstate", renderRoute);
+window.addEventListener("rpm-permissions-ready", renderRoute);
 window.rpmNavigate = navigate;
 renderRoute();

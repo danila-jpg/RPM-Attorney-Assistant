@@ -57,17 +57,40 @@ button:disabled{opacity:.5;cursor:wait}
 @media(max-width:480px){.grid{grid-template-columns:1fr}main{padding:22px}}
 .profile-head{display:flex;align-items:center;gap:14px;margin:14px 0 22px}.avatar{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--border);border:2px solid var(--purple2)}.profile-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.profile-form input,.profile-form select{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:var(--control-padding);color:var(--text);font:inherit}.profile-form label{font-size:0.75rem;color:var(--muted);display:grid;gap:7px}.profile-form .wide{grid-column:1/-1}.theme-row{display:flex;gap:8px;flex-wrap:wrap}.theme-row button{padding:9px 12px}.theme-row button.selected{outline:2px solid #fff}.assistant-link{display:inline-flex;text-decoration:none;background:var(--accent);color:var(--accent-text);padding:13px 18px;border-radius:10px;font-weight:bold;margin:8px 0 18px}
 .profile-form input,.profile-form select,.support-form input,.support-form select,.support-form textarea{background:var(--field);border-radius:8px}.profile-form label{min-width:0}.profile-form button.password-visibility{background:var(--panel2);color:var(--text);border:1px solid var(--border);margin:0;padding:.3rem}
+body{display:block;padding:clamp(12px,4vw,48px)}
+main{max-width:1120px;margin:0 auto;background:transparent;border:0;box-shadow:none;padding:0}
+h1{font-size:1.75rem}
+h2{font-size:1.25rem}
+.account-header,.support-section,.account-license{background:var(--panel);border:1px solid var(--border);border-radius:var(--rpm-card-radius);padding:var(--panel-padding)}
+.account-header,.account-license,.support-section{margin:0 0 18px}
+.account-header .status,.account-header .assistant-link{margin-bottom:0}
+.account-nav{margin:16px 0;background:var(--theme-sidebar,var(--nav));border:1px solid var(--border);border-radius:var(--rpm-card-radius);padding:6px}
+.account-nav a{flex:0 1 auto}
+.support-section>h2:first-child{margin-top:0}
+.account-license .grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,195px),1fr))}
+main :is(form,section,input)[id]{scroll-margin-top:16px}
+@media(max-width:560px){.profile-form{grid-template-columns:minmax(0,1fr)}}
 </style>
 <link rel="stylesheet" href="/password-visibility.css">
 <script defer src="/password-visibility.js"></script>
 </head>
 <body>
 <main>
+<div class="account-header">
 <h1>Личный кабинет</h1>
 <div class="subtitle">RPM Attorney Assistant</div>
 <div id="status" class="status">Проверка лицензии...</div>
 <div class="profile-head"><img id="profileAvatar" class="avatar" alt="Аватар" src=""><div><strong id="profileDisplayName">Загрузка профиля…</strong><div class="empty" id="profileUsername"></div></div></div>
-<a class="assistant-link" id="assistantLink" href="/">Открыть панель помощника →</a>
+<a class="assistant-link" id="assistantLink" href="/">Открыть панель помощника</a>
+</div>
+<nav class="account-nav" aria-label="Личный кабинет">
+  <a class="workspace-link" href="#profileForm">Профиль</a>
+  <a class="workspace-link" href="#appearanceSettings">Оформление</a>
+  <a class="workspace-link" href="#passwordForm">Безопасность</a>
+  <a class="workspace-link" href="#accountLicense">Подписка</a>
+  <a class="workspace-link" href="#casesSection">Мои дела</a>
+  <a class="workspace-link" href="#supportSection">Поддержка</a>
+</nav>
 
 <section class="support-section"><h2>Мой профиль и оформление</h2><form id="profileForm" class="profile-form">
 <label>Логин<input id="profileLogin" name="username" minlength="3" maxlength="32" required></label>
@@ -79,6 +102,8 @@ button:disabled{opacity:.5;cursor:wait}
 <div id="appearanceSettings" class="appearance"></div>
 <h2>Изменить пароль</h2><form id="passwordForm" class="profile-form"><label>Текущий пароль<input id="currentPassword" name="current_password" type="password" autocomplete="current-password" required></label><label>Новый пароль (от 12 символов)<input id="newPassword" name="new_password" type="password" autocomplete="new-password" minlength="12" required></label><div class="wide"><button type="submit">Изменить пароль</button></div></form><div id="passwordMessage" class="message"></div></section>
 
+<section id="accountLicense" class="account-license">
+<h2 style="margin-top:0">Подписка</h2>
 <div class="grid">
 <div class="item"><small>Имя пользователя</small><strong id="username">—</strong></div>
 <div class="item"><small>RP-никнейм</small><strong id="nickname">—</strong></div>
@@ -87,6 +112,7 @@ button:disabled{opacity:.5;cursor:wait}
 <div class="item"><small>Окончание лицензии</small><strong id="expires">—</strong></div>
 <div class="item"><small>Статус</small><strong id="licenseStatus">—</strong></div>
 </div>
+</section>
 
 <section id="renewalSection" class="support-section">
 <h2>Продление лицензии</h2>

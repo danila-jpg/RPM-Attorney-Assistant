@@ -6,7 +6,7 @@ export const defaultPreferences = Object.freeze({
 const palette = (id, name, colors, light = false) => ({ id, name, colors: colors.split(" "), light });
 // Background, surface, hover, text, muted text, accent, accent hover, border, input, button text.
 export const themes = [
-  palette("midnight-purple", "Midnight Purple", "#090711 #151121 #211832 #f1eafa #aa9cbd #a16df2 #c49aff #39294f #0e0b17 #140924"),
+  palette("midnight-purple", "Midnight Purple", "#0b0912 #191525 #211832 #f5f2fa #a9a1bb #9b6dff #c3a5ff #30283f #0e0b17 #140924"),
   palette("graphite", "Graphite Pro", "#08090b #17191e #22252c #f1f2f4 #a0a5af #b6bdcc #d1d7e1 #343943 #101216 #101216"),
   palette("amoled-black", "AMOLED Black", "#000000 #0d0d0d #1c1c1c #ffffff #bdbdbd #dedede #ffffff #363636 #080808 #000000"),
   palette("obsidian", "Obsidian", "#090c11 #141922 #202936 #eef4fc #a5b3c7 #93aee0 #b8cef1 #344257 #0f141c #101827"),

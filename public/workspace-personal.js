@@ -1,5 +1,8 @@
 import { byId, element, request } from "./workspace-common.js";
 
+import { addIcon } from "./rpm-shell.js";
+import { calendar } from "./workspace-calendar.js";
+
 const categories = { law: "Статьи", charter: "Пункты уставов", document: "Документы", case: "Дела и анализ", question: "Вопросы" };
 const button = (name, callback) => {
   const item = element("button", name, { class: "secondary", type: "button" });
@@ -30,6 +33,7 @@ function resultList(rows, feedback, saved = false, refresh, controls = true) {
     const link = element("a", row.title, { href: row.href });
     const item = element("li");
     item.append(link, element("small", categories[row.category] || ""));
+    if (row.created_at && !controls) item.append(element("time", new Date(row.created_at).toLocaleDateString("ru"), { datetime: row.created_at }));
     if (controls) item.append(favoriteControl(row.category, row.target, feedback, saved, refresh));
     list.append(item);
   }
@@ -123,51 +127,138 @@ byId("workspaceNotifications").addEventListener("click", () => {
   showInbox();
 });
 
+const favoriteLabels = { law: "Законы", article: "Статьи", document: "Документы", case: "Дела", question: "Учебные вопросы" };
+const actionLink = (label, href, icon, primary = false) => {
+  const link = element("a", label, { href, class: "rpm-action" + (primary ? " rpm-primary" : "") });
+  if (icon) addIcon(link, icon);
+  return link;
+};
+const card = (title, ...children) => {
+  const panel = element("section", "", { class: "panel" });
+  panel.append(element("h2", title), ...children);
+  return panel;
+};
+
 async function showFavorites(container) {
   const field = element("input", "", { type: "search", "aria-label": "Поиск в избранном", placeholder: "Поиск в избранном" });
   const select = element("select", "", { "aria-label": "Категория избранного" });
-  select.append(new Option("Все категории", ""), ...Object.entries(categories).map(([id, label]) => new Option(label, id)));
   const output = element("div");
   const feedback = status();
-  container.replaceChildren(field, select, feedback, output);
+  const toolbar = element("div", "", { class: "rpm-toolbar" });
+  const view = element("div", "", { class: "rpm-segments", role: "group", "aria-label": "Вид избранного" });
+  let layout = "grid";
+  try { if (localStorage.getItem("rpm-favorites-layout") === "list") layout = "list"; } catch {}
+  const switches = [["grid", "Сетка"], ["list", "Список"]].map(([key, label]) => {
+    const control = button(label, () => {
+      layout = key;
+      try { localStorage.setItem("rpm-favorites-layout", key); } catch {}
+      render();
+    });
+    control.dataset.layout = key;
+    return control;
+  });
+  view.append(...switches);
+  toolbar.append(field, select, view);
+  container.replaceChildren(toolbar, feedback, output);
   let items = [];
-  const render = () => {
-    const query = field.value.trim().toLowerCase();
-    const shown = items.filter(row => (!select.value || row.category === select.value) && row.title.toLowerCase().includes(query));
-    output.replaceChildren(resultList(shown, feedback, true, refresh));
-  };
-  async function refresh() {
-    try { items = await request("/api/workspace/favorites"); render(); }
-    catch (error) { feedback.textContent = error.message; }
+  const typeOf = row => row.type || row.category;
+  function render() {
+    switches.forEach(control => control.setAttribute("aria-pressed", String(control.dataset.layout === layout)));
+    const query = field.value.trim().toLocaleLowerCase("ru");
+    const shown = items.filter(row => (!select.value || typeOf(row) === select.value) &&
+      [row.title, row.description].some(value => value?.toLocaleLowerCase("ru").includes(query)));
+    toolbar.hidden = items.length === 0;
+    if (!shown.length) {
+      const empty = element("section", "", { class: "panel rpm-empty" });
+      const icon = element("div", "", { class: "rpm-empty-icon" });
+      addIcon(icon, "bookmark");
+      empty.append(icon, element("h2", items.length ? "По этим фильтрам ничего не найдено" : "Здесь пока ничего нет"),
+        element("p", items.length ? "Измените поисковый запрос или категорию." :
+          "Сохраняйте важные законы, статьи и материалы, чтобы быстро находить их позже"));
+      empty.append(items.length ? button("Сбросить фильтры", () => { field.value = ""; select.value = ""; render(); })
+        : actionLink("Перейти к законам", "/?tab=laws", "book", true));
+      output.className = "";
+      output.replaceChildren(empty);
+      return;
+    }
+    output.className = "rpm-favorites-" + layout;
+    output.replaceChildren(...shown.map(row => {
+      const item = element("article", "", { class: "panel rpm-favorite" });
+      const label = favoriteLabels[typeOf(row)];
+      item.append(element("small", label), element("h2", row.title),
+        element("p", row.description || "Сохранено из раздела «" + label + "»."));
+      if (row.created_at) item.append(element("time", new Date(row.created_at).toLocaleDateString("ru"), { datetime: row.created_at }));
+      const actions = element("div", "", { class: "rpm-actions" });
+      actions.append(actionLink("Открыть", row.href), favoriteControl(row.category, row.target, feedback, true, () => {
+        items = items.filter(item => item.target !== row.target || item.category !== row.category);
+        render();
+        (output.querySelector("a,button") || field).focus();
+      }));
+      item.append(actions);
+      return item;
+    }));
   }
   field.addEventListener("input", render);
   select.addEventListener("change", render);
-  await refresh();
+  feedback.textContent = "Загрузка…";
+  try {
+    items = await request("/api/workspace/favorites");
+    select.append(new Option("Все", ""), ...Object.entries(favoriteLabels).map(([id,label]) => new Option(label,id)));
+    feedback.textContent = "";
+    render();
+  } catch (error) { feedback.textContent = error.message; }
 }
 
 async function dashboard(container) {
-  container.replaceChildren(element("p", "Загрузка…"));
+  container.replaceChildren(element("p", "Загрузка…", { role: "status" }));
   try {
     const [data, favorites] = await Promise.all([request("/api/workspace/dashboard"), request("/api/workspace/favorites")]);
-    const feedback = status();
-    const section = (title, ...children) => {
-      const panel = element("section", "", { class: "panel" });
-      panel.append(element("h2", title), ...children);
-      return panel;
-    };
-    container.replaceChildren(
-      section(data.name ? "Здравствуйте, " + data.name : "Здравствуйте",
-        element("p", data.expires ? "Подписка действует до " + new Date(data.expires).toLocaleDateString("ru") : "Активной подписки нет."),
-        element("a", "Начать анализ дела", { href: "/?tab=analysis" }), document.createTextNode(" · "),
-        element("a", "Открыть обучение", { href: "/training" })),
-      section("Последние дела", resultList(data.cases, feedback, false, undefined, false)),
-      section("Недавние документы", resultList(data.recentDocuments, feedback, false, undefined, false)),
-      section("Ближайшие события", eventList(data.events), element("a", "Открыть календарь", { href: "/?tab=calendar" })),
-      section("Прогресс обучения", element("p", "Завершённых тестов: " + data.progress.tests + ". Верных ответов: " + data.progress.correct + ".")),
-      section("Избранные нормы", resultList(favorites.filter(row => ["law", "charter", "document"].includes(row.category)), feedback, false, undefined, false))
-    );
-    if (data.canAnnounce) container.append(section("Системные сообщения", announcementForm()));
-  } catch (error) { container.replaceChildren(element("p", error.message)); }
+    const hero = element("div", "", { class: "rpm-hero" });
+    const intro = element("div");
+    intro.append(element("h1", data.name ? "Добро пожаловать, " + data.name : "Добро пожаловать"),
+      element("p", "Ведите дела, работайте с правовыми материалами и планируйте ближайшие сроки."));
+    const subscription = element("div", "", { class: "rpm-subscription" });
+    subscription.append(element("strong", "Подписка"), element("p", data.expires && Date.parse(data.expires) > Date.now()
+      ? "Действует до " + new Date(data.expires).toLocaleDateString("ru") : "Активной подписки нет"));
+    hero.append(intro, subscription);
+    const metrics = element("div", "", { class: "rpm-metrics" });
+    for (const [title, value, description, glyph] of [
+      ["Активные дела", data.counts.cases, "Дела в рабочем пространстве", "briefcase"],
+      ["Созданные документы", data.counts.documents, "Сформированные PDF", "files"],
+      ["Пройденные экзамены", data.counts.exams, "Завершённые экзамены RPM", "graduation"],
+      ["Сохранённые нормы", data.counts.norms, "Статьи и пункты уставов", "bookmark"]
+    ]) {
+      const item = element("section", "", { class: "panel rpm-metric" });
+      const icon = element("span", "", { class: "rpm-stat-icon" });
+      addIcon(icon, glyph);
+      item.append(icon, element("h3", title), element("strong", value), element("small", description));
+      metrics.append(item);
+    }
+    const actions = element("div", "", { class: "rpm-actions" });
+    actions.append(actionLink("Новый анализ", "/?tab=analysis&new=1", "scale", true),
+      actionLink("Создать дело", data.isAdmin ? "/?tab=analysis&new=1#caseTitle" : "/app/account.html#customerCaseTitle", "briefcase"),
+      actionLink("Создать документ", "/?tab=analysis#documentExport", "files"),
+      actionLink("Начать обучение", "/training", "graduation"));
+    const grid = element("div", "", { class: "rpm-dashboard-grid" });
+    const left = element("div");
+    const right = element("div");
+    const norms = favorites.filter(row => row.category === "law" || row.category === "charter").slice(0, 5);
+    const rows = records => records.length ? resultList(records, null, false, undefined, false)
+      : element("p", "Записей пока нет.", { class: "muted" });
+    left.append(card("Последние дела", rows(data.cases), actionLink("История дел", "/?tab=history")),
+      card("Недавние документы", rows(data.recentDocuments)));
+    right.append(card("Ближайшие события", eventList(data.events), actionLink("Открыть календарь", "/?tab=calendar")),
+      card("Прогресс обучения", element("p", "Пройдено тестов и экзаменов: " + data.progress.tests),
+        element("p", "Верных ответов: " + data.progress.correct), actionLink("RPM Training", "/training")),
+      card("Избранные нормы", rows(norms), actionLink("Открыть избранное", "/?tab=favorites")));
+    grid.append(left, right);
+    container.replaceChildren(hero, metrics, card("Быстрые действия", actions), grid);
+    if (data.announcements.length) {
+      const notices = element("ul", "", { class: "personal-results" });
+      notices.append(...data.announcements.map(item => element("li", item.title)));
+      container.append(card("Объявления", notices));
+    }
+  } catch (error) { container.replaceChildren(element("p", error.message, { role: "status" })); }
 }
 
 function eventList(events, remove) {
@@ -179,56 +270,6 @@ function eventList(events, remove) {
     list.append(item);
   }
   return events.length ? list : element("p", "Ближайших событий нет.");
-}
-
-async function calendar(container) {
-  const form = element("form", "", { class: "panel" });
-  const title = element("input", "", { required: "", maxlength: "120", "aria-label": "Название события", placeholder: "Название события" });
-  const date = element("input", "", { required: "", type: "datetime-local", "aria-label": "Начало события" });
-  const submit = element("button", "Добавить событие", { class: "primary" });
-  const output = element("div");
-  const feedback = status();
-  form.append(title, date, submit);
-  container.replaceChildren(form, feedback, output);
-  const refresh = async () => {
-    const events = await request("/api/workspace/events");
-    output.replaceChildren(eventList(events, async id => {
-      try { await request("/api/workspace/events/" + id, "DELETE"); await refresh(); }
-      catch (error) { feedback.textContent = error.message; }
-    }));
-  };
-  form.addEventListener("submit", async event => {
-    event.preventDefault();
-    submit.disabled = true;
-    try {
-      await request("/api/workspace/events", "POST", { title: title.value, startsAt: new Date(date.value).toISOString() });
-      form.reset();
-      feedback.textContent = "Событие добавлено.";
-      await refresh();
-    } catch (error) { feedback.textContent = error.message; }
-    finally { submit.disabled = false; }
-  });
-  try { await refresh(); }
-  catch (error) { feedback.textContent = error.message; }
-}
-
-function announcementForm() {
-  const form = element("form");
-  const title = element("input", "", { required: "", maxlength: "240", "aria-label": "Текст сообщения" });
-  const submit = element("button", "Опубликовать для пользователей", { class: "primary" });
-  const feedback = status();
-  form.append(title, submit, feedback);
-  form.addEventListener("submit", async event => {
-    event.preventDefault();
-    submit.disabled = true;
-    try {
-      await request("/api/workspace/announcements", "POST", { title: title.value });
-      form.reset();
-      feedback.textContent = "Сообщение опубликовано.";
-    } catch (error) { feedback.textContent = error.message; }
-    finally { submit.disabled = false; }
-  });
-  return form;
 }
 
 export function openView(_url, tab) {

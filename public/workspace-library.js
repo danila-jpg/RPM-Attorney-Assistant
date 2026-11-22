@@ -11,12 +11,15 @@ let current;
 let pending;
 let catalog;
 let documents = [];
+let libraryType;
+let revisions;
 const organization = byId("libraryOrganization");
 const catalogSearch = byId("libraryCatalogSearch");
 
 function renderCatalog() {
   const term = catalogSearch.value.trim().toLocaleLowerCase("ru");
-  const filtered = documents.filter(doc => (!organization.value || categoryOf(doc) === organization.value) &&
+  const filtered = documents.filter(doc => (!libraryType || doc.type === libraryType) &&
+    (!organization.value || categoryOf(doc) === organization.value) &&
     `${doc.name} ${categoryOf(doc)}`.toLocaleLowerCase("ru").includes(term));
   const selected = select.value;
   select.replaceChildren(element("option", "Выберите документ", { value: "" }), ...filtered.map(doc =>
@@ -48,6 +51,11 @@ async function copy(text, message) {
 
 function goToAnchor(hash) {
   const target = byId(hash.slice(1));
+  if (target?.id === "documentHistory" && !target.hidden) {
+    target.open = true;
+    target.scrollIntoView();
+    return;
+  }
   if (!target?.closest("#text")) return;
   for (let parent = target.parentElement; parent; parent = parent.parentElement) {
     if (parent.tagName === "DETAILS") parent.open = true;
@@ -252,6 +260,32 @@ export async function openView(url) {
     }
     await catalog;
     if (url.href !== location.href) return;
+    const nextType = url.searchParams.get("type") === "charter" ? "charter" : undefined;
+    if (libraryType !== nextType) {
+      libraryType = nextType;
+      organization.value = "";
+      renderCatalog();
+    }
+    const history = url.searchParams.get("view") === "history";
+    const revisionPanel = byId("libraryRevisions");
+    revisionPanel.hidden = !history;
+    byId("libraryCatalog").hidden = history;
+    byId("libraryTop").textContent = history ? "История редакций" : libraryType ? "Уставы" : "Документы";
+    if (history) {
+      revisions ||= request("/api/law-revisions").catch(error => { revisions = undefined; throw error; });
+      const { revisions: entries } = await revisions;
+      if (url.href !== location.href) return;
+      const archived = entries.filter(entry => entry.status === "archived");
+      const list = element("ul", "", { class: "personal-results" });
+      for (const item of archived) {
+        const row = element("li");
+        row.append(element("a", [item.name, item.revision].filter(Boolean).join(" · "), { href: sourceLink(item.id) }));
+        const active = entries.find(entry => entry.documentId === item.documentId && entry.status !== "archived");
+        if (active) row.append(element("a", "Сравнить редакции", { href: sourceLink(active.id) + "#documentHistory" }));
+        list.append(row);
+      }
+      revisionPanel.replaceChildren(archived.length ? list : element("p", "Архивных редакций пока нет."));
+    }
     const selected = url.searchParams.get("doc");
     if (!selected) {
       generation++;
