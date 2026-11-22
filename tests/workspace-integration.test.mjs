@@ -82,7 +82,9 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   let modelContext = "";
   t.mock.method(globalThis, "fetch", async (url, options) => {
     if (!String(url).startsWith("https://generativelanguage.googleapis.com/")) return realFetch(url, options);
-    modelContext = JSON.parse(options.body).messages[0].content;
+    const messages = JSON.parse(options.body).messages;
+    assert.ok(!messages[0].content.includes("fixture-case-marker"));
+    modelContext = messages[1].content;
     const legalReasoning = [
       { article: "Устав CPD, глава II, пункт 2.3", whyApplied: "Порядок взаимодействия с гражданами." },
       { article: "Устав CPD, глава II, пункт 2.99" }
@@ -205,13 +207,38 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   assert.ok(search.data.results.some(norm => norm.documentId === "charter-cpd"));
   assert.ok(search.data.results.every(norm => !norm.documentId.includes("archive")));
   const analysis = await send("/api/attorney-assist", { method: "POST", cookie, body: {
-    mode: "analyze", caseData: { description: "Сотрудники CPD должны уважительно взаимодействовать с гражданами." }
+    mode: "analyze", caseData: { description: "Сотрудники CPD должны уважительно взаимодействовать с гражданами.", notes: "fixture-case-marker" }
   } });
   assert.equal(analysis.status, 200);
   assert.match(modelContext, /Устав ЦПД/u);
+  assert.match(modelContext, /fixture-case-marker/);
   assert.match(analysis.data.legalReasoning[0].normText, /уважительно взаимодействовать/u);
   assert.equal(analysis.data.referenceAudit[1].status, "Недостаточно данных для подтверждения");
   assert.equal(analysis.data.legalReasoning[1].normText, "");
+  const revisions = (await send("/api/law-revisions", { cookie })).data.revisions;
+  const archivedEpk = revisions.find(item => item.documentId === "epk" && item.status === "archived");
+  assert.match(archivedEpk.checksum, /^[a-f0-9]{64}$/);
+  const compare = await send("/api/law-revisions?" + new URLSearchParams({ before: archivedEpk.id, after: "epk" }), { cookie });
+  assert.equal(compare.status, 200);
+  assert.ok(compare.data.changes.some(item => item.status !== "unchanged"));
+  const archivedAnalysis = await send("/api/attorney-assist", { method: "POST", cookie, body: {
+    revisionId: archivedEpk.id, caseData: { description: "ЕПК, статья 4" }
+  } });
+  assert.equal(archivedAnalysis.status, 200);
+  assert.equal(archivedAnalysis.data.sourceEdition.checksum, archivedEpk.checksum);
+  assert.doesNotMatch(JSON.parse(modelContext).sources, /Устав ЦПД/u);
+  assert.equal((await send("/api/attorney-assist", { method: "POST", cookie, body: { revisionId: "unknown" } })).status, 422);
+  assert.equal((await send("/api/attorney-assist", { method: "POST", cookie, body: { caseData: [] } })).status, 400);
+  assert.equal((await send("/api/attorney-assist", {
+    method: "POST", cookie, body: {}, headers: [["Sec-Fetch-Site", "cross-site"]]
+  })).status, 403);
+  let limited;
+  for (let index = 0; index < 20; index++) {
+    limited = await send("/api/attorney-assist", { method: "POST", cookie, body: { caseData: [] } });
+    if (limited.status === 429) break;
+    assert.equal(limited.status, 400);
+  }
+  assert.equal(limited.status, 429);
 
   const changePassword = current => send("/api/admin/self/password", {
     method: "POST", cookie, body: { current, password: updatedPassword, confirmation: updatedPassword }

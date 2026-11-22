@@ -46,3 +46,7 @@
 @media (max-width: 480px) {
   header #workspaceSearch, header #workspaceNotifications { padding: .35rem; }
 }
+.revision-row { margin-block:.5rem; padding:.5rem .75rem; border-inline-start:3px solid var(--border); background:var(--surface); }
+.revision-row[data-change="added"] { border-color:var(--success); }
+.revision-row[data-change="removed"] { border-color:var(--danger); }
+.revision-row[data-change="changed"] { border-color:var(--warning); }

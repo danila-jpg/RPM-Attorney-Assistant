@@ -1,6 +1,7 @@
 import { isTheme } from "./public/theme-catalog.js";
 import { appearanceRevision, saveAppearance } from "./appearance.js";
 import { randomUUID } from "node:crypto";
+import { requestLimit } from "./request-limits.js";
 import bcrypt from "bcryptjs";
 import { citation, documentDisplayText, documentEntries, resolveNorm, searchableEntries } from "./documents.js";
 import { gradeQuestion, makeQuestions, summarizeTraining, validateQuestion } from "./training.js";
@@ -373,7 +374,7 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     res.json({ id, mode, questions: publicQuestions(questions, mode) });
   }
 
-  app.post("/api/training/attempts", route(async (req, res) => {
+  app.post("/api/training/attempts", requestLimit(15, 60000), route(async (req, res) => {
     const { mode, size, documentIds } = req.body || {};
     if (!["cards", "quiz", "practice", "exam"].includes(mode) || ![5, 10, 20].includes(size) ||
         !Array.isArray(documentIds) || !documentIds.length || documentIds.length > 50 ||

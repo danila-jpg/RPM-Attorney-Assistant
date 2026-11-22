@@ -95,9 +95,47 @@ async function openDocument(id) {
     byId("metadata").textContent = [doc.organization, revision, doc.status === "archived" ? "Архив" : "Действующий документ", doc.source].filter(Boolean).join(" · ");
     const history = byId("documentHistory");
     history.hidden = !doc.history.length;
+    const comparison = byId("revisionComparison");
+    comparison.replaceChildren();
+    const compare = async (id, button) => {
+      button.disabled = true;
+      comparison.textContent = "Загрузка сравнения…";
+      try {
+        const params = new URLSearchParams({ before: id, after: doc.id });
+        const result = await request("/api/law-revisions?" + params);
+        if (current?.id !== doc.id) return;
+        const labels = { added: "Добавлено", removed: "Удалено", changed: "Изменено", unchanged: "Без изменений" };
+        const list = element("div");
+        const filter = element("input", null, { type: "search", "aria-label": "Поиск в сравнении", placeholder: "Номер статьи или фраза" });
+        const render = () => {
+          const term = filter.value.trim().toLowerCase();
+          const rows = result.changes.filter(change => (!term || [change.before, change.after]
+            .some(entry => entry && [entry.number, entry.title, entry.text].join(" ").toLowerCase().includes(term))));
+          list.replaceChildren(...rows.map(change => {
+            const row = element("details", null, { class: "revision-row", "data-change": change.status });
+            const entry = change.after || change.before;
+            row.append(element("summary", labels[change.status] + (change.moved ? " · перенумеровано" : "") + " · " + entry.title));
+            if (change.before && change.status !== "unchanged") row.append(element("p", "Было — " + change.before.text));
+            if (change.after) row.append(element("p", (change.status === "unchanged" ? "" : "Стало — ") + change.after.text));
+            return row;
+          }));
+          if (!rows.length) list.textContent = "Совпадений нет.";
+        };
+        filter.addEventListener("input", render);
+        comparison.replaceChildren(element("h3", [result.before.revision, result.after.revision].filter(Boolean).join(" → ") || "Сравнение редакций"), filter, list);
+        render();
+      } catch (error) {
+        if (current?.id === doc.id) comparison.textContent = error.message;
+      } finally { button.disabled = false; }
+    };
     history.querySelector("ul").replaceChildren(...doc.history.map(old => {
       const item = element("li");
       item.append(element("a", old.revision || "Предыдущая редакция", { href: sourceLink(old.id) }));
+      if (old.id !== doc.id) {
+        const button = element("button", "Сравнить с открытой", { type: "button", class: "secondary" });
+        button.addEventListener("click", () => void compare(old.id, button));
+        item.append(button);
+      }
       return item;
     }));
     const toc = doc.structure.filter(entry => ["chapter", "section", "article"].includes(entry.kind));

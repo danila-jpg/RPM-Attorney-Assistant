@@ -779,6 +779,7 @@
 
       <label>Описание ситуации</label>
       <textarea id="caseDescription" placeholder="Опишите известные обстоятельства дела..."></textarea>
+      <label>Редакция для анализа<select id="analysisRevision"><option value="">Действующие редакции</option></select></label>
 
       <label>Доказательства и дополнительные материалы</label>
       <textarea id="caseEvidence" placeholder="Видео, документы, показания..."></textarea>
@@ -2281,6 +2282,7 @@
         body:JSON.stringify({
           mode,
           caseData,
+          revisionId: $("analysisRevision").value || undefined,
           officerAnswer:$("officerAnswer").value.trim()
         })
       });
@@ -2288,6 +2290,10 @@
       const answer=data.answer||data.message||"Ответ не получен.";
 
       showResult(target,answer);
+      if (data.sourceEdition) {
+        $(target).prepend(makeElement("p", "status",
+          "Источник: " + data.sourceEdition.name + ", редакция " + (data.sourceEdition.revision || data.sourceEdition.id)));
+      }
 
       // Добавляем сведения об уверенности ИИ и аудите ссылок.
       renderAuditInfo($(target),data);
@@ -4577,6 +4583,12 @@
   }
 
   $("lawSearch").addEventListener("input",renderLaws);
+  api("/api/law-revisions").then(({ revisions }) => {
+    const select = $("analysisRevision");
+    for (const revision of revisions.filter(item => item.status === "archived")) {
+      select.add(new Option([revision.name, revision.revision || revision.id, "архив"].join(" · "), revision.id));
+    }
+  }).catch(() => {});
   $("customerSearch").addEventListener("input",loadCustomers);
   $("orderCreateForm").addEventListener("submit", async event => {
     event.preventDefault();
