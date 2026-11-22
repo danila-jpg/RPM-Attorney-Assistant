@@ -1,5 +1,5 @@
 import { isTheme } from "./public/theme-catalog.js";
-import { saveAppearance } from "./appearance.js";
+import { appearanceRevision, saveAppearance } from "./appearance.js";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { citation, documentDisplayText, documentEntries, resolveNorm, searchableEntries } from "./documents.js";
@@ -7,7 +7,8 @@ import { gradeQuestion, makeQuestions, summarizeTraining, validateQuestion } fro
 import { destroyLoginSession, recordAdminAuth } from "./customer-auth-routes.js";
 
 const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
-const profileFields = "username, rp_nickname, COALESCE(display_name,rp_nickname) AS display_name, avatar_data, COALESCE(theme,'quantum-purple') AS theme, appearance_preferences AS preferences";
+const profileFields = `username, rp_nickname, COALESCE(display_name,rp_nickname) AS display_name, avatar_data,
+  COALESCE(theme,'quantum-purple') AS theme, appearance_preferences AS preferences, ${appearanceRevision} AS appearance_revision`;
 function validAvatar(value) {
   if (typeof value !== "string" || value.length > 670_000) return false;
   const match = value.match(/^data:image\/(png|jpeg|webp);base64,([a-z0-9+/]+={0,2})$/i);

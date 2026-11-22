@@ -12,6 +12,7 @@ import { timingSafeEqual, randomBytes, createHash, randomUUID } from "node:crypt
 import registerCustomerAuth from "./customer-auth-routes.js";
 import { citation, resolveNorm, searchableEntries } from "./documents.js";
 import registerWorkspace from "./workspace-routes.js";
+import { appearanceRevision } from "./appearance.js";
 import { migrateWorkspace } from "./workspace-migrations.js";
 
 dotenv.config();
@@ -435,7 +436,8 @@ app.get("/api/panel/permissions", (req, res) => {
 app.get("/api/panel/profile", async (req,res)=>{
   try {
     const result=await pool.query(`SELECT username,rp_nickname,COALESCE(display_name,rp_nickname) AS display_name,
-      avatar_data,COALESCE(theme,'quantum-purple') AS theme, appearance_preferences AS preferences FROM rpm_users WHERE id=$1 AND status='active'`,[req.userId]);
+      avatar_data,COALESCE(theme,'quantum-purple') AS theme, appearance_preferences AS preferences,
+      ${appearanceRevision} AS appearance_revision FROM rpm_users WHERE id=$1 AND status='active'`,[req.userId]);
     if(!result.rowCount) return res.status(404).json({success:false,message:"Профиль не найден."});
     res.set("Cache-Control", "no-store").json({success:true,profile:result.rows[0]});
   } catch(error) { console.error("Panel profile error:",error); res.status(500).json({success:false,message:"Не удалось загрузить профиль."}); }

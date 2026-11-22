@@ -1,5 +1,5 @@
 import { isTheme } from "./public/theme-catalog.js";
-import { saveAppearance } from "./appearance.js";
+import { appearanceRevision, saveAppearance } from "./appearance.js";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
@@ -715,7 +715,8 @@ app.post("/api/customer/login", async (req, res) => {
       if (!(await checkCustomerDevice(req, res))) return;
       const result = await pool.query(
         `SELECT id, username, rp_nickname, COALESCE(display_name,rp_nickname) AS display_name,
-                avatar_data, COALESCE(theme,'quantum-purple') AS theme, appearance_preferences AS preferences
+                avatar_data, COALESCE(theme,'quantum-purple') AS theme, appearance_preferences AS preferences,
+                ${appearanceRevision} AS appearance_revision
          FROM rpm_users WHERE id=$1 AND status='active'`, [req.session.userId]
       );
       if (!result.rowCount) return res.status(404).json({ success:false,error:"Профиль не найден." });

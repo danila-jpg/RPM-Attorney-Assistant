@@ -11,7 +11,7 @@ const testTools = new URL("../.workspace-test/node_modules/", import.meta.url);
 const pgliteModule = new URL("@electric-sql/pglite/dist/index.js", testTools);
 const hasPostgres = await access(pgliteModule).then(() => true, () => false);
 
-test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !hasPostgres, timeout: 120_000 }, async t => {
+test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !hasPostgres, timeout: 240_000 }, async t => {
   const { PGlite } = await import(pgliteModule);
   const db = new PGlite();
   t.after(() => db.close());
@@ -106,6 +106,15 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   assert.equal(patchCustomer.status, 200);
   assert.deepEqual(patchCustomer.data.appearance, customerAppearance);
   assert.equal((await send("/api/customer/profile", { cookie: customer.cookie })).data.profile.theme, "ivory");
+  const customerRevision = (await send("/api/customer/profile", { cookie: customer.cookie })).data.profile.appearance_revision;
+  const staffRevision = (await send("/api/admin/self", { cookie })).data.profile.appearance_revision;
+  const changeTheme = revision => send("/api/admin/self/profile", {
+    method: "PATCH", cookie, body: customerAppearance, headers: [["If-Match", '"' + revision + '"']]
+  });
+  assert.notEqual(customerRevision, staffRevision);
+  assert.equal((await changeTheme(customerRevision)).status, 409);
+  assert.equal((await changeTheme(staffRevision)).status, 200);
+  assert.equal((await changeTheme(staffRevision)).status, 409);
   assert.equal((await send("/api/admin/self/profile", { method: "PATCH", cookie: customer.cookie, body: customerAppearance })).status, 403);
   assert.equal((await send("/api/admin/self/profile", { method: "PATCH", cookie, body: { ...customerAppearance, theme: "invalid" } })).status, 400);
   assert.equal((await send("/api/admin/self/profile", { method: "PATCH", cookie, body: customerAppearance, headers: [["Sec-Fetch-Site","cross-site"]] })).status, 403);
@@ -308,6 +317,8 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.waitForURL("**/admin");
       await page.getByText("Здравствуйте, <em>Имя</em>").waitFor();
       assert.equal(await page.locator("#greeting em").count(), 0);
+      await page.waitForFunction(() => document.body.dataset.theme === "ivory" &&
+        getComputedStyle(document.body).backgroundColor === "rgb(248, 241, 228)");
       const themeStyles = () => page.evaluate(() => {
         const body = getComputedStyle(document.body);
         const panel = getComputedStyle(document.querySelector(".panel"));
@@ -436,6 +447,7 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
         await page.getByText("Оформление сохранено.").waitFor();
         assert.equal(immediate, id);
         assert.equal(await body.getAttribute("data-theme"), id);
+        await page.waitForFunction(color => getComputedStyle(document.body).backgroundColor === color, paletteColor(colors[0]));
         assert.equal(await body.evaluate(node => getComputedStyle(node).backgroundColor), paletteColor(colors[0]));
         assert.equal(await page.locator("#profile input[name=display_name]").evaluate(node => getComputedStyle(node).color), paletteColor(colors[3]));
         assert.equal(await page.locator("#profile button.primary").evaluate(node => getComputedStyle(node).color), paletteColor(colors[9]));
@@ -506,6 +518,46 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.getByText("Оформление сохранено.").waitFor();
       await page.getByRole("button", { name: "Избранные", exact: true }).click();
       assert.equal(await page.locator(".appearance-card:visible").count(), 1);
+      await page.getByRole("button", { name: "Мои", exact: true }).click();
+      await page.getByRole("button", { name: "Изменить", exact: true }).click();
+      await page.getByLabel("Название", { exact: true }).fill("Тестовая тема редактора");
+      await page.getByLabel("Скругление кнопок").fill("23");
+      await page.getByRole("button", { name: "Сохранить тему", exact: true }).click();
+      await page.getByText("Оформление сохранено.").waitFor();
+      await page.getByRole("button", { name: "Мои", exact: true }).click();
+      const secondTab = await context.newPage();
+      await secondTab.goto(page.url());
+      await secondTab.getByRole("button", { name: "Тестовая тема редактора", exact: true }).waitFor();
+      await page.locator('.appearance-toolbar input[type="file"]').setInputFiles({
+        name: "invalid.json", mimeType: "application/json", buffer: Buffer.from('{"html":"<script>"}')
+      });
+      await page.getByText("Файл не содержит допустимую тему RPM.").waitFor();
+      const downloadEvent = page.waitForEvent("download");
+      await page.getByRole("button", { name: "Экспорт JSON", exact: true }).click();
+      const exported = await downloadEvent;
+      const chunks = [];
+      for await (const chunk of await exported.createReadStream()) chunks.push(chunk);
+      const json = Buffer.concat(chunks);
+      assert.equal(JSON.parse(json).theme.buttonRadius, 23);
+      await page.locator('.appearance-toolbar input[type="file"]').setInputFiles({
+        name: "theme.json", mimeType: "application/json", buffer: json
+      });
+      await page.getByRole("heading", { name: "Предпросмотр импорта" }).waitFor();
+      assert.equal(await page.getByLabel("Название", { exact: true }).inputValue(), "Тестовая тема редактора (2)");
+      await page.getByRole("button", { name: "Импортировать тему", exact: true }).click();
+      await page.getByText("Оформление сохранено.").waitFor();
+      await secondTab.getByRole("button", { name: "Тестовая тема редактора (2)", exact: true }).waitFor();
+      await secondTab.close();
+      await page.getByRole("button", { name: "Мои", exact: true }).click();
+      assert.equal(await page.locator(".appearance-card:visible").count(), 2);
+      const importedCard = page.locator(".appearance-tile").filter({ has: page.getByRole("button", {
+        name: "Тестовая тема редактора (2)", exact: true
+      }) });
+      await importedCard.getByRole("button", { name: "Изменить", exact: true }).click();
+      page.once("dialog", dialog => dialog.accept());
+      await page.getByRole("button", { name: "Удалить тему", exact: true }).click();
+      await page.getByText("Оформление сохранено.").waitFor();
+      assert.equal(await importedCard.count(), 0);
       assert.deepEqual(errors, []);
       assert.deepEqual(failedApi, []);
     } finally { await browser.close(); }

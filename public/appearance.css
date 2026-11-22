@@ -1,17 +1,23 @@
 .appearance{margin-block:1.5rem}
+.appearance-toolbar,.appearance-schedule{display:flex;align-items:end;flex-wrap:wrap;gap:.65rem;margin-block:.75rem}
+.appearance-toolbar :is(input[type="search"],select){flex:1 1 12rem;width:auto;min-width:0}
+.appearance-schedule label{flex:1 1 8rem}
 .appearance-filters{display:flex;flex-wrap:wrap;gap:.4rem;margin-block-end:.8rem}
 .appearance-filters button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
-.appearance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8.5rem),1fr));gap:.6rem}
-button.appearance-card{display:grid;gap:.4rem;min-width:0;text-align:start;padding:.45rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:.6rem}
+.appearance-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,12rem),1fr));gap:1rem}
+button.appearance-card{display:grid;gap:.4rem;min-width:0;text-align:start;padding:.65rem;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:.7rem}
 button.appearance-card:hover{background:var(--surface-hover)}
-button.appearance-card[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+button.appearance-card[aria-pressed="true"]{background:var(--theme-selection,var(--surface-hover));border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .appearance-card[aria-pressed="true"] .appearance-name::after{content:" \2713";color:var(--accent)}
-.appearance-name{font-size:.875rem;overflow-wrap:anywhere}
-.appearance-preview{display:grid;gap:.35rem;background:var(--bg);color:var(--text);padding:.4rem;border:1px solid var(--border);border-radius:.35rem}
-.appearance-miniature{display:flex;justify-content:space-between;align-items:center;background:var(--surface);padding:.3rem;border-radius:.2rem;font-size:.75rem}
-.appearance-miniature i{background:var(--accent);width:2rem;height:.45rem;border-radius:.2rem}
-.appearance-swatches{display:flex;gap:.25rem}
-.appearance-swatches i{width:.65rem;height:.65rem;border-radius:50%;border:1px solid var(--border)}
+.appearance-name{font-size:.95rem;font-weight:700;overflow-wrap:anywhere}
+.appearance-kind{color:var(--text-muted);font-size:.8rem}
+.appearance-preview{display:grid;grid-template-columns:minmax(1.5rem,1fr) minmax(0,4fr);gap:.45rem;min-height:7rem;background:var(--bg);color:var(--text);padding:.45rem;border:1px solid var(--border);border-radius:.5rem}
+.appearance-mini-sidebar{display:grid;align-content:start;gap:.4rem;padding:.4rem;background:var(--theme-sidebar);border:1px solid var(--border);border-radius:.25rem}
+.appearance-mini-sidebar i{background:var(--accent);height:.25rem;border-radius:1rem}
+.appearance-mini-sidebar i:not(:first-child){background:var(--text-muted);opacity:.65}
+.appearance-miniature{display:grid;justify-items:start;align-content:center;gap:.3rem;background:var(--surface);padding:.45rem;border:1px solid var(--border);border-radius:var(--card-radius,.4rem);font-size:.75rem}
+.appearance-mini-muted{color:var(--text-muted)}
+.appearance-mini-link{color:var(--theme-link);text-decoration:underline}
 .appearance-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:.5rem 1rem;margin-block-start:.5rem}
 .appearance-status{color:var(--success);min-height:1.4em}
 .appearance-status[data-error="true"]{color:var(--danger)}
@@ -20,7 +26,16 @@ button.appearance-card[aria-pressed="true"]{border-color:var(--accent);box-shado
 .appearance-tile[hidden], .appearance-settings[hidden] { display: none; }
 .appearance-tile .appearance-card { width: 100%; }
 .appearance-favorite { margin-block: .25rem; }
-.appearance-sample { background: var(--button-bg); color: var(--accent-text); border-radius: var(--custom-radius, .5rem); padding: .35rem; }
+.appearance-sample { background: var(--button-bg); color: var(--button-text); border-radius: var(--button-radius, .35rem); padding: .3rem .5rem; }
+.appearance-editor{border:1px solid var(--border);border-radius:var(--card-radius,.75rem);padding:1rem;margin-block:1rem}
+.appearance-editor input[type="color"]{min-height:2.6rem;padding:.25rem}
+.appearance-editor-preview{max-width:28rem;margin-block:1rem}
+.appearance-editor-preview[data-text="large"] .appearance-miniature{font-size:1rem}
+.appearance-editor-preview[data-text="small"] .appearance-miniature{font-size:.65rem}
+.appearance-editor-preview[data-density="compact"] .appearance-miniature{padding:.25rem;gap:.15rem}
+.appearance-editor-preview[data-shadows="on"] .appearance-miniature{box-shadow:0 3px 10px #0004}
+.appearance-editor-preview:not([data-motion="none"]) .appearance-sample{transition:transform 150ms}
+.appearance-editor-preview[data-motion="system"] .appearance-sample:hover{transform:scale(1.06)}
 :root[data-text-size="small"] { font-size: 90%; }
 :root[data-motion="none"] *, :root[data-motion="none"] *::before, :root[data-motion="none"] *::after {
   animation: none !important;
@@ -29,5 +44,10 @@ button.appearance-card[aria-pressed="true"]{border-color:var(--accent);box-shado
 }
 :root[data-focus="on"]:has(#exercise:not([hidden])) :is(#summary, #topics, #setup),
 :root[data-focus="on"]:has(#libraryStatus) .workspace-view:not([hidden]) .workspace-aside { display: none; }
-:root :is(button.primary, .button.primary) { background: var(--button-bg, var(--accent)); border-radius: var(--custom-radius, .5rem); }
-:root :is(.panel, .card) { border-radius: var(--custom-radius, .75rem); }
+:root[data-palette] :is(button.primary, .button.primary) {
+  background: var(--button-bg, var(--accent)); color: var(--button-text, var(--accent-text)); border-radius: var(--button-radius, .5rem);
+}
+:root[data-palette] :is(button.primary, .button.primary):hover { background: var(--button-hover, var(--accent-hover)); outline:1px solid var(--accent); }
+:root[data-palette] :is(button.secondary,button.danger) { border-radius:var(--button-radius,.5rem); }
+:root[data-palette] :is(.panel,.card,.section) { border-radius:var(--card-radius,.75rem); }
+:root[data-shadows="off"] :is(.panel,.card,.section,dialog,.dialog){box-shadow:none}

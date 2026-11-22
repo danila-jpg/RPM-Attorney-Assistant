@@ -40,8 +40,8 @@
       --control-padding:12px;
     }
     :root[data-palette]:not([data-palette="midnight-purple"]){
-      --nav:var(--surface);--header-start:var(--surface-hover);--header-end:var(--surface);
-      --nav-active:var(--surface-hover);--nav-border:var(--accent);
+      --nav:var(--theme-sidebar,var(--surface));--header-start:var(--surface-hover);--header-end:var(--surface);
+      --nav-active:var(--theme-selection,var(--surface-hover));--nav-border:var(--accent);
     }
     :root[data-scheme="light"]{--success:#236143;--warning:#704c0c;--danger:#971e40;--info:#235990}
     :root[data-density="compact"]{--panel-padding:12px;--control-padding:8px}
@@ -67,7 +67,18 @@
       font-family:Segoe UI,Arial,sans-serif;
     }
     [hidden]{display:none!important}
-    a{color:var(--purple)}
+    a{color:var(--theme-link,var(--purple))}
+    :root[data-palette] :is(body,.panel,header,nav,button){transition:background-color 150ms,color 150ms,border-color 150ms}
+    :root[data-palette] ::selection{background:var(--theme-selection,var(--surface-hover));color:var(--text)}
+    :root[data-palette] :is(dialog,.dialog,.personal-dialog){background:var(--surface-hover);color:var(--text);border-color:var(--border)}
+    :root[data-palette] th{background:var(--surface)}
+    :root[data-palette] .personal-dialog li{background:var(--surface);border-color:var(--border)}
+    :root[data-palette] :is(.workspace-aside,.sidebar){background:var(--theme-sidebar,var(--surface))}
+    :root[data-palette] tbody tr:nth-child(even){background:var(--surface-hover)}
+    :root[data-high-contrast="on"]{
+      --text-muted:var(--text)!important;--border:var(--text)!important;
+    }
+    :root[data-high-contrast="on"] :focus-visible{outline:3px solid var(--text);outline-offset:3px}
 
     header{
       padding:22px 30px;
@@ -164,6 +175,7 @@
     }
 
     :is(input,textarea,select){border-color:color-mix(in srgb,var(--text-muted) 72%,var(--input-bg))}
+    :root[data-palette^="custom-"] :is(input,textarea,select){border-color:var(--border)}
     input:focus,textarea:focus,select:focus{
       border-color:var(--purple);
     }
