@@ -485,6 +485,7 @@ app.post("/api/customer/login", async (req, res) => {
                 COALESCE(u.display_name, u.rp_nickname) AS display_name,
                 u.avatar_data, COALESCE(u.theme, 'quantum-purple') AS theme,
                 l.plan_code, l.starts_at, l.expires_at,
+                (SELECT duration_days FROM rpm_orders WHERE id = l.order_id) AS duration_days,
                 (
                   u.role = 'admin'
                   OR COALESCE(
@@ -494,7 +495,7 @@ app.post("/api/customer/login", async (req, res) => {
                 ) AS has_license
          FROM rpm_users u
          LEFT JOIN LATERAL (
-           SELECT plan_code, starts_at, expires_at, status
+           SELECT plan_code, starts_at, expires_at, status, order_id
            FROM rpm_licenses
            WHERE user_id = u.id
            ORDER BY expires_at DESC
@@ -537,24 +538,11 @@ app.post("/api/customer/login", async (req, res) => {
       });
     }
 
-    const plans = {
-      "7_days": { durationDays: 7, amount: 300000 },
-      "30_days": { durationDays: 30, amount: 2000000 },
-      "90_days": { durationDays: 90, amount: 5000000 }
-    };
-
-    const planCode = String(req.body?.plan_code || "").trim();
-    const plan = plans[planCode];
-
-    if (!plan) {
-      return res.status(400).json({
-        error: "Выбран неизвестный тариф."
-      });
-    }
-
-    const client = await pool.connect();
+    const planCode = typeof req.body?.plan_code === "string" ? req.body.plan_code.trim() : "";
+    let client;
 
     try {
+      client = await pool.connect();
       await client.query("BEGIN");
 
       const userResult = await client.query(
@@ -599,17 +587,20 @@ app.post("/api/customer/login", async (req, res) => {
            promo_code,
            status
          )
-         VALUES ($1, $2, $3, $4, $5, 'RP', NULL, 'pending')
+         SELECT $1, $2, code, duration_days, amount, 'RP', NULL, 'pending'
+         FROM rpm_subscription_plans WHERE code = $3 AND active
          RETURNING id, plan_code, duration_days, amount, status, created_at`,
         [
           req.session.userId,
           userResult.rows[0].rp_nickname,
-          planCode,
-          plan.durationDays,
-          plan.amount
+          planCode
         ]
       );
 
+      if (!orderResult.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Тариф недоступен." });
+      }
       await client.query("COMMIT");
 
       return res.status(201).json({
@@ -618,14 +609,14 @@ app.post("/api/customer/login", async (req, res) => {
         order: orderResult.rows[0]
       });
     } catch (error) {
-      await client.query("ROLLBACK").catch(() => {});
+      await client?.query("ROLLBACK").catch(() => {});
       console.error("Customer renewal order error:", error);
 
       return res.status(500).json({
         error: "Не удалось создать заказ на продление."
       });
     } finally {
-      client.release();
+      client?.release();
     }
   });
   const checkCustomerDevice = async (req, res) => {

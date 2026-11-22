@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RPM Attorney Assistant — Личный кабинет</title>
 <link rel="stylesheet" href="/rpm-base.css">
+<link rel="stylesheet" href="/subscription-plans.css">
 <link rel="stylesheet" href="/appearance.css">
 <script type="module" src="/appearance.js"></script>
 <style>
@@ -89,14 +90,10 @@ button:disabled{opacity:.5;cursor:wait}
 
 <section id="renewalSection" class="support-section">
 <h2>Продление лицензии</h2>
-<p class="empty">Выбери тариф. Заказ появится после создания и будет ожидать подтверждения оплаты администрацией.</p>
+<p>Выберите срок доступа. Итоговая дата зависит от момента подтверждения оплаты владельцем.</p>
 <form id="renewalForm" class="support-form">
-<select id="renewalPlan" required>
-<option value="7_days">7 дней — 300 000 RP</option>
-<option value="30_days" selected>30 дней — 2 000 000 RP</option>
-<option value="90_days">90 дней — 5 000 000 RP</option>
-</select>
-<button id="renewalButton" type="submit">Создать заказ на продление</button>
+<div id="renewalPlans" class="subscription-catalog">Загрузка тарифов…</div>
+<button id="renewalButton" type="submit" disabled>Создать заказ на продление</button>
 </form>
 <div id="renewalMessage" class="message"></div>
 </section>
@@ -162,11 +159,7 @@ button:disabled{opacity:.5;cursor:wait}
 </main>
 
 <script>
-const planNames = {
-  "7_days":"7 дней",
-  "30_days":"30 дней",
-  "90_days":"90 дней"
-};
+const subscriptionPlans = import("/subscription-plans.js");
 
 function formatDate(value) {
   if (!value) return "—";
@@ -210,7 +203,7 @@ async function loadAccount() {
 
     document.getElementById("plan").textContent = isAdmin
       ? "Бессрочный доступ (администратор)"
-      : (planNames[user.plan_code] || user.plan_code || "—");
+      : (await subscriptionPlans).planDuration(user.duration_days, user.plan_code);
 
     document.getElementById("starts").textContent = isAdmin
       ? "—"
@@ -234,6 +227,13 @@ async function loadAccount() {
     }
 
     document.getElementById("renewalSection").hidden = isAdmin;
+    if (!isAdmin) {
+      const catalog = document.getElementById("renewalPlans");
+      const { mountPlanCards } = await subscriptionPlans;
+      mountPlanCards(catalog, { select: true, expiresAt: licenseActive ? user.expires_at : null })
+        .then(() => { document.getElementById("renewalButton").disabled = !catalog.querySelector("input"); })
+        .catch(error => { catalog.textContent = error.message; });
+    }
     document.getElementById("supportSection").hidden =
       !(licenseActive || isAdmin);
     document.getElementById("assistantLink").hidden = !(licenseActive || isAdmin);
@@ -890,7 +890,8 @@ document.getElementById("renewalForm").addEventListener(
 
     const button = document.getElementById("renewalButton");
     const message = document.getElementById("renewalMessage");
-    const planCode = document.getElementById("renewalPlan").value;
+    const planCode = new FormData(event.currentTarget).get("plan_code");
+    if (!planCode) return;
 
     button.disabled = true;
     message.textContent = "Создание заказа...";

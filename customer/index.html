@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RPM Attorney Assistant — Личный кабинет</title>
 <link rel="stylesheet" href="/rpm-base.css">
+  <link rel="stylesheet" href="/subscription-plans.css">
 <link rel="stylesheet" href="/rpm-auth.css">
 <link rel="stylesheet" href="/password-visibility.css">
 <script defer src="/password-visibility.js"></script>
@@ -68,6 +69,16 @@
     </div>
   </section>
   </main>
+  <section class="panel subscription-catalog" aria-labelledby="catalogHeading">
+    <h2 id="catalogHeading">Тарифы подписки</h2>
+    <p>Все тарифы дают одинаковый доступ. Оплата игровой валютой RP подтверждается вручную.</p>
+    <div id="publicPlanCards">Загрузка тарифов…</div>
+  </section>
+  <script type="module">
+    import { mountPlanCards } from "/subscription-plans.js";
+    const catalog = document.getElementById("publicPlanCards");
+    mountPlanCards(catalog).catch(error => { catalog.textContent = error.message; });
+  </script>
 
   <script>
     const loginTab = document.getElementById("loginTab");

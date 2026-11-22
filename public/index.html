@@ -6,6 +6,7 @@
   <title>RPM Attorney Assistant</title>
 
   <link rel="stylesheet" href="/rpm-base.css">
+  <link rel="stylesheet" href="/subscription-plans.css">
 <link rel="stylesheet" href="/appearance.css">
 <script type="module" src="/appearance.js"></script>
 
@@ -1122,12 +1123,10 @@
           placeholder="Введите RP-ник"
         >
 
-        <label for="orderPlan">Тариф</label>
-        <select id="orderPlan" required>
-          <option value="7_days">7 дней — 300 000 RP</option>
-          <option value="30_days">30 дней — 2 000 000 RP</option>
-          <option value="90_days">90 дней — 5 000 000 RP</option>
-        </select>
+        <fieldset>
+          <legend>Тариф</legend>
+          <div id="orderPlans" class="subscription-catalog">Загрузка тарифов…</div>
+        </fieldset>
 
         <label for="orderPromoCode">Промокод партнёра</label>
         <input
@@ -3840,6 +3839,11 @@
     list.textContent = "Загрузка заказов...";
 
     try {
+      const { mountPlanCards, planDuration } = await import("/subscription-plans.js");
+      const catalog = $("orderPlans");
+      const selected = catalog.querySelector(":checked")?.value;
+      await mountPlanCards(catalog, { select: true });
+      for (const radio of catalog.querySelectorAll("input")) if (radio.value === selected) radio.checked = true;
       const data = await api("/api/admin/orders");
       const orders = Array.isArray(data.orders) ? data.orders : [];
 
@@ -3873,11 +3877,6 @@
       thead.appendChild(header);
       table.append(thead, tbody);
 
-      const planNames = {
-        "7_days": "7 дней",
-        "30_days": "30 дней",
-        "90_days": "90 дней"
-      };
 
       orders.forEach(order => {
         const tr = document.createElement("tr");
@@ -3891,7 +3890,7 @@
         const values = [
           String(order.id),
           order.buyer_rp_nickname || "—",
-          planNames[order.plan_code] || order.plan_code || "—",
+          planDuration(order.duration_days, order.plan_code),
           Number(order.amount || 0).toLocaleString("ru-RU") +
             " " + (order.currency || "RP"),
           order.promo_code || "—",
@@ -4587,7 +4586,11 @@
     const message = $("orderCreateMessage");
 
     const buyerNickname = $("orderBuyerNickname").value.trim();
-    const planCode = $("orderPlan").value;
+    const planCode = new FormData(form).get("plan_code");
+    if (!planCode) {
+      message.textContent = "Выберите доступный тариф.";
+      return;
+    }
     const promoCode = $("orderPromoCode").value.trim();
 
     button.disabled = true;

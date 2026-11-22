@@ -29,7 +29,22 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES rpm_users, title TEXT, data JSONB, updated_at TIMESTAMPTZ
     );
     CREATE TABLE rpm_case_backups (user_id BIGINT REFERENCES rpm_users);
-    CREATE TABLE rpm_licenses (user_id BIGINT, status TEXT, starts_at TIMESTAMPTZ, expires_at TIMESTAMPTZ);
+    CREATE TABLE rpm_orders (
+      id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES rpm_users, buyer_rp_nickname TEXT NOT NULL,
+      plan_code TEXT NOT NULL CHECK (plan_code IN ('7_days', '30_days', '90_days')),
+      duration_days INTEGER NOT NULL CHECK (duration_days IN (7, 30, 90)),
+      amount BIGINT NOT NULL CHECK (amount > 0), currency TEXT NOT NULL, promo_code TEXT, status TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(), confirmed_at TIMESTAMPTZ, confirmed_by TEXT
+    );
+    CREATE TABLE rpm_licenses (
+      id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES rpm_users, order_id BIGINT REFERENCES rpm_orders,
+      plan_code TEXT NOT NULL CHECK (plan_code IN ('7_days', '30_days', '90_days')),
+      status TEXT, starts_at TIMESTAMPTZ, expires_at TIMESTAMPTZ CHECK (expires_at > starts_at)
+    );
+    CREATE TABLE rpm_partners (id BIGSERIAL PRIMARY KEY, promo_code TEXT, status TEXT, commission_rate NUMERIC);
+    CREATE TABLE rpm_referrals (user_id BIGINT, partner_id BIGINT, promo_code TEXT);
+    CREATE TABLE rpm_invites (code_hash TEXT, order_id BIGINT, expires_at TIMESTAMPTZ, status TEXT);
+    CREATE TABLE rpm_license_logs (user_id BIGINT, license_id BIGINT, actor_type TEXT, actor_id TEXT, action TEXT, details JSONB);
   `);
   const password = "fixture-password-original";
   const updatedPassword = "fixture-password-changed";
@@ -38,7 +53,14 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
            ('workspace-other',$1,'active','admin','Другой сотрудник'),
            ('workspace-owner',$1,'active','admin','Владелец'),
            ('workspace-customer',$1,'active','customer','Покупатель')`, [await bcrypt.hash(password, 4)]);
-  await db.exec("INSERT INTO rpm_licenses SELECT id,'active',now()-interval '1 day',now()+interval '1 day' FROM rpm_users WHERE role='customer'");
+  await db.exec(`
+    INSERT INTO rpm_orders(user_id,buyer_rp_nickname,plan_code,duration_days,amount,currency,status)
+      SELECT id,rp_nickname,'7_days',7,300000,'RP','confirmed' FROM rpm_users WHERE role='customer';
+    INSERT INTO rpm_licenses(user_id,order_id,plan_code,status,starts_at,expires_at)
+      SELECT user_id,id,plan_code,'active',now()-interval '6 days',now()+interval '1 day' FROM rpm_orders;
+  `);
+  const legacyOrder = (await db.query("SELECT * FROM rpm_orders")).rows[0];
+  const legacyLicense = (await db.query("SELECT * FROM rpm_licenses")).rows[0];
   const query = async (statement, args = []) => {
     const result = await db.query(statement, args);
     return { ...result, rowCount: result.rows.length || result.affectedRows || 0 };
@@ -54,6 +76,8 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   await migrateWorkspace(migrationPool);
   await migrateWorkspace(migrationPool);
   assert.equal((await query("SELECT count(*)::int AS count FROM rpm_users")).rows[0].count, 4);
+  assert.deepEqual((await query("SELECT * FROM rpm_orders")).rows, [legacyOrder]);
+  assert.deepEqual((await query("SELECT * FROM rpm_licenses")).rows, [legacyLicense]);
   const realFetch = globalThis.fetch;
   let modelContext = "";
   t.mock.method(globalThis, "fetch", async (url, options) => {
@@ -273,6 +297,71 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   const activity = (await send("/api/admin/self", { cookie })).data.history.map(row => row.action);
   for (const action of ["Вход", "Профиль", "Смена пароля", "Завершение сессий"]) assert.ok(activity.includes(action));
 
+  await t.test("subscription catalog, verified pricing, order snapshots and manual renewal", async () => {
+    const catalogUrl = "/api/subscription-plans";
+    const ownerUrl = "/api/owner/subscription-plans";
+    const renewalUrl = "/api/customer/renewal-orders";
+    const plans = (await send(catalogUrl)).data.plans;
+    assert.deepEqual(plans.map(plan => [plan.duration_days, plan.amount]),
+      [[1, 60000], [3, 150000], [7, 300000], [14, 750000], [30, 2000000], [60, 3600000], [90, 5000000], [180, 9000000]]);
+    assert.equal((await send(ownerUrl, { cookie })).status, 403);
+    assert.equal((await send(ownerUrl, { method: "POST", cookie: customerAgain.cookie, body: plans[0] })).status, 403);
+    const confirm = (orderId, as = owner.cookie) => send(`/api/admin/orders/${orderId}/confirm`, { method: "POST", cookie: as, body: {} });
+    let expiry = +legacyLicense.expires_at;
+    for (const plan of plans) {
+      const renewal = await send(renewalUrl, { method: "POST", cookie: customerAgain.cookie,
+        body: { plan_code: plan.code, duration_days: 3650, amount: 1 } });
+      assert.equal(renewal.status, 201, JSON.stringify(renewal.data));
+      const { order } = renewal.data;
+      assert.equal(order.duration_days, plan.duration_days);
+      assert.equal(Number(order.amount), plan.amount);
+      assert.equal(order.status, "pending");
+      assert.equal((await confirm(order.id, cookie)).status, 403);
+      const result = await confirm(order.id);
+      assert.equal(result.status, 200, JSON.stringify(result.data));
+      assert.equal(+new Date(result.data.license.starts_at), expiry);
+      expiry += plan.duration_days * 86_400_000;
+      assert.equal(+new Date(result.data.license.expires_at), expiry);
+      assert.equal((await confirm(order.id)).status, 409);
+      assert.equal((await query("SELECT count(*)::int AS count FROM rpm_licenses WHERE order_id=$1", [order.id])).rows[0].count, 1);
+    }
+    assert.deepEqual((await query("SELECT * FROM rpm_licenses WHERE id=$1", [legacyLicense.id])).rows, [legacyLicense]);
+    assert.deepEqual((await query("SELECT * FROM rpm_orders WHERE id=$1", [legacyOrder.id])).rows, [legacyOrder]);
+    const account = await send("/api/customer/me", { cookie: customerAgain.cookie });
+    assert.equal(account.data.user.duration_days, 180);
+    assert.equal(+new Date(account.data.user.expires_at), expiry);
+
+    const newPlan = { duration_days: 5, amount: 120000, sort_order: 0, active: true };
+    const created = await send(ownerUrl, { method: "POST", cookie: owner.cookie, body: newPlan });
+    assert.equal(created.status, 201);
+    const code = created.data.plan.code;
+    assert.equal((await send(catalogUrl)).data.plans[0].code, code);
+    const expired = await query("INSERT INTO rpm_users(username,rp_nickname,status,role) VALUES ('expired-fixture','Expired fixture','active','customer') RETURNING id");
+    await query(`INSERT INTO rpm_licenses(user_id,plan_code,status,starts_at,expires_at) VALUES
+      ($1,'7_days','active',now()-interval '8 days',now()-interval '1 day')`, [expired.rows[0].id]);
+    const ownerOrder = fields => send("/api/admin/orders", { method: "POST", cookie: owner.cookie, body: { plan_code: code, ...fields } });
+    const pending = await ownerOrder({ buyer_rp_nickname: "Expired fixture", amount: 1, duration_days: 1 });
+    const invite = await ownerOrder({ buyer_rp_nickname: "New buyer" });
+    assert.equal(invite.status, 201);
+    assert.ok((await confirm(invite.data.order.id)).data.invite_code);
+    assert.equal(pending.status, 201);
+    assert.equal(Number(pending.data.order.amount), newPlan.amount);
+    const patch = body => send(ownerUrl + "/" + code, { method: "PATCH", cookie: owner.cookie, body });
+    assert.equal((await patch({ ...newPlan, duration_days: 0 })).status, 400);
+    assert.equal((await patch({ ...newPlan, duration_days: 4, amount: 160000, sort_order: 90 })).status, 200);
+    assert.equal((await send(catalogUrl)).data.plans.at(-1).code, code);
+    assert.equal((await patch({ ...newPlan, active: false })).status, 200);
+    assert.equal((await ownerOrder({ buyer_rp_nickname: "New buyer" })).status, 400);
+    assert.equal((await send(renewalUrl, { method: "POST", cookie: customerAgain.cookie, body: { plan_code: code } })).status, 400);
+    const before = Date.now();
+    const confirmed = await confirm(pending.data.order.id);
+    assert.equal(confirmed.status, 200);
+    const start = +new Date(confirmed.data.license.starts_at);
+    assert.ok(start >= before - 100 && start <= Date.now());
+    assert.equal(+new Date(confirmed.data.license.expires_at) - start, 5 * 86_400_000);
+    assert.equal((await send(catalogUrl)).data.plans.length, 8);
+  });
+
   await t.test("mobile viewport, keyboard toggle and safe profile rendering", { skip: !process.env.WORKSPACE_TEST_BROWSER }, async () => {
     const { chromium } = await import(new URL("playwright-core/index.mjs", testTools));
     const browser = await chromium.launch({ executablePath: process.env.WORKSPACE_TEST_BROWSER, headless: true });
@@ -289,6 +378,10 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
         if (new URL(response.url()).pathname.startsWith("/api/") && response.status() >= 400) failedApi.push(response.url());
       });
       await page.goto(origin + "/app/");
+      await page.locator("#publicPlanCards .subscription-card").last().waitFor();
+      assert.equal(await page.locator("#publicPlanCards .subscription-card").count(), 8);
+      await page.getByLabel("Сравнить тарифы").selectOption("duration_days");
+      assert.match(await page.locator("#publicPlanCards .subscription-card").first().textContent(), /1 день/);
       await page.getByRole("button", { name: "Регистрация", exact: true }).click();
       await page.getByRole("button", { name: "Создать аккаунт" }).waitFor();
       await page.getByRole("button", { name: "Показать пароль" }).click();

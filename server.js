@@ -14,6 +14,7 @@ import { citation, resolveNorm, searchableEntries } from "./documents.js";
 import registerWorkspace from "./workspace-routes.js";
 import { appearanceRevision } from "./appearance.js";
 import { migrateWorkspace } from "./workspace-migrations.js";
+import { registerSubscriptionCatalog, registerPlanManagement } from "./subscription-plans.js";
 
 dotenv.config();
 
@@ -405,11 +406,12 @@ app.use(session({
 }));
 
 registerCustomerAuth(app, pool);
+registerSubscriptionCatalog(app, pool);
 
 app.use("/app", express.static(path.join(__dirname, "customer")));
 
 app.get("/admin-login", (req, res) => res.sendFile(path.join(__dirname, "private", "admin-login.html")));
-for (const name of ["password-visibility.js", "password-visibility.css", "rpm-base.css", "rpm-auth.css", "appearance.css", "appearance.js", "theme-catalog.js", "admin-login.js"]) {
+for (const name of ["password-visibility.js", "password-visibility.css", "rpm-base.css", "rpm-auth.css", "appearance.css", "appearance.js", "theme-catalog.js", "admin-login.js", "subscription-plans.js", "subscription-plans.css"]) {
   app.get(`/${name}`, (req, res) => res.sendFile(path.join(__dirname, "public", name)));
 }
 
@@ -428,6 +430,8 @@ function requireOwner(req, res, next) {
   if (req.isOwner === true) return next();
   return res.status(403).json({ success: false, message: "Доступ запрещён." });
 }
+
+registerPlanManagement(app, pool, requireOwner);
 
 app.get("/api/panel/permissions", (req, res) => {
   res.json({ success: true, isAdmin: req.isAdmin === true, isOwner: req.isOwner === true, isCustomer: req.isCustomer === true });
@@ -978,25 +982,10 @@ app.post("/api/admin/orders", async (req, res) => {
         ? req.body.promo_code.trim().toUpperCase()
         : "";
 
-    const plans = {
-      "7_days": { durationDays: 7, amount: 300000 },
-      "30_days": { durationDays: 30, amount: 2000000 },
-      "90_days": { durationDays: 90, amount: 5000000 }
-    };
-
     if (!buyerRpNickname || buyerRpNickname.length > 64) {
       return res.status(400).json({
         success: false,
         message: "Укажите RP-ник длиной от 1 до 64 символов."
-      });
-    }
-
-    const plan = plans[planCode];
-
-    if (!plan) {
-      return res.status(400).json({
-        success: false,
-        message: "Неизвестный тариф."
       });
     }
 
@@ -1073,7 +1062,8 @@ app.post("/api/admin/orders", async (req, res) => {
          promo_code,
          status
        )
-       VALUES ($1, $2, $3, $4, $5, 'RP', $6, 'pending')
+       SELECT $1, $2, code, duration_days, amount, 'RP', $4, 'pending'
+       FROM rpm_subscription_plans WHERE code = $3 AND active
        RETURNING id, user_id, buyer_rp_nickname, plan_code,
                  duration_days, amount, currency,
                  promo_code, status, created_at`,
@@ -1081,12 +1071,11 @@ app.post("/api/admin/orders", async (req, res) => {
         linkedUserId,
         buyerRpNickname,
         planCode,
-        plan.durationDays,
-        plan.amount,
         promoCode || null
       ]
     );
 
+    if (!result.rowCount) return res.status(400).json({ success: false, message: "Тариф недоступен." });
     res.status(201).json({
       success: true,
       order: result.rows[0]
@@ -1197,11 +1186,11 @@ app.post("/api/admin/orders/:id/confirm", async (req, res) => {
       // Продление начинается с окончания действующей лицензии
       // либо с текущего времени, если действующей лицензии нет.
       const startResult = await client.query(
-        `SELECT COALESCE(MAX(expires_at), NOW()) AS starts_at
+        `SELECT COALESCE(MAX(expires_at), statement_timestamp()) AS starts_at
          FROM rpm_licenses
          WHERE user_id = $1
            AND status = 'active'
-           AND expires_at > NOW()`,
+           AND expires_at > statement_timestamp()`,
         [order.user_id]
       );
 
