@@ -2,23 +2,27 @@ const paths = { admin: "/admin", charters: "/charters", training: "/training" };
 const modules = {
   admin: () => import("./workspace-admin.js"),
   charters: () => import("./workspace-library.js"),
-  training: () => import("./workspace-training.js")
+  training: () => import("./workspace-training.js"),
+  dashboard: () => import("./workspace-personal.js"),
+  calendar: () => import("./workspace-personal.js"),
+  favorites: () => import("./workspace-personal.js")
 };
 let current;
 
 function renderRoute() {
   const url = new URL(location.href);
   const path = url.pathname.toLowerCase().replace(/\/$/, "");
-  let tab = Object.keys(paths).find(id => paths[id] === path) || url.searchParams.get("tab") || "analysis";
+  let tab = Object.keys(paths).find(id => paths[id] === path) || url.searchParams.get("tab") || "dashboard";
   if (!document.querySelector(`#mainNavigation [data-tab="${CSS.escape(tab)}"]`) ||
       !document.getElementById(tab)) tab = "analysis";
   if (tab !== current) {
     current = tab;
     window.activateWorkspaceTab(tab);
   }
+  if (tab === "history" && url.searchParams.has("case")) window.openOwnedWorkspaceCase(url.searchParams.get("case"));
   if (Object.hasOwn(modules, tab)) {
     modules[tab]().then(module => {
-      if (current === tab) return module.openView?.(new URL(location.href));
+      if (current === tab) return module.openView?.(new URL(location.href), tab);
     }).catch(() => {
       const status = document.getElementById(tab)?.querySelector('[role="status"]');
       if (status) status.textContent = "Раздел не загрузился. Обновите страницу и повторите попытку.";

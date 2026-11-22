@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/password-visibility.css">
   <script defer src="/password-visibility.js"></script>
   <script type="module" src="/workspace-router.js"></script>
+  <script type="module" src="/workspace-personal.js"></script>
   <style>
 
 
@@ -729,11 +730,16 @@
 <header>
   <div class="logo">RPM <span>ATTORNEY ASSISTANT</span></div>
   <div class="status" id="systemStatus">Проверка сервера...</div>
+  <button type="button" class="secondary" id="workspaceSearch" aria-keyshortcuts="Control+K">Поиск</button>
+  <button type="button" class="secondary" id="workspaceNotifications" aria-label="Уведомления">🔔</button>
   <a class="panel-profile" href="/app/account.html" id="panelProfile" hidden><img id="panelAvatar" alt=""><span id="panelDisplayName">Профиль</span></a>
 </header>
 
 <nav id="mainNavigation" aria-label="Разделы RPM">
-  <button class="active" data-tab="analysis">Анализ дела</button>
+  <button class="active" data-tab="dashboard">Главная</button>
+  <button data-tab="calendar">Календарь</button>
+  <button data-tab="favorites">Избранное</button>
+  <button data-tab="analysis">Анализ дела</button>
   <button data-tab="police">Проверка полиции</button>
   <button data-tab="questions">Вопросы сотруднику</button>
   <button data-tab="reference">Справочник адвоката</button>
@@ -756,10 +762,13 @@
 
 
 <main>
+  <section id="dashboard" class="tab active"><h1>Главная</h1><div id="personalDashboard"></div></section>
+  <section id="calendar" class="tab"><h1>Календарь</h1><div id="personalCalendar"></div></section>
+  <section id="favorites" class="tab"><h1>Избранное</h1><div id="personalFavorites"></div></section>
 
   <!-- АНАЛИЗ ДЕЛА -->
 
-  <section id="analysis" class="tab active">
+  <section id="analysis" class="tab">
     <h1>Анализ дела</h1>
     <p class="subtitle">Правовой анализ ситуации на основании законодательства RPM.</p>
 
@@ -3584,7 +3593,7 @@
     }
 
     renderLegalReasoning(lastLegalReasoning);
-    if (window.rpmNavigate) window.rpmNavigate("/");
+    if (window.rpmNavigate) window.rpmNavigate("/?tab=analysis");
     else activateTab("analysis");
 
     toast("Дело загружено.");
@@ -4541,6 +4550,12 @@
       tab.classList.toggle("active",tab.id===id);
     });
   }
+
+  window.openOwnedWorkspaceCase = async id => {
+    await loadCases();
+    const item = casesData.find(record => String(record.id) === id);
+    if (item && new URL(location.href).searchParams.get("case") === id) openCase(item);
+  };
 
   function activateWorkspaceTab(tabId) {
       activateTab(tabId);

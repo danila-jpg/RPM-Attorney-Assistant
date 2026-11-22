@@ -1,5 +1,7 @@
 import { byId, element, request, sourceLink } from "./workspace-common.js";
 
+import { favoriteControl } from "./workspace-personal.js";
+
 const select = byId("documents");
 const status = byId("libraryStatus");
 const search = byId("search");
@@ -88,7 +90,8 @@ async function openDocument(id) {
     training.href = "/training?doc=" + encodeURIComponent(doc.id);
     byId("libraryCatalog").hidden = false;
     const revision = doc.revision || "дата редакции неизвестна";
-    byId("title").textContent = doc.name;
+    const heading = byId("title");
+    heading.replaceChildren(document.createTextNode(doc.name + " "), favoriteControl("document", doc.id, status));
     byId("metadata").textContent = [doc.organization, revision, doc.status === "archived" ? "Архив" : "Действующий документ", doc.source].filter(Boolean).join(" · ");
     const history = byId("documentHistory");
     history.hidden = !doc.history.length;
@@ -121,7 +124,7 @@ async function openDocument(id) {
       const actions = element("details", null, { class: "norm-actions" });
       const copyPoint = element("button", "Копировать текст", { type: "button", class: "secondary" });
       copyPoint.addEventListener("click", () => copy(lines.slice(entry.line, end).join("\n"), "Пункт скопирован."));
-      actions.append(element("summary", "Действия"), copyPoint, copyButton(doc.id, entry.id));
+      actions.append(element("summary", "Действия"), copyPoint, copyButton(doc.id, entry.id), favoriteControl(doc.type === "law" ? "law" : "charter", doc.id + ":" + entry.id, status));
       block.append(element("div", text, { class: "document-text" }), actions);
       if (section) section.append(block);
       else blocks.push(block);

@@ -3,7 +3,7 @@ import { saveAppearance } from "./appearance.js";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { citation, documentDisplayText, documentEntries, resolveNorm, searchableEntries } from "./documents.js";
-import { gradeQuestion, makeQuestions, summarizeTraining } from "./training.js";
+import { gradeQuestion, makeQuestions, summarizeTraining, validateQuestion } from "./training.js";
 import { destroyLoginSession, recordAdminAuth } from "./customer-auth-routes.js";
 
 const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -32,6 +32,9 @@ function route(handler) {
       if (req.route.path.startsWith("/api/training/") && ["42P01", "42703"].includes(error.code)) {
         return res.status(503).json({ error: "Хранилище учебного прогресса не готово. Администратору базы нужно проверить миграцию 002_workspace.sql." });
       }
+      if (req.route.path.startsWith("/api/workspace/") && error.code === "42P01") {
+        return res.status(503).json({ error: "Хранилище рабочего пространства недоступно. Проверьте миграцию 004_workspace_personal.sql." });
+      }
       if (req.route.path.startsWith("/api/admin/self") && error.code === "42P01") {
         return res.status(503).json({ error: "Хранилище кабинета не готово. Администратору базы нужно проверить миграцию 002_workspace.sql." });
       }
@@ -51,7 +54,7 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     if (req.adminSessionVerified || req.isCustomer) return next();
     res.status(401).json({ error: "Для доступа войдите в аккаунт через форму входа." });
   };
-  app.use(["/api/documents", "/api/training"], requireWorkspaceSession);
+  app.use(["/api/documents", "/api/training", "/api/workspace"], requireWorkspaceSession);
 
   app.get("/admin", requireAdmin, requireSession, sendWorkspace);
   app.get(["/charters", "/training"], sendWorkspace);
@@ -169,16 +172,204 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     res.json({ success: true, revoked: result.rowCount > 0 });
   }));
 
+
+  const documentLink = (id, anchor) => "/charters?doc=" + encodeURIComponent(id) + (anchor ? "#" + encodeURIComponent(anchor) : "");
+  const normResult = (doc, entry) => ({
+    category: entry ? (doc.type === "law" ? "law" : "charter") : "document",
+    target: entry ? doc.id + ":" + entry.id : doc.id,
+    title: entry ? citation(doc, entry) : doc.name,
+    href: documentLink(doc.id, entry?.id)
+  });
+  const caseResult = record => ({ category: "case", target: String(record.id), title: record.title,
+    href: "/?tab=history&case=" + encodeURIComponent(record.id) });
+  const questionResult = (attempt, index) => ({ category: "question", target: attempt.id + ":" + index,
+    title: attempt.questions[index].prompt, href: "/training?review=" + attempt.id + "#" + index });
+  const ownedCases = (userId, search = "") => pool.query(
+    "SELECT id, title FROM rpm_cases WHERE user_id=$1 AND ($2='' OR strpos(lower(title || ' ' || data::text), $2)>0) ORDER BY updated_at DESC LIMIT 15",
+    [userId, search]);
+  const completed = userId => pool.query(
+    "SELECT id, mode, questions, answers, completed_at FROM rpm_training_attempts WHERE user_id=$1 AND completed_at IS NOT NULL ORDER BY completed_at DESC LIMIT 30",
+    [userId]);
+
+  app.get("/api/workspace/search", route(async (req, res) => {
+    const term = String(req.query.q || "").trim().toLowerCase().slice(0, 120);
+    if (term.length < 2) return res.json([]);
+    const [laws, cases, attempts] = await Promise.all([loadLaws(), ownedCases(req.userId, term), completed(req.userId)]);
+    const documents = getDocuments(laws);
+    const includes = value => String(value || "").toLowerCase().includes(term);
+    const catalog = documents.filter(doc => includes(doc.name) || includes(doc.organization)).map(doc => normResult(doc));
+    const provisions = documents.flatMap(doc => searchableEntries(doc).filter(entry =>
+      entry.id && (includes(citation(doc, entry)) || includes(entry.text))).slice(0, 4).map(entry => normResult(doc, entry)));
+    const materials = attempts.rows.flatMap(attempt => attempt.questions.flatMap((question, index) =>
+      includes(question.prompt) ? [questionResult(attempt, index)] : [])).slice(0, 8);
+    res.set("Cache-Control", "no-store").json([...catalog.slice(0, 12), ...cases.rows.map(caseResult), ...materials, ...provisions.slice(0, 20)]);
+  }));
+
+  async function resolveFavorite(userId, category, target, documents) {
+    if (category === "case") {
+      const { rows: [record] } = await pool.query("SELECT id, title FROM rpm_cases WHERE user_id=$1 AND id::text=$2", [userId, target]);
+      return record && caseResult(record);
+    }
+    if (category === "question") {
+      const [id, index, extra] = target.split(":");
+      if (!uuid.test(id) || !/^\d+$/.test(index || "") || extra !== undefined) return null;
+      const { rows: [attempt] } = await pool.query("SELECT id, questions FROM rpm_training_attempts WHERE user_id=$1 AND id=$2 AND completed_at IS NOT NULL", [userId, id]);
+      return attempt?.questions[index] && questionResult(attempt, Number(index));
+    }
+    if (!["law", "charter", "document"].includes(category)) return null;
+    const [id, anchor, extra] = target.split(":");
+    if (extra !== undefined) return null;
+    const doc = documents.find(item => item.id === id);
+    if (!doc) return null;
+    if (category === "document") return anchor === undefined ? normResult(doc) : null;
+    const entry = searchableEntries(doc).find(item => item.id === anchor);
+    const result = entry && normResult(doc, entry);
+    return result?.category === category ? result : null;
+  }
+
+  app.get("/api/workspace/favorites", route(async (req, res) => {
+    const [laws, favorite] = await Promise.all([
+      loadLaws(),
+      pool.query("SELECT category,target FROM rpm_workspace_favorites WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100", [req.userId])
+    ]);
+    const documents = getDocuments(laws);
+    const results = await Promise.all(favorite.rows.map(({ category, target }) => resolveFavorite(req.userId, category, target, documents)));
+    res.set("Cache-Control", "no-store").json(results.filter(Boolean));
+  }));
+  app.put("/api/workspace/favorites", route(async (req, res) => {
+    const { category, target, saved } = req.body || {};
+    if (typeof category !== "string" || typeof target !== "string" || target.length > 160 || typeof saved !== "boolean") {
+      return res.status(400).json({ error: "Проверьте параметры избранного." });
+    }
+    if (saved) {
+      const result = await resolveFavorite(req.userId, category, target, getDocuments(await loadLaws()));
+      if (!result) return res.status(404).json({ error: "Материал не найден." });
+      await pool.query("INSERT INTO rpm_workspace_favorites(user_id,category,target) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
+        [req.userId, category, target]);
+    } else {
+      await pool.query("DELETE FROM rpm_workspace_favorites WHERE user_id=$1 AND category=$2 AND target=$3", [req.userId, category, target]);
+    }
+    res.json({ saved });
+  }));
+
+  const upcomingEvents = userId => pool.query(`SELECT id,title,starts_at FROM rpm_workspace_events
+    WHERE user_id=$1 AND starts_at>=now() ORDER BY starts_at LIMIT 30`, [userId]);
+  app.get("/api/workspace/events", route(async (req, res) => {
+    res.set("Cache-Control", "no-store").json((await upcomingEvents(req.userId)).rows);
+  }));
+  app.post("/api/workspace/events", route(async (req, res) => {
+    const { title, startsAt } = req.body || {};
+    const date = typeof startsAt === "string" && /^\d{4}-\d{2}-\d{2}T/.test(startsAt) ? new Date(startsAt) : null;
+    if (typeof title !== "string" || !title.trim() || title.length > 120 || !date ||
+        !Number.isFinite(date.getTime()) || date.getTime() <= Date.now()) {
+      return res.status(400).json({ error: "Укажите название и время будущего события." });
+    }
+    const { rows: [event] } = await pool.query(`INSERT INTO rpm_workspace_events(id,user_id,title,starts_at)
+      VALUES($1,$2,$3,$4) RETURNING id,title,starts_at`, [randomUUID(), req.userId, title.trim(), date]);
+    res.status(201).json(event);
+  }));
+  app.delete("/api/workspace/events/:id", route(async (req, res) => {
+    if (!uuid.test(req.params.id)) return res.status(404).json({ error: "Событие не найдено." });
+    const result = await pool.query("DELETE FROM rpm_workspace_events WHERE id=$1 AND user_id=$2", [req.params.id, req.userId]);
+    if (!result.rowCount) return res.status(404).json({ error: "Событие не найдено." });
+    res.json({ removed: true });
+  }));
+  app.post("/api/workspace/announcements", route(async (req, res) => {
+    if (!req.isOwner || !req.adminSessionVerified) return res.status(403).json({ error: "Доступно владельцу." });
+    const { title } = req.body || {};
+    if (typeof title !== "string" || !title.trim() || title.length > 240) return res.status(400).json({ error: "Введите сообщение." });
+    await pool.query("INSERT INTO rpm_workspace_announcements(id,title) VALUES($1,$2)", [randomUUID(), title.trim()]);
+    res.status(201).json({ published: true });
+  }));
+
+  async function personalOverview(userId) {
+    const [profile, license, cases, attempts, events] = await Promise.all([
+      pool.query("SELECT COALESCE(display_name, rp_nickname, username) AS name FROM rpm_users WHERE id=$1", [userId]),
+      pool.query("SELECT expires_at FROM rpm_licenses WHERE user_id=$1 AND status='active' AND expires_at>now() ORDER BY expires_at DESC LIMIT 1", [userId]),
+      ownedCases(userId), completed(userId), upcomingEvents(userId)
+    ]);
+    return { name: profile.rows[0]?.name, expires: license.rows[0]?.expires_at,
+      cases: cases.rows.slice(0, 5).map(caseResult), attempts: attempts.rows, events: events.rows.slice(0, 5) };
+  }
+  app.get("/api/workspace/dashboard", route(async (req, res) => {
+    const [{ attempts, ...overview }, laws] = await Promise.all([personalOverview(req.userId), loadLaws()]);
+    const recentDocuments = getDocuments(laws).filter(doc => doc.addedAt)
+      .sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt)).slice(0, 5).map(doc => normResult(doc));
+    res.set("Cache-Control", "no-store").json({ ...overview, progress: summarizeTraining(attempts), recentDocuments,
+      canAnnounce: Boolean(req.isOwner && req.adminSessionVerified) });
+  }));
+  async function notifications(userId) {
+    const [{ attempts, expires, events }, { rows: reads }, laws, { rows: announcements }] = await Promise.all([
+      personalOverview(userId),
+      pool.query("SELECT notification_id FROM rpm_workspace_notification_reads WHERE user_id=$1", [userId]),
+      loadLaws(), pool.query("SELECT id,title FROM rpm_workspace_announcements WHERE published_at<=now() ORDER BY published_at DESC LIMIT 20")
+    ]);
+    const result = attempts.filter(item => item.mode === "exam").map(attempt => {
+      const percent = Math.round(Object.values(attempt.answers).filter(item => item.correct).length * 100 / attempt.questions.length);
+      return { id: "exam:" + attempt.id, title: "Результат экзамена — " + percent + "%", href: "/training?review=" + attempt.id };
+    });
+    if (expires && new Date(expires).getTime() - Date.now() <= 7 * 86_400_000) {
+      result.unshift({ id: "subscription:" + new Date(expires).toISOString(), title: "Подписка действует до " +
+        new Intl.DateTimeFormat("ru", { dateStyle: "long", timeZone: "Europe/Riga" }).format(new Date(expires)), href: "/app/account.html" });
+    }
+    const now = Date.now();
+    const withinWeek = time => Number.isFinite(time) && Math.abs(time - now) <= 7 * 86_400_000;
+    for (const event of events.filter(item => withinWeek(new Date(item.starts_at).getTime()))) {
+      result.push({ id: "event:" + event.id, title: "Скоро · " + event.title, href: "/?tab=calendar" });
+    }
+    for (const doc of getDocuments(laws).filter(item => item.revision &&
+        (laws.archivedDocuments || []).some(old => old.documentId === item.id) &&
+        withinWeek(Date.parse(item.revision)) && Date.parse(item.revision) <= now)) {
+      result.push({ id: "revision:" + doc.id + ":" + doc.revision, title: "Новая редакция · " + doc.name,
+        href: documentLink(doc.id) });
+    }
+    for (const announcement of announcements) result.push({ id: "system:" + announcement.id, title: announcement.title });
+    const seen = new Set(reads.map(item => item.notification_id));
+    return result.map(item => ({ ...item, read: seen.has(item.id) }));
+  }
+  app.get("/api/workspace/notifications", route(async (req, res) => {
+    res.set("Cache-Control", "no-store").json(await notifications(req.userId));
+  }));
+  app.post("/api/workspace/notifications/read", route(async (req, res) => {
+    const { id } = req.body || {};
+    if (typeof id !== "string" || !((await notifications(req.userId)).some(item => item.id === id))) {
+      return res.status(404).json({ error: "Уведомление не найдено." });
+    }
+    await pool.query("INSERT INTO rpm_workspace_notification_reads(user_id,notification_id) VALUES($1,$2) ON CONFLICT DO NOTHING", [req.userId, id]);
+    res.json({ read: true });
+  }));
+
   app.get("/api/training/progress", route(async (req, res) => {
-    const result = await pool.query("SELECT mode, questions, answers, completed_at FROM rpm_training_attempts WHERE user_id=$1", [req.userId]);
+    const result = await pool.query("SELECT id, mode, questions, answers, completed_at FROM rpm_training_attempts WHERE user_id=$1 ORDER BY created_at DESC", [req.userId]);
     res.json(summarizeTraining(result.rows));
   }));
+  function publicQuestions(questions, mode) {
+    return questions.map(({ text, reference, anchor, prompt, type, choices, documentId }) =>
+      mode === "cards" ? { text, reference, anchor, prompt, type, choices, documentId } : { prompt, choices, type });
+  }
+
+  app.get("/api/training/attempts/current", route(async (req, res) => {
+    const { rows: [attempt] } = await pool.query(`SELECT id, mode, questions, answers FROM rpm_training_attempts
+      WHERE user_id=$1 AND completed_at IS NULL ORDER BY created_at DESC LIMIT 1`, [req.userId]);
+    if (!attempt || !attempt.questions.every(validateQuestion)) return res.json(null);
+    res.set("Cache-Control", "no-store").json({ id: attempt.id, mode: attempt.mode,
+      questions: publicQuestions(attempt.questions, attempt.mode),
+      index: attempt.questions.findIndex((_, index) => !Object.hasOwn(attempt.answers, index)) });
+  }));
+
+  app.get("/api/training/attempts/:id/review", route(async (req, res) => {
+    if (!uuid.test(req.params.id)) return res.status(404).json({ error: "Занятие не найдено." });
+    const { rows: [attempt] } = await pool.query(`SELECT mode, questions, answers, completed_at FROM rpm_training_attempts
+      WHERE id=$1 AND user_id=$2 AND completed_at IS NOT NULL`, [req.params.id, req.userId]);
+    if (!attempt) return res.status(404).json({ error: "Занятие не найдено." });
+    res.set("Cache-Control", "no-store").json(attempt);
+  }));
+
   async function startAttempt(req, res, mode, questions) {
     const id = randomUUID();
     await pool.query("INSERT INTO rpm_training_attempts (id, user_id, mode, questions) VALUES ($1,$2,$3,$4::jsonb)",
       [id, req.userId, mode, JSON.stringify(questions)]);
-    res.json({ id, questions: questions.map(({ correct, text, reference, anchor, explanation, ...question }) =>
-      mode === "cards" ? { ...question, text, reference, anchor } : question) });
+    res.json({ id, mode, questions: publicQuestions(questions, mode) });
   }
 
   app.post("/api/training/attempts", route(async (req, res) => {
@@ -189,7 +380,7 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
       return res.status(400).json({ error: "Выберите документы, режим и размер." });
     }
     const docs = getDocuments(await loadLaws()).filter(doc => documentIds.includes(doc.id));
-    const questions = makeQuestions(docs, mode, size).filter(question => mode === "cards" || question.choices.length >= 2);
+    const questions = makeQuestions(docs, mode, size);
     if (!questions.length || (["quiz", "exam"].includes(mode) && questions.length !== size)) {
       return res.status(422).json({ error: "Для выбранного размера недостаточно однозначных вопросов. Выберите больше документов или меньший размер." });
     }
@@ -209,7 +400,7 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     const questions = attempt.questions.filter((question, index) => {
       if (attempt.answers[index]?.correct) return false;
       const entry = current.get(question.documentId)?.get(question.reference);
-      return entry?.text === question.text && entry.id === question.anchor;
+      return entry?.text === question.text && entry.id === question.anchor && validateQuestion(question);
     });
     if (!questions.length) return res.status(422).json({ error: "Нет ошибок по действующим документам." });
     await startAttempt(req, res, attempt.mode, questions);
@@ -220,7 +411,7 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     const params = [req.params.id, req.userId];
     const attempt = (await pool.query("SELECT mode, questions, answers FROM rpm_training_attempts WHERE id=$1 AND user_id=$2", params)).rows[0];
     const question = attempt?.questions[index];
-    if (!question) return res.status(404).json({ error: "Вопрос не найден." });
+    if (!question || !validateQuestion(question)) return res.status(404).json({ error: "Вопрос не найден." });
     const correct = gradeQuestion(question, attempt.mode, answer);
     if (correct === null) return res.status(400).json({ error: "Выберите ответ." });
     const stored = { answer, correct, at: new Date().toISOString() };
@@ -231,10 +422,18 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
     const state = updated.rows[0] || (await pool.query("SELECT answers, completed_at FROM rpm_training_attempts WHERE id=$1 AND user_id=$2", params)).rows[0];
     const wrong = state.completed_at ? attempt.questions.filter((_, position) => !state.answers[position]?.correct)
       .map(({ reference, documentId, anchor }) => ({ reference, documentId, anchor })) : [];
-    res.json({
-      correct: state.answers[index].correct, selected: state.answers[index].answer,
-      text: question.text, reference: question.reference, documentId: question.documentId, anchor: question.anchor, explanation: question.explanation,
-      result: state.completed_at ? { percent: Math.round((attempt.questions.length - wrong.length) * 100 / attempt.questions.length), wrong } : null
+    const review = (item, position) => ({
+      correct: state.answers[position].correct, selected: state.answers[position].answer, correctChoice: item.correct,
+      text: item.text, reference: item.reference, revision: item.revision, source: item.source,
+      documentId: item.documentId, anchor: item.anchor, explanation: item.explanation
+    });
+    const result = state.completed_at ? {
+      percent: Math.round((attempt.questions.length - wrong.length) * 100 / attempt.questions.length), wrong,
+      review: attempt.questions.map(review)
+    } : null;
+    res.set("Cache-Control", "no-store").json({
+      ...(attempt.mode !== "exam" || result ? review(question, index) : { selected: state.answers[index].answer }),
+      result
     });
   }));
 }

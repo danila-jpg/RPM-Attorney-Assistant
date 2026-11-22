@@ -12,6 +12,7 @@ import { timingSafeEqual, randomBytes, createHash, randomUUID } from "node:crypt
 import registerCustomerAuth from "./customer-auth-routes.js";
 import { citation, resolveNorm, searchableEntries } from "./documents.js";
 import registerWorkspace from "./workspace-routes.js";
+import { migrateWorkspace } from "./workspace-migrations.js";
 
 dotenv.config();
 
@@ -307,7 +308,7 @@ async function requireAuth(req, res, next) {
 
   // Существующий Basic Auth остаётся резервным способом входа.
   if (/^\/admin\/?$/i.test(req.path)) return res.redirect("/admin-login");
-  if (/^\/api\/(?:admin\/self|documents|training)(?:\/|$)/i.test(req.path)) {
+  if (/^\/api\/(?:admin\/self|documents|training|workspace)(?:\/|$)/i.test(req.path)) {
     return res.status(401).json({ error: "Для доступа войдите в аккаунт через форму входа." });
   }
   if (!APP_USER || !APP_PASSWORD) {
@@ -411,6 +412,10 @@ for (const name of ["password-visibility.js", "password-visibility.css", "rpm-ba
   app.get(`/${name}`, (req, res) => res.sendFile(path.join(__dirname, "public", name)));
 }
 
+app.use("/api/health", (req, res, next) => {
+  if (process.env.RENDER_GIT_COMMIT) res.set("X-RPM-Revision", process.env.RENDER_GIT_COMMIT);
+  next();
+});
 app.use(requireAuth);
 
 function requireAdmin(req, res, next) {
@@ -3518,6 +3523,16 @@ app.get("/api/health", async (req, res) => {
 // =====================================================
 // ЗАПУСК
 // =====================================================
+if (process.env.RENDER === "true") {
+  try {
+    await migrateWorkspace(pool);
+    console.log("Схема рабочего пространства проверена.");
+  } catch (error) {
+    console.error("Миграция рабочего пространства не выполнена:", error.code || error.name);
+    throw new Error("Не удалось подготовить схему рабочего пространства.");
+  }
+}
+
 export const server = app.listen({ port: Number(PORT), host: process.env.HOST || undefined }, async () => {
   console.log("RPM Attorney Assistant запущен:");
   console.log(`http://${process.env.HOST || "localhost"}:${server.address().port}`);

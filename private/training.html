@@ -13,7 +13,7 @@
         </div>
         <div>
           <label>Режим<select name="mode">
-            <option value="cards">Карточки</option><option value="quiz">Тестирование</option><option value="practice">Практические ситуации</option><option value="exam">Экзамен</option>
+            <option value="cards">Карточки</option><option value="quiz">Обучение с объяснениями</option><option value="practice">Практические ситуации</option><option value="exam">Экзамен</option>
           </select></label>
           <label>Количество<select name="size"><option>5</option><option>10</option><option>20</option></select></label>
         </div>
@@ -23,9 +23,10 @@
     <p class="status" id="trainingStatus" role="status"></p>
     <button class="secondary" id="retryTraining" type="button" hidden>Обновить данные обучения</button>
   </section>
+  <button type="button" class="secondary" id="resumeTraining" hidden>Продолжить занятие</button>
   <section class="panel" id="exercise" hidden>
     <h2 id="position"></h2><progress id="trainingProgress" value="0" aria-label="Прогресс занятия"></progress><p class="source" id="prompt"></p>
     <div id="choices"></div><div id="feedback" aria-live="polite"></div>
   </section>
-  <section class="panel" id="progress"><h2>Мой прогресс</h2><p id="summary"></p><ul id="topics"></ul></section>
+  <section class="panel" id="progress"><h2>Мой прогресс</h2><p id="summary"></p><h3>Темы для повторения</h3><ul id="topics"></ul><h3>По документам</h3><ul id="trainingDocumentsStats"></ul><h3>История результатов</h3><ul id="trainingHistory"></ul></section>
 </div>

@@ -1,7 +1,8 @@
 import { themes, defaultPreferences } from "../public/theme-catalog.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, access } from "node:fs/promises";
+import { access } from "node:fs/promises";
+import { migrateWorkspace } from "../workspace-migrations.js";
 import { once } from "node:events";
 import pg from "pg";
 import bcrypt from "bcryptjs";
@@ -30,8 +31,6 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
     CREATE TABLE rpm_case_backups (user_id BIGINT REFERENCES rpm_users);
     CREATE TABLE rpm_licenses (user_id BIGINT, status TEXT, starts_at TIMESTAMPTZ, expires_at TIMESTAMPTZ);
   `);
-  await db.exec(await readFile(new URL("../migrations/002_workspace.sql", import.meta.url), "utf8"));
-  await db.exec(await readFile(new URL("../migrations/003_appearance.sql", import.meta.url), "utf8"));
   const password = "fixture-password-original";
   const updatedPassword = "fixture-password-changed";
   await db.query(`INSERT INTO rpm_users (username,password_hash,status,role,rp_nickname)
@@ -46,6 +45,15 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   };
   t.mock.method(pg.Pool.prototype, "query", query);
   t.mock.method(pg.Pool.prototype, "connect", async () => ({ query, release() {} }));
+  const migrationPool = {
+    connect: async () => ({
+      query: (sql, args) => args ? db.query(sql, args) : db.exec(sql),
+      release: failed => assert.equal(failed, false)
+    })
+  };
+  await migrateWorkspace(migrationPool);
+  await migrateWorkspace(migrationPool);
+  assert.equal((await query("SELECT count(*)::int AS count FROM rpm_users")).rows[0].count, 4);
   const realFetch = globalThis.fetch;
   let modelContext = "";
   t.mock.method(globalThis, "fetch", async (url, options) => {
@@ -195,7 +203,7 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   });
   assert.equal(begin.status, 200);
   assert.equal(begin.data.questions.length, 5);
-  assert.ok(begin.data.questions.every(question => typeof question.correct === "undefined" && !question.documentId.includes("archive")));
+  assert.ok(begin.data.questions.every(question => typeof question.correct === "undefined" && typeof question.choiceSources === "undefined"));
   assert.equal((await send("/api/training/attempts", {
     method: "POST", cookie, body: { mode: "quiz", size: 5, documentIds: ["epk-archive-1"] }
   })).status, 422);
@@ -217,6 +225,40 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   });
   assert.equal(exam.status, 200);
   assert.equal(exam.data.questions.length, 10);
+  await db.exec(`INSERT INTO rpm_cases(user_id,title,data,updated_at)
+    SELECT id,'Private case for global search','{}'::jsonb,now() FROM rpm_users WHERE username='workspace-staff'`);
+  const searchPath = "/api/workspace/search?q=private%20case%20for%20global%20search";
+  const own = await send(searchPath, { cookie });
+  assert.equal(own.data.length, 1);
+  assert.deepEqual((await send(searchPath, { cookie: other.cookie })).data, []);
+  const favorite = { category: "case", target: own.data[0].target, saved: true };
+  assert.equal((await send("/api/workspace/favorites", { method: "PUT", cookie: other.cookie, body: favorite })).status, 404);
+  assert.equal((await send("/api/workspace/favorites", { method: "PUT", cookie, body: favorite })).status, 200);
+  assert.deepEqual((await send("/api/workspace/favorites", { cookie })).data, own.data);
+  assert.deepEqual((await send("/api/workspace/favorites", { cookie: other.cookie })).data, []);
+  const inbox = (await send("/api/workspace/notifications", { cookie: customerAgain.cookie })).data.filter(item => item.id.startsWith("subscription:"));
+  assert.equal(inbox.length, 1);
+  const read = "/api/workspace/notifications/read";
+  assert.equal((await send(read, { method: "POST", cookie, body: { id: inbox[0].id } })).status, 404);
+  assert.equal((await send(read, { method: "POST", cookie: customerAgain.cookie, body: { id: inbox[0].id } })).status, 200);
+  assert.equal((await send("/api/workspace/notifications", { cookie: customerAgain.cookie })).data[0].read, true);
+  const event = await send("/api/workspace/events", { method: "POST", cookie,
+    body: { title: "Fixture court meeting", startsAt: new Date(Date.now() + 3600_000).toISOString() } });
+  assert.equal(event.status, 201);
+  assert.deepEqual((await send("/api/workspace/events", { cookie: other.cookie })).data, []);
+  assert.equal((await send("/api/workspace/events/" + event.data.id, { method: "DELETE", cookie: other.cookie })).status, 404);
+  assert.ok((await send("/api/workspace/notifications", { cookie })).data.some(item => item.id === "event:" + event.data.id));
+  assert.equal((await send("/api/workspace/announcements", { method: "POST", cookie, body: { title: "Fixture notice" } })).status, 403);
+  assert.equal((await send("/api/workspace/announcements", { method: "POST", cookie: owner.cookie, body: { title: "Fixture notice" } })).status, 201);
+  assert.ok((await send("/api/workspace/notifications", { cookie: other.cookie })).data.some(item => item.title === "Fixture notice"));
+  assert.ok((await send("/api/workspace/dashboard", { cookie })).data.events.some(item => item.id === event.data.id));
+  const examUrl = `/api/training/attempts/${exam.data.id}/answers`;
+  const progressBefore = await send("/api/training/progress", { cookie });
+  const firstAnswer = await send(examUrl, { method: "POST", cookie, body: { index: 0, answer: 0 } });
+  assert.deepEqual(firstAnswer.data, { selected: 0, result: null });
+  assert.deepEqual((await send("/api/training/progress", { cookie })).data, progressBefore.data);
+  assert.equal((await send("/api/training/attempts/current", { cookie })).data.index, 1);
+  assert.equal((await send("/api/training/attempts/current", { cookie: other.cookie })).data, null);
   assert.equal((await send("/api/admin/self/logout", { method: "POST", cookie: other.cookie })).status, 200);
   assert.equal((await send("/api/admin/self", { cookie: other.cookie })).status, 401);
   const activity = (await send("/api/admin/self", { cookie })).data.history.map(row => row.action);
@@ -280,7 +322,7 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.getByRole("heading", { name: "Рабочая панель" }).waitFor();
       await page.getByRole("link", { name: "Мой профиль" }).click();
       await page.getByLabel("Отображаемое имя").fill("Профиль из браузера");
-      await page.getByRole("button", { name: "Graphite", exact: true }).click();
+      await page.getByRole("button", { name: "Graphite Pro", exact: true }).click();
       await page.getByText("Оформление сохранено.").waitFor();
       assert.equal(await page.locator("body").getAttribute("data-theme"), "graphite");
       await page.getByLabel("Аватар", { exact: true }).setInputFiles({
@@ -442,6 +484,28 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.getByRole("button", { name: "Ivory", exact: true }).click();
       await page.getByText(/Восстановлены прежние настройки/).waitFor();
       assert.equal(await body.getAttribute("data-theme"), "auto");
+      await page.keyboard.press("Control+k");
+      const globalSearch = page.getByRole("searchbox", { name: "Глобальный поиск" });
+      await globalSearch.fill("Private case for global search");
+      await page.getByRole("link", { name: "Private case for global search" }).waitFor();
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Уведомления", exact: true }).click();
+      await page.getByText("Fixture court meeting", { exact: false }).waitFor();
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Создать свою тему" }).click();
+      await page.getByLabel("Название", { exact: true }).fill("Моя тестовая тема");
+      await page.getByRole("button", { name: "Сохранить тему", exact: true }).click();
+      await page.getByText("Оформление сохранено.").waitFor();
+      const custom = page.getByRole("button", { name: "Моя тестовая тема", exact: true });
+      await custom.waitFor();
+      assert.equal(await custom.getAttribute("aria-pressed"), "true");
+      await page.reload();
+      await custom.waitFor();
+      assert.equal(await custom.getAttribute("aria-pressed"), "true");
+      await page.getByRole("button", { name: "Избранное — Моя тестовая тема" }).click();
+      await page.getByText("Оформление сохранено.").waitFor();
+      await page.getByRole("button", { name: "Избранные", exact: true }).click();
+      assert.equal(await page.locator(".appearance-card:visible").count(), 1);
       assert.deepEqual(errors, []);
       assert.deepEqual(failedApi, []);
     } finally { await browser.close(); }

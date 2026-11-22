@@ -2,8 +2,8 @@ import { normalizeDocumentText } from "../documents.js";
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { citation, resolveNorm, structureDocument } from "../documents.js";
-import { gradeQuestion, makeQuestions, summarizeTraining } from "../training.js";
+import { citation, resolveNorm, searchableEntries, structureDocument } from "../documents.js";
+import { gradeQuestion, makeQuestions, summarizeTraining, validateQuestion } from "../training.js";
 
 const { documents, archivedDocuments } = JSON.parse(await readFile(new URL("../laws.json", import.meta.url), "utf8"));
 const epk = documents.find(doc => doc.id === "epk");
@@ -98,4 +98,50 @@ test("ANSI normalization preserves Unicode, numbering, whitespace and literal HT
   assert.equal(normalizeDocumentText("  4. Буква ё\n\n  Примечание"), "  4. Буква ё\n\n  Примечание");
   assert.equal(normalizeDocumentText(""), "");
   assert.equal(normalizeDocumentText(null), "");
+});
+
+test("training audits at least 100 questions across laws and charters", () => {
+  const corpus = [epk, cpd, ...documents.filter(doc => ["charter-media", "charter-army"].includes(doc.id))];
+  const counts = [0, 0, 0, 0];
+  const questions = makeQuestions(corpus, "exam", 140);
+  assert.equal(questions.length, 140);
+  assert.ok(new Set(questions.map(question => question.documentId)).size >= 3);
+  for (const question of questions) {
+    assert.ok(validateQuestion(question), question.reference);
+    assert.ok(question.choiceSources.every(source => source.revision && source.anchor && source.source));
+    assert.equal(gradeQuestion(question, "exam", question.correct), true);
+    counts[question.correct]++;
+  }
+  assert.ok(counts.every(count => count >= 12 && count <= 58), JSON.stringify(counts));
+});
+
+test("media charter clause 4.2 has number-free choices tied to exact source passages", () => {
+  const doc = documents.find(doc => doc.id === "charter-media");
+  const question = makeQuestions([doc], "quiz", 100).find(item => item.anchor === "line-39");
+  assert.equal(question?.type, "content");
+  assert.match(question.prompt, /пункт 4\.2/u);
+  assert.ok(question.choices.every(choice => !/\b\d+\.\d+\b/u.test(choice)));
+  assert.match(question.choices[question.correct], /брать интервью.+собирать информацию/u);
+  assert.equal(question.choiceSources[question.correct].anchor, "line-39");
+  assert.ok(question.choiceSources.filter((_, index) => index !== question.correct).every(source => {
+    const original = searchableEntries(doc).find(entry => entry.id === source.anchor);
+    return original && !/брать интервью.+собирать информацию/u.test(original.text);
+  }));
+  const leaked = structuredClone(question);
+  leaked.choices[leaked.correct] = "4.2 " + leaked.choices[leaked.correct];
+  assert.equal(validateQuestion(leaked), false);
+});
+
+test("curated learning tasks use sourced statements and grade each selection", () => {
+  const media = documents.find(doc => doc.id === "charter-media");
+  const questions = makeQuestions([media, cpd], "quiz", 200);
+  const multiple = questions.find(question => question.type === "multiple");
+  const boolean = questions.find(question => question.type === "boolean");
+  assert.ok(multiple && validateQuestion(multiple));
+  assert.ok(boolean && validateQuestion(boolean));
+  assert.equal(gradeQuestion(multiple, "quiz", multiple.correct.toReversed()), true);
+  assert.equal(gradeQuestion(multiple, "quiz", multiple.correct.slice(0, 1)), false);
+  assert.equal(gradeQuestion(multiple, "quiz", [0, 0]), null);
+  assert.equal(gradeQuestion(boolean, "quiz", boolean.correct), true);
+  assert.equal(gradeQuestion(boolean, "quiz", 1 - boolean.correct), false);
 });

@@ -1,5 +1,7 @@
 import { byId, element, request, sourceLink } from "./workspace-common.js";
 
+import { favoriteControl } from "./workspace-personal.js";
+
 const form = byId("setup");
 const fields = form.elements;
 const status = byId("trainingStatus");
@@ -43,8 +45,16 @@ function refreshStudy() {
 async function loadProgress() {
   const data = await request("/api/training/progress");
   byId("summary").textContent = `Тестов: ${data.tests}. Правильных ответов: ${data.correct}. Ошибок: ${data.incorrect}. Лучший результат: ${data.best == null ? "—" : data.best + "%"}. Последнее занятие: ${data.lastTraining ? new Date(data.lastTraining).toLocaleString("ru") : "—"}.`;
-  byId("topics").replaceChildren(...Object.entries(data.topics).map(([reference, topic]) =>
-    element("li", `${reference} · ${topic.incorrect ? "Повторить" : "Изучено"} · ${topic.correct} верно, ${topic.incorrect} ошибок`)));
+  byId("topics").replaceChildren(...Object.entries(data.topics).filter(([, topic]) => topic.incorrect).sort((a, b) => b[1].incorrect - a[1].incorrect).map(([reference, topic]) =>
+    element("li", `${reference} · ${topic.correct} верно, ${topic.incorrect} ошибок`)));
+  byId("trainingDocumentsStats").replaceChildren(...Object.values(data.documents).map(doc =>
+    element("li", `${doc.name} · ${doc.correct} верно, ${doc.incorrect} ошибок`)));
+  byId("trainingHistory").replaceChildren(...data.history.map(result => {
+    const item = element("li");
+    item.append(element("a", `${new Date(result.at).toLocaleString("ru")} · ${result.percent}%`,
+      { href: "/training?review=" + result.id }));
+    return item;
+  }));
 }
 
 function addButton(parent, text, handler, className = "secondary") {
@@ -58,8 +68,7 @@ function showQuestion() {
   byId("trainingProgress").max = attempt.questions.length;
   byId("trainingProgress").value = index;
   byId("position").textContent = `${index + 1} из ${attempt.questions.length}`;
-  byId("prompt").textContent = mode === "quiz" || mode === "exam"
-    ? `Выберите точный текст нормы\n${question.prompt}` : question.prompt;
+  byId("prompt").textContent = question.prompt;
   choices.replaceChildren();
   feedback.replaceChildren();
   if (mode === "cards") {
@@ -68,9 +77,26 @@ function showQuestion() {
       addButton(choices, "Знаю", () => answer("known"));
       addButton(choices, "Повторить", () => answer("repeat"));
     });
+  } else if (question.type === "multiple") {
+    const selected = new Set();
+    question.choices.forEach((choice, position) => addButton(choices, choice, event => {
+      if (selected.has(position)) selected.delete(position); else selected.add(position);
+      event.currentTarget.setAttribute("aria-pressed", String(selected.has(position)));
+      confirm.disabled = !selected.size;
+    }, "secondary option"));
+    addButton(choices, "Подтвердить выбор", () => answer([...selected]), "primary");
+    const confirm = choices.lastElementChild;
+    confirm.disabled = true;
   } else {
     question.choices.forEach((choice, position) => addButton(choices, choice, () => answer(position), "secondary option"));
   }
+}
+
+function renderReview(parent, data) {
+  parent.append(element("h3", data.correct ? "Верно" : "Ошибка"),
+    element("p", data.reference + " · " + data.revision),
+    element("a", "Открыть пункт в уставе", { href: sourceLink(data.documentId, data.anchor) }),
+    element("p", data.text, { class: "source" }), element("p", data.explanation));
 }
 
 async function answer(value) {
@@ -79,14 +105,31 @@ async function answer(value) {
   try {
     const data = await request(`/api/training/attempts/${attempt.id}/answers`, "POST", { index, answer: value });
     byId("trainingProgress").value = index + 1;
-    feedback.replaceChildren(
-      element("h3", mode === "cards" ? (data.correct ? "Отмечено как изученное" : "Отмечено для повторения")
-        : data.correct ? "Верно" : "Ошибка в выборе нормы"),
-      element("a", data.reference, { href: sourceLink(data.documentId, data.anchor) }),
-      element("p", data.text, { class: "source" }),
-      element("p", data.explanation)
-    );
+    feedback.replaceChildren();
+    const positions = value => (Array.isArray(value) ? value : [value]).filter(Number.isInteger);
+    const selected = positions(data.selected);
+    const correct = positions(data.correctChoice);
+    selected.forEach(position => buttons[position]?.setAttribute("aria-pressed", "true"));
+    correct.forEach(position => buttons[position]?.classList.add("option-correct"));
+    if (data.correct === false) selected.filter(position => !correct.includes(position))
+      .forEach(position => buttons[position]?.classList.add("option-incorrect"));
+    if (data.reference) renderReview(feedback, data);
+    else feedback.append(element("p", "Ответ сохранён."));
     if (data.result) {
+      feedback.append(element("a", "Открыть разбор и избранное", { href: "/training?review=" + attempt.id }));
+      if (mode === "exam") {
+        const review = element("details");
+        review.append(element("summary", "Разбор экзамена"));
+        data.result.review.forEach((item, position) => {
+          const section = element("section");
+          const question = attempt.questions[position];
+          section.append(element("p", question.prompt), element("p", "Ваш ответ — " + question.choices[item.selected]),
+            element("p", "Правильный ответ — " + question.choices[item.correctChoice]));
+          renderReview(section, item);
+          review.append(section);
+        });
+        feedback.append(review);
+      }
       feedback.append(element("h3", `Результат: ${data.result.percent}%`));
       if (data.result.wrong.length) {
         feedback.append(element("p", "Повторите следующие нормы."));
@@ -140,6 +183,7 @@ form.addEventListener("submit", async event => {
       mode, size: Number(fields.size.value), documentIds: selectedIds.size ? [...selectedIds] : [fields.documents.value].filter(Boolean)
     });
     index = 0;
+    byId("resumeTraining").hidden = true;
     status.textContent = "";
     byId("exercise").hidden = false;
     showQuestion();
@@ -160,7 +204,49 @@ function selectFromLink() {
   refreshStudy();
   renderSelection();
 }
-export async function openView() {
+async function showCompleted(id, fragment) {
+  const completed = await request("/api/training/attempts/" + encodeURIComponent(id) + "/review");
+  const exercise = byId("exercise");
+  exercise.hidden = false;
+  const count = completed.questions.length;
+  const correct = Object.values(completed.answers).filter(answer => answer.correct).length;
+  byId("position").textContent = "Результат: " + Math.round(100 * correct / count) + "%";
+  byId("trainingProgress").max = count;
+  byId("trainingProgress").value = count;
+  byId("prompt").textContent = "";
+  choices.replaceChildren();
+  feedback.replaceChildren();
+  completed.questions.forEach((question, index) => {
+    const checked = completed.answers[index];
+    const item = element("details");
+    item.open = fragment === "#" + index;
+    item.append(element("summary", (index + 1) + ". " + question.prompt));
+    const format = value => Array.isArray(value) ? value.map(position => question.choices[position]).join(" · ") : question.choices[value] || value;
+    if (question.choices.length) item.append(element("p", "Ваш ответ — " + format(checked.answer)),
+      element("p", "Правильный ответ — " + format(question.correct)));
+    renderReview(item, { ...question, correct: checked.correct });
+    const favoriteStatus = element("span", "", { role: "status" });
+    item.append(favoriteControl("question", id + ":" + index, favoriteStatus), favoriteStatus);
+    feedback.append(item);
+  });
+  if (correct < count) addButton(feedback, "Повторить ошибки", async event => {
+    const control = event.currentTarget;
+    control.disabled = true;
+    try {
+      attempt = await request("/api/training/attempts/" + encodeURIComponent(id) + "/retry", "POST");
+      mode = attempt.mode;
+      index = 0;
+      showQuestion();
+    } catch (error) { status.textContent = error.message; control.disabled = false; }
+  });
+}
+
+export async function openView(url = new URL(location.href)) {
+  const review = url.searchParams.get("review");
+  if (review) {
+    try { await showCompleted(review, url.hash); }
+    catch (error) { status.textContent = error.message; }
+  }
   if (initialized) return selectFromLink();
   if (loading) return;
   loading = true;
@@ -170,6 +256,19 @@ export async function openView() {
     documents = await request("/api/documents");
     refreshDocuments();
     selectFromLink();
+    const current = await request("/api/training/attempts/current");
+    if (current) {
+      const resume = byId("resumeTraining");
+      resume.hidden = false;
+      resume.onclick = () => {
+        attempt = current;
+        mode = current.mode;
+        index = current.index;
+        byId("exercise").hidden = false;
+        resume.hidden = true;
+        showQuestion();
+      };
+    }
     await loadProgress();
     initialized = true;
     status.textContent = "";

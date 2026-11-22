@@ -15,3 +15,19 @@ button.appearance-card[aria-pressed="true"]{border-color:var(--accent);box-shado
 .appearance-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:.5rem 1rem;margin-block-start:.5rem}
 .appearance-status{color:var(--success);min-height:1.4em}
 .appearance-status[data-error="true"]{color:var(--danger)}
+
+.appearance-tile { min-width: 0; }
+.appearance-tile[hidden], .appearance-settings[hidden] { display: none; }
+.appearance-tile .appearance-card { width: 100%; }
+.appearance-favorite { margin-block: .25rem; }
+.appearance-sample { background: var(--button-bg); color: var(--accent-text); border-radius: var(--custom-radius, .5rem); padding: .35rem; }
+:root[data-text-size="small"] { font-size: 90%; }
+:root[data-motion="none"] *, :root[data-motion="none"] *::before, :root[data-motion="none"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+:root[data-focus="on"]:has(#exercise:not([hidden])) :is(#summary, #topics, #setup),
+:root[data-focus="on"]:has(#libraryStatus) .workspace-view:not([hidden]) .workspace-aside { display: none; }
+:root :is(button.primary, .button.primary) { background: var(--button-bg, var(--accent)); border-radius: var(--custom-radius, .5rem); }
+:root :is(.panel, .card) { border-radius: var(--custom-radius, .75rem); }

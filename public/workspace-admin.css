@@ -27,3 +27,22 @@
 .document-section{margin-block:.7rem;padding:.6rem;background:var(--surface);border:1px solid var(--border);border-radius:.5rem}
 .document-section>summary{font-weight:650}
 .norm-actions>summary{color:var(--text-muted);font-size:.85rem}
+
+#trainingProgress { display: block; width: 100%; height: .75rem; accent-color: var(--accent); }
+#choices [aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+#choices .option-correct::after { content: " ✓"; }
+#choices .option-incorrect::after { content: " ✗"; }
+#choices .option-correct { border-color: #2b9c66; }
+#choices .option-incorrect { border-color: #d95861; }
+
+.personal-dialog { width: min(42rem, 92vw); max-height: 85vh; color: var(--text); background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--custom-radius, .75rem); padding: var(--panel-padding, 1rem); }
+.personal-dialog::backdrop { background: rgb(0 0 0 / .65); }
+.personal-dialog input[type="search"] { margin-block: .7rem; }
+.personal-results { display: grid; gap: .5rem; padding-inline-start: 0; }
+.personal-results li { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; overflow-wrap: anywhere; }
+.personal-results small { color: var(--text-muted); }
+#workspaceSearch, #workspaceNotifications { min-width: 0; margin: 0; }
+@media (max-width: 480px) {
+  header #workspaceSearch, header #workspaceNotifications { padding: .35rem; }
+}
