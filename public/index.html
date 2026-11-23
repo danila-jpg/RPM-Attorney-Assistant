@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="/password-visibility.css">
   <script defer src="/password-visibility.js"></script>
   <script type="module" src="/workspace-router.js"></script>
+  <script type="module" src="/live-assistant.js"></script>
+  <link rel="stylesheet" href="/live-assistant.css">
   <script type="module" src="/workspace-personal.js"></script>
   <style>
 
@@ -773,6 +775,7 @@
 <header class="rpm-topbar">
   <div class="rpm-topbar-title"><button id="openSidebar" class="rpm-icon-button" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="rpmSidebar" data-icon="menu"></button><span id="workspaceTitle">Главная</span></div>
   <div class="rpm-topbar-actions">
+    <button type="button" class="secondary" id="liveOpen" aria-keyshortcuts="Control+Shift+L">Live Assistant</button>
     <button type="button" class="rpm-command" id="workspaceSearch" aria-label="Глобальный поиск" aria-keyshortcuts="Control+K Meta+K"><span data-icon="search"></span><span class="rpm-action-label">Поиск</span><kbd>Ctrl K</kbd></button>
     <button type="button" class="rpm-icon-button" id="workspaceNotifications" aria-label="Уведомления" title="Уведомления" data-icon="bell"></button>
     <div class="status rpm-ai" id="systemStatus" role="status">Проверка сервера...</div>
@@ -4805,5 +4808,50 @@
   init();
 
 </script>
+<dialog id="liveDialog" aria-labelledby="liveTitle">
+  <header class="live-header">
+    <h2 id="liveTitle">Live Assistant</h2>
+    <label><input type="checkbox" id="liveCompact"> Компактно</label>
+    <button type="button" class="secondary" id="liveClose" aria-label="Закрыть Live Assistant">✕</button>
+  </header>
+  <div class="live-grid">
+    <section class="live-card">
+      <div class="live-actions">
+        <button type="button" id="liveMic">Начать диктовку</button>
+        <button type="button" class="secondary" id="liveStop" disabled>Остановить</button>
+        <label>Язык <select id="liveLanguage"><option value="ru-RU">Русский</option><option value="en-US">English</option></select></label>
+      </div>
+      <p id="liveSpeech" role="status">Микрофон выключен</p>
+      <p class="live-note">Браузер может отправлять звук в облачный сервис распознавания. Приложение не сохраняет аудио.</p>
+      <label for="liveText">Ситуация</label>
+      <textarea id="liveText" rows="5" maxlength="1200" autofocus placeholder="Опишите, что произошло"></textarea>
+      <div class="live-actions">
+        <label>Тип записи <select id="liveKind"><option>Факт</option><option>Реплика</option><option>Предположение</option></select></label>
+        <button type="button" class="secondary" id="liveAdd">Добавить запись</button>
+        <button type="button" class="secondary" id="liveClear">Очистить текст</button>
+      </div>
+      <div class="live-actions">
+        <label>Режим <select id="liveMode"><option value="instant">Мгновенная подсказка</option><option value="brief" selected>Краткий анализ</option><option value="full">Полный анализ</option></select></label>
+        <button type="button" id="liveAnalyze" aria-keyshortcuts="Control+Enter">Анализировать</button>
+        <button type="button" class="secondary" id="liveCancel" disabled>Отменить запрос</button>
+      </div>
+      <details open class="live-extra"><summary>Быстрые действия</summary><div class="live-actions" id="liveTemplates"></div></details>
+      <details class="live-extra"><summary>RP-фразы</summary><div id="livePhrases"></div></details>
+    </section>
+    <section class="live-card">
+      <div class="live-actions">
+        <h3>Подсказка ИИ</h3>
+        <button type="button" class="secondary" id="liveCopy" disabled>Копировать ответ</button>
+      </div>
+      <p id="liveStatus" role="status"></p>
+      <div id="liveAnswer"></div>
+      <details open id="liveHistoryPanel"><summary>История ситуации</summary><ol id="liveHistory"></ol></details>
+      <div class="live-actions">
+        <button type="button" class="secondary" id="liveSave" disabled>Сохранить в дело</button>
+        <button type="button" class="secondary" id="liveReset">Завершить сессию</button>
+      </div>
+    </section>
+  </div>
+</dialog>
 </body>
 </html>

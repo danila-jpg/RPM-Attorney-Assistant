@@ -119,6 +119,37 @@
 <section class="section"><h2>История выплат</h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Партнёр</th><th>Промокод</th><th>Игровой счёт</th><th>Сумма</th><th>Примечание</th></tr></thead><tbody id="payouts"><tr><td colspan="6" class="empty">Загрузка…</td></tr></tbody></table></div></section>
 <section class="section"><h2>Журнал действий владельца</h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Действие</th><th>Объект</th><th>ID</th><th>Подробности</th></tr></thead><tbody id="audit"><tr><td colspan="5" class="empty">Загрузка…</td></tr></tbody></table></div></section>
 <div class="notice" id="globalMessage"></div>
+<details class="card" id="ownerLiveMetrics">
+  <summary>Live Assistant · статистика за 30 дней</summary>
+  <ul aria-live="polite"></ul>
+</details>
+<script type="module">
+  const panel = document.getElementById("ownerLiveMetrics");
+  const list = panel.querySelector("ul");
+  const labels = { opened: "Открытия", speech_error: "Ошибки речи", ai_success: "Ответы AI",
+    ai_error: "Ошибки AI", ai_cancelled: "Отмены AI", instant: "мгновенный", brief: "краткий", full: "полный",
+    permission: "разрешение", microphone: "микрофон", "no-speech": "нет речи",
+    aborted: "прерывание", network: "сеть", unsupported: "нет поддержки", other: "прочее" };
+  function row(text) {
+    const item = document.createElement("li");
+    item.textContent = text;
+    return item;
+  }
+  panel.addEventListener("toggle", async () => {
+    if (!panel.open) return;
+    list.replaceChildren(row("Загрузка…"));
+    try {
+      const response = await fetch("/api/owner/live-metrics");
+      if (!response.ok) throw new Error();
+      const { metrics } = await response.json();
+      const total = metrics.filter(item => item.event.startsWith("ai_")).reduce((sum, item) => sum + item.count, 0);
+      list.replaceChildren(row("Всего запросов AI · " + total), ...metrics.map(item => row(
+        [labels[item.event], labels[item.mode], item.count, item.event === "ai_success" ? "в среднем " + item.average_ms + " мс" : ""]
+          .filter(value => value !== "" && value !== undefined).join(" · ")
+      )));
+    } catch { list.replaceChildren(row("Не удалось загрузить статистику.")); }
+  });
+</script>
 </div>
 <div class="modal" id="partnerModal"><div class="dialog"><button class="close" id="closePartner">Закрыть</button><h2>Добавить партнёра</h2><form id="partnerForm" class="form"><label>Имя партнёра<input name="display_name" maxlength="80" required placeholder="Например, MRAK"></label><label>Промокод<input name="promo_code" maxlength="32" required placeholder="MRAK"></label><label class="wide">Номер банковского счёта в игре RPM<input name="bank_account" maxlength="100" required placeholder="Игровой номер счёта"></label><label class="wide">Процент от подтверждённой покупки<input name="commission_rate" type="number" min="0.01" max="100" step="0.01" required placeholder="40"></label><div class="wide"><button type="submit">Сохранить партнёра</button></div></form><div id="formMessage" class="notice"></div></div></div>
 <div class="modal" id="adminModal">

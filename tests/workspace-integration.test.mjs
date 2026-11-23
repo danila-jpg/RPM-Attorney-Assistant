@@ -27,9 +27,10 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
     );
     CREATE TABLE rpm_sessions (sid TEXT PRIMARY KEY, sess JSON NOT NULL, expire TIMESTAMP NOT NULL);
     CREATE TABLE rpm_cases (
-      id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES rpm_users, title TEXT, data JSONB, updated_at TIMESTAMPTZ
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text, user_id BIGINT REFERENCES rpm_users, title TEXT, data JSONB, updated_at TIMESTAMPTZ
     );
-    CREATE TABLE rpm_case_backups (user_id BIGINT REFERENCES rpm_users);
+    CREATE TABLE rpm_case_backups (id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES rpm_users,
+      cases JSONB, created_at TIMESTAMPTZ DEFAULT now());
     CREATE TABLE rpm_orders (
       id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES rpm_users, buyer_rp_nickname TEXT NOT NULL,
       plan_code TEXT NOT NULL CHECK (plan_code IN ('7_days', '30_days', '90_days')),
@@ -89,6 +90,13 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
     const { messages } = payload;
     assert.ok(!messages[0].content.includes("fixture-case-marker"));
     modelContext = messages[1].content;
+    if (messages[0].content.startsWith("Ты адвокат в RP-системе RPM.")) {
+      const [source] = JSON.parse(modelContext).sources;
+      const content = { summary: "Уточняется основание задержания.", phrase: "Назовите основание задержания.",
+        next: "Уточните статус клиента.", confidence: "medium",
+        citation: source ? { sourceId: source.sourceId, reference: source.reference, quote: source.text.slice(0, 32) } : null };
+      return Response.json({ choices: [{ message: { content: JSON.stringify(content) } }] });
+    }
     if (payload.response_format) {
       const { sources } = JSON.parse(modelContext);
       const source = sources[0];
@@ -338,6 +346,42 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   assert.deepEqual([savedCase], own.data);
   assert.ok(Number.isFinite(Date.parse(created_at)));
   assert.deepEqual((await send("/api/workspace/favorites", { cookie: other.cookie })).data, []);
+  await t.test("Live analysis, metrics, saved cases and favorite phrases are protected", async () => {
+    const path = "/api/live/analyze";
+    const body = { mode: "live_quick_analysis", detail: "brief", entries: [
+      { kind: "Факт", text: "Задержание сотрудником CPD" },
+      { kind: "Реплика", text: "Сотрудник сообщил об ориентировке" }
+    ] };
+    const analyze = (auth, input = body, headers) => send(path, { method: "POST", cookie: auth, body: input, headers });
+    assert.equal((await analyze("")).status, 401);
+    assert.equal((await analyze(cookie, body, [["Sec-Fetch-Site", "cross-site"]])).status, 403);
+    assert.equal((await analyze(cookie, { ...body, entries: [] })).status, 400);
+    const samples = [];
+    for (const detail of ["instant", "brief", "full"]) {
+      const response = await analyze(customerAgain.cookie, { ...body, detail });
+      assert.equal(response.status, 200);
+      assert.equal(response.data.grounds.length, 1);
+      assert.ok(response.data.elapsedMs >= 0);
+      assert.deepEqual((JSON.parse(modelContext).entries || JSON.parse(modelContext).materials.entries), body.entries);
+      samples.push({ detail, elapsedMs: response.data.elapsedMs });
+    }
+    console.log("Live mock server timings:", samples);
+    const phrases = "/api/live/phrases";
+    assert.equal((await send(phrases, { method: "POST", cookie, body: { slot: 0, text: "Личная фраза" } })).status, 204);
+    assert.equal((await send(phrases, { cookie })).data.phrases[0].text, "Личная фраза");
+    assert.deepEqual((await send(phrases, { cookie: other.cookie })).data.phrases, []);
+    const caseId = "ef9438a9-9871-4f94-8fd6-5a748e2a3221";
+    const saved = { id: caseId, title: "Live fixture", data: { liveSession: body.entries } };
+    assert.equal((await send("/api/cases", { method: "POST", cookie, body: saved })).status, 200);
+    assert.equal((await send("/api/cases", { method: "POST", cookie: other.cookie, body: saved })).status, 409);
+    assert.ok((await send("/api/cases", { cookie })).data.some(item => item.id === caseId));
+    assert.ok(!(await send("/api/cases", { cookie: other.cookie })).data.some(item => item.id === caseId));
+    assert.equal((await send("/api/owner/live-metrics", { cookie })).status, 403);
+    const metrics = await send("/api/owner/live-metrics", { cookie: owner.cookie });
+    assert.equal(metrics.status, 200);
+    assert.equal(metrics.data.metrics.filter(item => item.event === "ai_success").length, 3);
+    assert.doesNotMatch(JSON.stringify(metrics.data), /ориентировке|Личная фраза/);
+  });
   const inbox = (await send("/api/workspace/notifications", { cookie: customerAgain.cookie })).data.filter(item => item.id.startsWith("subscription:"));
   assert.equal(inbox.length, 1);
   const read = "/api/workspace/notifications/read";
@@ -477,6 +521,78 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
     const expiredRegistration = { ...registration, username: "workspace-expired", inviteCode: expiredInvite.data.invite_code };
     for (let attempt = 0; attempt < 2; attempt++) assert.equal((await register(expiredRegistration)).status, 400);
     assert.equal((await query("SELECT count(*)::int AS count FROM rpm_licenses WHERE order_id=$1", [expiredOrder.data.order.id])).rows[0].count, 0);
+  });
+
+  await t.test("Live Assistant in a mobile viewport with speech stubs and real HTTP", { skip: !process.env.WORKSPACE_TEST_BROWSER }, async () => {
+    const { chromium } = await import(new URL("playwright-core/index.mjs", testTools));
+    const browser = await chromium.launch({ executablePath: process.env.WORKSPACE_TEST_BROWSER, headless: true });
+    try {
+      const context = await browser.newContext({ viewport: { width: 375, height: 812 }, permissions: ["clipboard-read", "clipboard-write"] });
+      await context.addCookies(cookie.split("; ").map(pair => {
+        const separator = pair.indexOf("=");
+        return { name: pair.slice(0, separator), value: pair.slice(separator + 1), url: origin };
+      }));
+      await context.addInitScript(() => {
+        const mode = new URL(location.href).searchParams.get("speech");
+        window.nativeSpeechAvailable = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+        window.webkitSpeechRecognition = undefined;
+        window.SpeechRecognition = mode ? class {
+          start() {
+            window.testSpeechLanguage = this.lang;
+            this.onstart();
+            queueMicrotask(() => {
+              if (mode === "denied") {
+                this.onerror({ error: "not-allowed" });
+                this.onend();
+              } else this.onresult({ results: [Object.assign([{ transcript: "Задержание сотрудником СиПиДи" }], { isFinal: true })] });
+            });
+          }
+          stop() { this.onend(); }
+          abort() { this.onend(); }
+        } : undefined;
+      });
+      const page = await context.newPage();
+      const errors = [];
+      page.on("pageerror", error => errors.push(error.message));
+      await page.goto(origin);
+      console.log("Live browser:", browser.version(), await page.evaluate(() => ({ ua: navigator.userAgent, speech: window.nativeSpeechAvailable })));
+      await page.locator("#liveOpen").click();
+      assert.match(await page.locator("#liveSpeech").textContent(), /недоступна/);
+      assert.equal(await page.locator("#liveMic").isDisabled(), true);
+      assert.equal(await page.locator("#liveDialog").evaluate(node => node.scrollWidth <= node.clientWidth), true);
+      assert.equal(await page.locator(".live-grid").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), 1);
+      await page.locator("#liveText").fill("Задержание сотрудником CPD");
+      await page.keyboard.press("Control+Enter");
+      await page.locator("#liveAnswer dt").first().waitFor();
+      const timing = await page.locator("#liveStatus").textContent();
+      console.log("Live mock browser timing:", timing);
+      assert.match(timing, /Ответ получен за \d+ мс/);
+      await page.locator("#liveCopy").click();
+      assert.match(await page.evaluate(() => navigator.clipboard.readText()), /Назовите основание/);
+      await page.locator("#liveSave").click();
+      await page.getByText("Ситуация сохранена в истории дел.").waitFor();
+      await page.keyboard.press("Escape");
+      assert.equal(await page.locator("#liveDialog").evaluate(node => node.open), false);
+      await page.goto(origin + "/?speech=denied");
+      await page.keyboard.press("Control+Shift+L");
+      await page.locator("#liveMic").click();
+      await page.getByText(/Доступ к микрофону отклонён/).waitFor();
+      assert.equal(await page.locator("#liveText").isEditable(), true);
+      await page.goto(origin + "/?speech=ok");
+      await page.locator("#liveOpen").click();
+      await page.locator("#liveLanguage").selectOption("en-US");
+      await page.locator("#liveMic").click();
+      assert.equal(await page.evaluate(() => window.testSpeechLanguage), "en-US");
+      assert.match(await page.locator("#liveText").inputValue(), /СиПиДи/);
+      assert.equal(await page.locator("#liveAnalyze").isDisabled(), true);
+      await page.locator("#liveStop").click();
+      await page.locator("#liveText").fill("Задержание сотрудником CPD");
+      await page.locator("#liveAdd").click();
+      assert.match(await page.locator("#liveHistory").textContent(), /CPD/);
+      await page.locator("#liveCompact").check();
+      assert.equal(await page.locator("#liveTemplates").isVisible(), false);
+      assert.deepEqual(errors, []);
+    } finally { await browser.close(); }
   });
 
   await t.test("mobile viewport, keyboard toggle and safe profile rendering", { skip: !process.env.WORKSPACE_TEST_BROWSER }, async () => {

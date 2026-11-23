@@ -67,7 +67,7 @@ export function verifyLegalCitation(citation, sources) {
   return { ...requested, status: "Подтверждено", source: record };
 }
 
-export async function runLegalAnalysis({ client, model, mode, materials, records }) {
+export async function runLegalAnalysis({ client, model, mode, materials, records, signal = AbortSignal.timeout(35_000) }) {
   const sources = new Map(records.slice(0, 18).map((record, index) => {
     const sourceId = `rpm-${index + 1}`;
     return [sourceId, { record, prompt: { sourceId, reference: record.reference, text: record.text.slice(0, 1000) } }];
@@ -81,7 +81,6 @@ export async function runLegalAnalysis({ client, model, mode, materials, records
     "Верни только JSON, соответствующий схеме: " + JSON.stringify(legalSchema)
   ].join("\n");
   const content = JSON.stringify({ materials, sources: [...sources.values()].map(source => source.prompt) });
-  const signal = AbortSignal.timeout(35_000);
   const usage = { inputTokens: 0, outputTokens: 0 };
   let hasUsage = false;
   for (let attempt = 0; attempt < 2; attempt++) {

@@ -88,7 +88,10 @@ function openSearch() {
 }
 byId("workspaceSearch").addEventListener("click", openSearch);
 window.addEventListener("keydown", event => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+  if (!event.defaultPrevented && !event.altKey && !event.shiftKey && !event.isComposing &&
+      !document.querySelector("dialog[open]") &&
+      !event.target.closest?.("input, textarea, select, [contenteditable]") &&
+      (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
     openSearch();
   }
