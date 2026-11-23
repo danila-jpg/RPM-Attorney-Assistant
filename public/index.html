@@ -744,6 +744,7 @@
       <button type="button" id="sidebarSearch" aria-label="Поиск" title="Поиск"><span data-icon="search"></span><span class="rpm-nav-label">Поиск</span></button>
     </div>
     <div class="rpm-nav-group"><p>Юридические инструменты</p>
+      <button type="button" id="sidebarLive" aria-label="Live Assistant" title="Live Assistant" aria-haspopup="dialog" aria-controls="liveDialog"><span data-icon="microphone"></span><span class="rpm-nav-label">Live Assistant</span></button>
       <button type="button" data-tab="analysis" aria-label="Анализ дела" title="Анализ дела"><span data-icon="scale"></span><span class="rpm-nav-label">Анализ дела</span></button>
       <button type="button" data-tab="police" aria-label="Проверка полиции" title="Проверка полиции"><span data-icon="shield"></span><span class="rpm-nav-label">Проверка полиции</span></button>
       <button type="button" data-tab="questions" aria-label="Вопросы сотруднику" title="Вопросы сотруднику"><span data-icon="message"></span><span class="rpm-nav-label">Вопросы сотруднику</span></button>
@@ -775,7 +776,7 @@
 <header class="rpm-topbar">
   <div class="rpm-topbar-title"><button id="openSidebar" class="rpm-icon-button" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="rpmSidebar" data-icon="menu"></button><span id="workspaceTitle">Главная</span></div>
   <div class="rpm-topbar-actions">
-    <button type="button" class="secondary" id="liveOpen" aria-keyshortcuts="Control+Shift+L">Live Assistant</button>
+    <button type="button" class="secondary" id="liveOpen" aria-keyshortcuts="Control+Shift+L" aria-haspopup="dialog" aria-controls="liveDialog">Live Assistant</button>
     <button type="button" class="rpm-command" id="workspaceSearch" aria-label="Глобальный поиск" aria-keyshortcuts="Control+K Meta+K"><span data-icon="search"></span><span class="rpm-action-label">Поиск</span><kbd>Ctrl K</kbd></button>
     <button type="button" class="rpm-icon-button" id="workspaceNotifications" aria-label="Уведомления" title="Уведомления" data-icon="bell"></button>
     <div class="status rpm-ai" id="systemStatus" role="status">Проверка сервера...</div>

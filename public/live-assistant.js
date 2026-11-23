@@ -271,7 +271,9 @@ async function analyze() {
     if (current.answers.length > 20) current.answers.shift();
     renderAnswer(result);
     renderHistory();
-    status.textContent = `Ответ получен за ${Math.round(performance.now() - started)} мс. Сервер: ${result.elapsedMs} мс.`;
+    status.textContent = result.fallback
+      ? "Gemini недоступен. Показана стандартная RP-фраза без правовой оценки."
+      : `Ответ получен за ${Math.round(performance.now() - started)} мс. Сервер: ${result.elapsedMs} мс.`;
   } catch (error) {
     if (current === session) status.textContent = timedOut ? "Время ожидания истекло."
       : request.signal.aborted ? "Запрос отменён." : error.message;
@@ -354,6 +356,8 @@ fetch("/api/live/phrases").then(response => response.ok ? response.json() : null
 }).catch(() => {});
 
 $("Open").addEventListener("click", openLive);
+if (location.hash === "#live") openLive();
+window.addEventListener("hashchange", () => { if (location.hash === "#live") openLive(); });
 $("Close").addEventListener("click", () => dialog.close());
 dialog.addEventListener("close", () => { stopSpeech(true); activeRequest?.abort(); });
 $("Mic").addEventListener("click", startSpeech);

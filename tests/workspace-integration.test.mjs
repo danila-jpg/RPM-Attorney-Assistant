@@ -90,6 +90,9 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
     const { messages } = payload;
     assert.ok(!messages[0].content.includes("fixture-case-marker"));
     modelContext = messages[1].content;
+    if (modelContext.includes("mock-provider-unavailable")) {
+      return Response.json({ error: { message: "Fixture unavailable" } }, { status: 503 });
+    }
     if (messages[0].content.startsWith("Ты адвокат в RP-системе RPM.")) {
       const [source] = JSON.parse(modelContext).sources;
       const content = { summary: "Уточняется основание задержания.", phrase: "Назовите основание задержания.",
@@ -366,6 +369,11 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       samples.push({ detail, elapsedMs: response.data.elapsedMs });
     }
     console.log("Live mock server timings:", samples);
+    const fallback = await analyze(customerAgain.cookie, { ...body, detail: "instant",
+      entries: [{ kind: "Факт", text: "mock-provider-unavailable" }] });
+    assert.equal(fallback.status, 200);
+    assert.equal(fallback.data.fallback, true);
+    assert.deepEqual(fallback.data.grounds, []);
     const phrases = "/api/live/phrases";
     assert.equal((await send(phrases, { method: "POST", cookie, body: { slot: 0, text: "Личная фраза" } })).status, 204);
     assert.equal((await send(phrases, { cookie })).data.phrases[0].text, "Личная фраза");
@@ -556,7 +564,10 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       page.on("pageerror", error => errors.push(error.message));
       await page.goto(origin);
       console.log("Live browser:", browser.version(), await page.evaluate(() => ({ ua: navigator.userAgent, speech: window.nativeSpeechAvailable })));
-      await page.locator("#liveOpen").click();
+      await page.locator("#openSidebar").click();
+      await page.locator("#sidebarLive").click();
+      assert.equal(await page.locator("#openSidebar").getAttribute("aria-expanded"), "false");
+      assert.equal(await page.locator("#sidebarLive svg").count(), 1);
       assert.match(await page.locator("#liveSpeech").textContent(), /недоступна/);
       assert.equal(await page.locator("#liveMic").isDisabled(), true);
       assert.equal(await page.locator("#liveDialog").evaluate(node => node.scrollWidth <= node.clientWidth), true);
@@ -573,13 +584,14 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.getByText("Ситуация сохранена в истории дел.").waitFor();
       await page.keyboard.press("Escape");
       assert.equal(await page.locator("#liveDialog").evaluate(node => node.open), false);
+      assert.equal(await page.locator("#openSidebar").evaluate(node => node === document.activeElement), true);
       await page.goto(origin + "/?speech=denied");
       await page.keyboard.press("Control+Shift+L");
       await page.locator("#liveMic").click();
       await page.getByText(/Доступ к микрофону отклонён/).waitFor();
       assert.equal(await page.locator("#liveText").isEditable(), true);
-      await page.goto(origin + "/?speech=ok");
-      await page.locator("#liveOpen").click();
+      await page.goto(origin + "/?speech=ok#live");
+      await page.locator("#liveDialog[open]").waitFor();
       await page.locator("#liveLanguage").selectOption("en-US");
       await page.locator("#liveMic").click();
       assert.equal(await page.evaluate(() => window.testSpeechLanguage), "en-US");

@@ -5,6 +5,7 @@ const paths = {
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
   bookmark: '<path d="m6 20 6-4 6 4V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  microphone: '<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-3 0h6"/>',
   scale: '<path d="M12 3v18m-5 0h10M3 6h18M3 6l-2 7h6L5 6m14 0-2 7h6l-2-7"/>',
   shield: '<path d="M12 22s7-3 7-9V5l-7-3-7 3v8c0 6 7 9 7 9Z"/>',
   message: '<path d="M21 11.5a9 9 0 0 1-13 8l-5 1 1-5a9 9 0 1 1 17-4Z"/>',
@@ -73,6 +74,10 @@ if (sidebar) {
   document.getElementById("sidebarSearch").addEventListener("click", () => {
     drawer(false, true);
     document.getElementById("workspaceSearch").click();
+  });
+  document.getElementById("sidebarLive").addEventListener("click", () => {
+    drawer(false, true);
+    document.getElementById("liveOpen").click();
   });
   window.addEventListener("rpm-route", ({ detail }) => {
     const nav = document.getElementById("mainNavigation");

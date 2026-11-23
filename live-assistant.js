@@ -144,6 +144,17 @@ export function registerLiveAssistant(app, { pool, client, model, search, requir
       if (disconnected.signal.aborted) outcome = "ai_cancelled";
       else {
         console.error("Live analysis:", error.status || error.name);
+        if (input.detail === "instant" && (timeout.aborted || error.status === 503)) {
+          return res.json({
+            fallback: true,
+            summary: "В записи есть обстоятельства, которые требуют уточнения.",
+            phrase: "Назовите, пожалуйста, основание вашего действия.",
+            next: "Зафиксируйте ответ сотрудника.",
+            confidence: "low",
+            grounds: [],
+            elapsedMs: Math.round(performance.now() - started)
+          });
+        }
         res.status(timeout.aborted ? 504 : error.status === 429 ? 429 : 503).json({
           error: timeout.aborted ? "Время ожидания истекло." : "AI временно недоступен."
         });
