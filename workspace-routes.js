@@ -58,6 +58,55 @@ export default function registerWorkspace(app, { pool, requireAdmin, loadLaws, g
   };
   app.use(["/api/documents", "/api/training", "/api/workspace"], requireWorkspaceSession);
 
+  const clientPath = "/api/workspace/clients";
+  const clientSummary = "id, rp_name, contact, organization, created_at, updated_at, archived_at";
+  const clientFields = clientSummary + ", notes";
+  const badClient = res => res.status(400).json({ error: "Проверьте поля карточки клиента." });
+  const missingClient = res => res.status(404).json({ error: "Клиент не найден." });
+  app.get(clientPath, route(async (req, res) => {
+    const { q = "", page = "1", archived = "false", sort = "recent" } = req.query;
+    const sorting = { recent: "updated_at DESC, id", name: "lower(rp_name), id" };
+    if (typeof q !== "string" || q.length > 120 || typeof page !== "string" || !/^[1-9]\d{0,3}$/.test(page) ||
+        !["true", "false"].includes(archived) || typeof sort !== "string" || !Object.hasOwn(sorting, sort)) return badClient(res);
+    const { rows } = await pool.query(`SELECT ${clientSummary} FROM rpm_crm_clients
+      WHERE user_id=$1 AND (archived_at IS NOT NULL)=$2
+        AND ($3='' OR strpos(lower(rp_name || ' ' || organization || ' ' || contact), lower($3))>0)
+      ORDER BY ${sorting[sort]} LIMIT 26 OFFSET $4`, [req.userId, archived === "true", q.trim(), (Number(page) - 1) * 25]);
+    res.set("Cache-Control", "no-store").json({ clients: rows.slice(0, 25), hasNext: rows.length > 25 });
+  }));
+  app.get(clientPath + "/:id", route(async (req, res) => {
+    if (!uuid.test(req.params.id)) return missingClient(res);
+    const { rows: [client] } = await pool.query(`SELECT ${clientFields} FROM rpm_crm_clients WHERE user_id=$1 AND id=$2`,
+      [req.userId, req.params.id]);
+    if (!client) return missingClient(res);
+    res.set("Cache-Control", "no-store").json({ client });
+  }));
+
+  function saveClient(create) {
+    return route(async (req, res) => {
+      if (!req.is("application/json") || req.get("Sec-Fetch-Site") === "cross-site") {
+        return res.status(403).json({ error: "Недопустимый запрос." });
+      }
+      if (!create && !uuid.test(req.params.id)) return missingClient(res);
+      const { rp_name, contact = "", organization = "", notes = "", archived = false } = req.body || {};
+      const values = [rp_name, contact, organization, notes];
+      if (!values.every((value, index) => typeof value === "string" && value.length <= [120, 500, 160, 8000][index] && !value.includes("\0")) ||
+          !rp_name.trim() || typeof archived !== "boolean") return badClient(res);
+      const params = [req.userId, create ? randomUUID() : req.params.id, ...values.map(value => value.trim()), archived];
+      const { rows: [client] } = create
+        ? await pool.query(`INSERT INTO rpm_crm_clients (user_id,id,rp_name,contact,organization,notes,archived_at)
+            VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $7::boolean THEN now() END) RETURNING ${clientFields}`, params)
+        : await pool.query(`UPDATE rpm_crm_clients SET rp_name=$3,contact=$4,organization=$5,notes=$6,updated_at=now(),
+            archived_at=CASE WHEN $7::boolean THEN COALESCE(archived_at,now()) END
+            WHERE user_id=$1 AND id=$2 RETURNING ${clientFields}`, params);
+      if (!client) return missingClient(res);
+      res.status(create ? 201 : 200).set("Cache-Control", "no-store").json({ client });
+    });
+  }
+
+  app.post(clientPath, saveClient(true));
+  app.put(clientPath + "/:id", saveClient(false));
+
   app.get("/admin", requireAdmin, requireSession, sendWorkspace);
   app.get(["/charters", "/training"], sendWorkspace);
 

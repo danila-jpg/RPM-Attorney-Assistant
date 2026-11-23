@@ -752,6 +752,7 @@
       <a class="nav-tab" href="/app/account.html#casesSection" data-section="cases" data-role="customer" hidden aria-label="Мои дела" title="Мои дела"><span data-icon="briefcase"></span><span class="rpm-nav-label">Мои дела</span></a>
       <a class="nav-tab" href="/charters" data-section="library" aria-label="Документы" title="Документы"><span data-icon="files"></span><span class="rpm-nav-label">Документы</span></a>
       <button type="button" data-tab="history" aria-label="История дел" title="История дел"><span data-icon="history"></span><span class="rpm-nav-label">История дел</span></button>
+      <button type="button" data-tab="clients" aria-label="Клиенты" title="Клиенты"><span data-icon="users"></span><span class="rpm-nav-label">Клиенты</span></button>
       <a class="nav-tab" href="/training" data-section="training" data-tab="training" aria-label="RPM Training" title="RPM Training"><span data-icon="graduation"></span><span class="rpm-nav-label">RPM Training</span></a>
     </div>
     <div class="rpm-nav-group"><p>Законодательство</p>
@@ -800,6 +801,35 @@
   <section id="dashboard" class="tab active"><div id="personalDashboard"></div></section>
   <section id="calendar" class="tab"><h1>Календарь</h1><div id="personalCalendar"></div></section>
   <section id="favorites" class="tab"><h1>Избранное</h1><div id="personalFavorites"></div></section>
+  <section id="clients" class="tab">
+    <h1>Клиенты</h1>
+    <div class="panel">
+      <form id="clientFilters">
+        <label>Поиск <input name="q" type="search" maxlength="120" placeholder="RP-имя, организация или контакт"></label>
+        <label>Статус <select name="archived"><option value="false">Активные</option><option value="true">Архив</option></select></label>
+        <label>Порядок <select name="sort"><option value="recent">Последние изменения</option><option value="name">По RP-имени</option></select></label>
+        <button type="submit" class="secondary">Найти</button>
+      </form>
+      <button id="newClient" type="button" class="primary">Добавить клиента</button>
+      <p id="clientStatus" role="status" aria-live="polite"></p>
+      <div id="clientList"></div>
+      <div id="clientPagination" hidden>
+        <button id="clientPrevious" type="button" class="secondary">Предыдущая страница</button>
+        <button id="clientNext" type="button" class="secondary">Следующая страница</button>
+      </div>
+    </div>
+    <form id="clientEditor" class="panel" hidden>
+      <h2 id="clientEditorHeading">Карточка клиента</h2>
+      <label>RP-имя <input name="rp_name" required maxlength="120"></label>
+      <label>Контакт <input name="contact" maxlength="500"></label>
+      <label>Организация <input name="organization" maxlength="160"></label>
+      <label>Заметки <textarea name="notes" maxlength="8000"></textarea></label>
+      <label>Статус <select name="archived"><option value="false">Активный</option><option value="true">В архиве</option></select></label>
+      <p id="clientSaveStatus" role="status" aria-live="polite"></p>
+      <button type="submit" class="primary">Сохранить клиента</button>
+      <button id="closeClient" type="button" class="secondary">Закрыть карточку</button>
+    </form>
+  </section>
 
   <!-- АНАЛИЗ ДЕЛА -->
 
@@ -818,7 +848,22 @@
       <label>Доказательства и дополнительные материалы</label>
       <textarea id="caseEvidence" placeholder="Видео, документы, показания..."></textarea>
 
-      <button class="primary" onclick="runAI('analyze')">Провести анализ</button>
+      <button id="legacyAnalysisButton" class="primary" onclick="runAI('analyze')">Провести анализ</button>
+      <label>Режим структурированного анализа
+        <select id="structuredMode">
+          <option value="analyze">Анализ дела</option>
+          <option value="police_check">Проверка действий полиции</option>
+          <option value="accusation">Проверка обвинения</option>
+          <option value="evidence">Анализ доказательств</option>
+          <option value="contradictions">Поиск противоречий</option>
+          <option value="defense">Формирование линии защиты</option>
+          <option value="witness_questions">Вопросы свидетелям</option>
+          <option value="hearing">Подготовка к заседанию</option>
+          <option value="legal_grounds">Поиск правовых оснований</option>
+          <option value="draft">Подготовка документа</option>
+        </select>
+      </label>
+      <button id="structuredAnalysisButton" class="secondary" onclick="runStructuredAnalysis(this)">Запустить структурированный анализ</button>
 
       <div class="result-legend">
         <span class="legend-item">🟢 Разрешено</span>
@@ -2307,7 +2352,7 @@
 
     showResult(target,"ИИ анализирует материалы...");
 
-    const buttons=[...document.querySelectorAll("button.primary")];
+    const buttons=[...document.querySelectorAll("button.primary, #structuredAnalysisButton")];
     buttons.forEach(b=>b.disabled=true);
 
     try{
@@ -2343,6 +2388,75 @@
       showResult(target,"Ошибка: "+error.message);
     }finally{
       buttons.forEach(b=>b.disabled=false);
+    }
+  }
+
+  async function runStructuredAnalysis(button) {
+    const caseData = getCaseData();
+    if (!caseData.description) return toast("Заполните описание ситуации.");
+    button.disabled = true;
+    $("legacyAnalysisButton").disabled = true;
+    lastAnalysis = "";
+    lastLegalReasoning = [];
+    renderLegalReasoning(lastLegalReasoning);
+    const result = $("analysisResult");
+    showResult("analysisResult", "ИИ анализирует материалы…");
+    try {
+      const analysis = await api("/api/attorney-assist", {
+        method: "POST",
+        body: JSON.stringify({ format: "structured", mode: $("structuredMode").value,
+          caseData, revisionId: $("analysisRevision").value || undefined })
+      });
+      const blocks = {
+        establishedFacts: "Установленные факты", participantClaims: "Утверждения участников",
+        assumptions: "Предположения", missingEvidence: "Недостающие доказательства",
+        unresolvedCircumstances: "Неустановленные обстоятельства", possibleViolations: "Возможные нарушения",
+        evidenceAnalysis: "Анализ доказательств", defenseArguments: "Аргументы защиты",
+        risks: "Риски", recommendations: "Рекомендации адвокату"
+      };
+      result.replaceChildren(makeElement("h3", "", "Краткое содержание"), makeElement("p", "", analysis.summary));
+      for (const [key, label] of Object.entries(blocks)) {
+        if (!analysis[key].length) continue;
+        const list = document.createElement("ul");
+        for (const item of analysis[key]) list.append(makeElement("li", "", item));
+        result.append(makeElement("h3", "", label), list);
+      }
+      result.append(makeElement("h3", "", "Правовые основания"));
+      if (!analysis.citations.length) result.append(makeElement("p", "", "Правовые ссылки отсутствуют."));
+      for (const citation of analysis.citations) {
+        const details = document.createElement("details");
+        details.append(makeElement("summary", "", `${citation.reference || "Норма"} · ${citation.status}`));
+        if (citation.source) {
+          details.append(makeElement("p", "", citation.source.text));
+          if (citation.source.documentId) {
+            const source = makeElement("a", "", "Открыть источник RPM");
+            source.href = "/charters?doc=" + encodeURIComponent(citation.source.documentId) +
+              (citation.source.anchor ? "#" + encodeURIComponent(citation.source.anchor) : "");
+            details.append(source);
+          }
+        }
+        result.append(details);
+      }
+      const confidence = { high: "Высокая", medium: "Средняя", low: "Низкая" };
+      result.append(makeElement("h3", "", "Уровень уверенности ИИ"), makeElement("p", "", confidence[analysis.confidence]));
+      const analysisText = [...result.children].map(node => node.innerText).join("\n");
+      lastAnalysis = analysisText;
+      const copy = makeElement("button", "secondary", "Скопировать результат");
+      copy.type = "button";
+      copy.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(analysisText);
+          toast("Результат скопирован.");
+        } catch {
+          toast("Не удалось скопировать результат.");
+        }
+      });
+      result.append(copy);
+    } catch (error) {
+      showResult("analysisResult", "Ошибка: " + error.message);
+    } finally {
+      button.disabled = false;
+      $("legacyAnalysisButton").disabled = false;
     }
   }
 

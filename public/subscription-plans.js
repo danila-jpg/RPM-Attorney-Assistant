@@ -39,7 +39,7 @@ export async function mountPlanCards(container, { expiresAt, select = false } = 
       card.append(option);
     }
     const term = document.createElement("strong");
-    term.textContent = planDuration(plan.duration_days);
+    term.textContent = [plan.name, planDuration(plan.duration_days)].filter(Boolean).join(" · ");
     const price = document.createElement("span");
     price.className = "subscription-price";
     price.textContent = planPrice(plan.amount);

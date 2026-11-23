@@ -11,10 +11,11 @@ import bcrypt from "bcryptjs";
 import { timingSafeEqual, randomBytes, createHash, randomUUID } from "node:crypto";
 import registerCustomerAuth from "./customer-auth-routes.js";
 import { citation, resolveNorm, searchableEntries } from "./documents.js";
+import { legalModes, runLegalAnalysis } from "./legal-engine.js";
 import registerWorkspace from "./workspace-routes.js";
 import { appearanceRevision } from "./appearance.js";
 import { migrateWorkspace } from "./workspace-migrations.js";
-import { registerSubscriptionCatalog, registerPlanManagement } from "./subscription-plans.js";
+import { normalizePlanCode, registerSubscriptionCatalog, registerPlanManagement } from "./subscription-plans.js";
 import { revisionInfo, compareRevisions, selectRevision } from "./law-revisions.js";
 import { requestLimit } from "./request-limits.js";
 
@@ -976,10 +977,7 @@ app.post("/api/admin/orders", async (req, res) => {
         ? req.body.buyer_rp_nickname.trim()
         : "";
 
-    const planCode =
-      typeof req.body?.plan_code === "string"
-        ? req.body.plan_code.trim()
-        : "";
+    const planCode = normalizePlanCode(req.body?.plan_code);
 
     let promoCode =
       typeof req.body?.promo_code === "string"
@@ -1405,6 +1403,17 @@ app.post("/api/admin/orders/:id/reject", async (req, res) => {
   }
 });
 app.get(["/", "/index.html"], sendWorkspace);
+app.use((req, res, next) => {
+  let pathname;
+  try {
+    pathname = decodeURIComponent(req.path);
+  } catch {
+    return res.sendStatus(400);
+  }
+  if (/(?:^|[/\\])index(?:[._-]backup)[^/\\]*$/i.test(pathname) ||
+      /(?:^|[/\\])index\.html\.backup[^/\\]*$/i.test(pathname)) return res.sendStatus(404);
+  next();
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 // =====================================================
@@ -1526,7 +1535,7 @@ function getSearchCorpus(documents) {
     ...documents.filter(doc => doc.structure).flatMap(doc => searchableEntries(doc)
       .filter(entry => doc.type !== "law" || ["point", "subpoint", "note"].includes(entry.kind))
       .map(entry => ({
-        documentId: doc.id, document: doc.name, kind: entry.kind, type: doc.type,
+        documentId: doc.id, anchor: entry.id, document: doc.name, kind: entry.kind, type: doc.type,
         organization: doc.organization, revision: doc.revision, source: doc.source,
         chapter: entry.chapter ? `глава ${entry.chapter}` : "",
         section: entry.section ? `раздел ${entry.section}` : "",
@@ -1837,6 +1846,7 @@ function extractArticles(documents) {
         chapter,
         section,
         sectionNumber: nextContext.sectionNumber || "",
+        revision: document.revision || null,
         number,
         title: ownTitle || "Без названия",
         text: [...new Set(textParts)].join("\n"),
@@ -2923,6 +2933,7 @@ app.post("/api/attorney-assist", requestLimit(20, 60000), async (req, res) => {
 
     const {
       mode = "analyze",
+      format,
       caseData = {},
       officerAnswer = "",
       revisionId
@@ -2942,7 +2953,11 @@ app.post("/api/attorney-assist", requestLimit(20, 60000), async (req, res) => {
       "police_check"
     ];
 
-    if (!allowedModes.includes(mode)) {
+    const structured = format === "structured";
+    if (structured && !req.adminSessionVerified && !req.isCustomer) {
+      return res.status(401).json({ error: "Войдите в аккаунт для структурированного анализа." });
+    }
+    if (typeof mode !== "string" || (structured ? !Object.hasOwn(legalModes, mode) : !allowedModes.includes(mode))) {
       return res.status(400).json({
         error: "Неизвестный режим анализа."
       });
@@ -2987,6 +3002,14 @@ app.post("/api/attorney-assist", requestLimit(20, 60000), async (req, res) => {
       const match = explicitNorm.matches[0];
       const exact = allArticles.find(article => article.reference === match.reference);
       if (exact) relevantArticles.unshift(exact);
+    }
+
+    if (structured) {
+      const distinct = new Map(relevantArticles.map(article => [article.reference, article]));
+      const result = await runLegalAnalysis({ client, model: MODEL, mode,
+        materials: { caseData, officerAnswer }, records: [...distinct.values()] });
+      if (!result) return res.status(502).json({ error: "Не удалось получить ответ требуемого формата. Повторите запрос." });
+      return res.json({ ...result, sourceEdition });
     }
 
     const lawsForAI = prepareLawsForAI(

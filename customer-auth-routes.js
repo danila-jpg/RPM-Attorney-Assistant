@@ -1,5 +1,7 @@
 import { isTheme } from "./public/theme-catalog.js";
 import { appearanceRevision, saveAppearance } from "./appearance.js";
+import { normalizePlanCode } from "./subscription-plans.js";
+import { requestLimit } from "./request-limits.js";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
@@ -157,11 +159,17 @@ export default function registerCustomerAuth(app, pool) {
     });
   };
 
-  app.post("/api/customer/register", async (req, res) => {
+  app.post("/api/customer/register", requestLimit(12, 60_000), async (req, res) => {
+    if (!req.is("application/json") || req.get("Sec-Fetch-Site") === "cross-site") {
+      return res.status(403).json({ error: "Недопустимый запрос." });
+    }
     const inviteCode = String(req.body?.inviteCode || "").trim();
     const username = String(req.body?.username || "").trim().toLowerCase();
     const rpNickname = String(req.body?.rpNickname || "").trim();
     const password = String(req.body?.password || "");
+    if (req.body?.confirmation !== password) {
+      return res.status(400).json({ error: "Пароли не совпадают." });
+    }
 
     if (!inviteCode || !/^[a-zA-Z0-9_.-]{3,32}$/.test(username) ||
         !rpNickname || rpNickname.length > 64 ||
@@ -284,7 +292,7 @@ export default function registerCustomerAuth(app, pool) {
       await db.query("ROLLBACK").catch(() => {});
 
       if (error.code === "23505") {
-        return res.status(409).json({ error: "Это имя пользователя уже занято." });
+        return res.status(409).json({ error: "Не удалось зарегистрировать аккаунт с указанными данными." });
       }
 
       if (error.message === "INVITE_ALREADY_USED") {
@@ -538,7 +546,7 @@ app.post("/api/customer/login", async (req, res) => {
       });
     }
 
-    const planCode = typeof req.body?.plan_code === "string" ? req.body.plan_code.trim() : "";
+    const planCode = normalizePlanCode(req.body?.plan_code);
     let client;
 
     try {

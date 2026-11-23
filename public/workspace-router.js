@@ -7,6 +7,7 @@ const modules = {
   training: () => import("./workspace-training.js"),
   dashboard: () => import("./workspace-personal.js"),
   calendar: () => import("./workspace-personal.js"),
+  clients: () => import("./workspace-clients.js"),
   favorites: () => import("./workspace-personal.js")
 };
 let current;

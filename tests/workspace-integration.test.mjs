@@ -1,5 +1,6 @@
 import { themes, defaultPreferences } from "../public/theme-catalog.js";
 import test from "node:test";
+import { legalSchema } from "../legal-engine.js";
 import assert from "node:assert/strict";
 import { access } from "node:fs/promises";
 import { migrateWorkspace } from "../workspace-migrations.js";
@@ -17,7 +18,7 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   t.after(() => db.close());
   await db.exec(`
     CREATE TABLE rpm_users (
-      id BIGSERIAL PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT, status TEXT, role TEXT,
+      id BIGSERIAL PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT, status TEXT DEFAULT 'active', role TEXT DEFAULT 'customer',
       rp_nickname TEXT, display_name TEXT, avatar_data TEXT, theme TEXT
     );
     CREATE TABLE rpm_devices (
@@ -42,8 +43,10 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       status TEXT, starts_at TIMESTAMPTZ, expires_at TIMESTAMPTZ CHECK (expires_at > starts_at)
     );
     CREATE TABLE rpm_partners (id BIGSERIAL PRIMARY KEY, promo_code TEXT, status TEXT, commission_rate NUMERIC);
-    CREATE TABLE rpm_referrals (user_id BIGINT, partner_id BIGINT, promo_code TEXT);
-    CREATE TABLE rpm_invites (code_hash TEXT, order_id BIGINT, expires_at TIMESTAMPTZ, status TEXT);
+    CREATE TABLE rpm_referrals (user_id BIGINT UNIQUE, partner_id BIGINT, promo_code TEXT);
+    CREATE TABLE rpm_commissions (partner_id BIGINT REFERENCES rpm_partners, order_id BIGINT REFERENCES rpm_orders,
+      order_amount BIGINT, commission_rate NUMERIC, commission_amount BIGINT, status TEXT);
+    CREATE TABLE rpm_invites (id BIGSERIAL PRIMARY KEY, code_hash TEXT UNIQUE, order_id BIGINT, expires_at TIMESTAMPTZ, status TEXT, used_at TIMESTAMPTZ);
     CREATE TABLE rpm_license_logs (user_id BIGINT, license_id BIGINT, actor_type TEXT, actor_id TEXT, action TEXT, details JSONB);
   `);
   const password = "fixture-password-original";
@@ -82,9 +85,20 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   let modelContext = "";
   t.mock.method(globalThis, "fetch", async (url, options) => {
     if (!String(url).startsWith("https://generativelanguage.googleapis.com/")) return realFetch(url, options);
-    const messages = JSON.parse(options.body).messages;
+    const payload = JSON.parse(options.body);
+    const { messages } = payload;
     assert.ok(!messages[0].content.includes("fixture-case-marker"));
     modelContext = messages[1].content;
+    if (payload.response_format) {
+      const { sources } = JSON.parse(modelContext);
+      const source = sources[0];
+      const content = Object.fromEntries(legalSchema.required.map(key => [key, []]));
+      Object.assign(content, { summary: "Сводка", confidence: "low", citations: [
+        { sourceId: source.sourceId, reference: source.reference, quote: "" },
+        { sourceId: "rpm-99", reference: "Вымышленная норма", quote: "" }
+      ] });
+      return Response.json({ choices: [{ message: { content: JSON.stringify(content) } }] });
+    }
     const legalReasoning = [
       { article: "Устав CPD, глава II, пункт 2.3", whyApplied: "Порядок взаимодействия с гражданами." },
       { article: "Устав CPD, глава II, пункт 2.99" }
@@ -127,6 +141,24 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   const staff = await login("workspace-staff", password);
   assert.equal(staff.status, 200);
   const { cookie } = staff;
+  assert.equal((await send("/index%5Fbackup_before_rewrite.html", { cookie })).status, 404);
+  assert.equal((await send("/index.html.backup", { cookie })).status, 404);
+  const clientsUrl = "/api/workspace/clients";
+  assert.equal((await send(clientsUrl)).status, 401);
+  const clientData = { rp_name: "Клиент <em>CPD</em>", organization: "CPD", notes: "Приватная заметка" };
+  const createdClient = await send(clientsUrl, { method: "POST", cookie, body: clientData });
+  assert.equal(createdClient.status, 201);
+  const clientUrl = `${clientsUrl}/${createdClient.data.client.id}`;
+  assert.equal((await send(clientUrl, { cookie: customer.cookie })).status, 404);
+  assert.equal((await send(clientUrl, { method: "PUT", cookie: customer.cookie, body: clientData })).status, 404);
+  assert.deepEqual((await send(clientsUrl, { cookie: customer.cookie })).data.clients, []);
+  const foundClient = (await send(`${clientsUrl}?q=CPD&sort=name`, { cookie })).data.clients[0];
+  assert.equal(foundClient.rp_name, clientData.rp_name);
+  assert.equal(foundClient.notes, undefined);
+  assert.equal((await send(clientUrl, { cookie })).data.client.notes, clientData.notes);
+  assert.equal((await send(clientUrl, { method: "PUT", cookie, body: { ...clientData, archived: true } })).status, 200);
+  assert.deepEqual((await send(clientsUrl, { cookie })).data.clients, []);
+  assert.equal((await send(`${clientsUrl}?archived=true`, { cookie })).data.clients[0].id, createdClient.data.client.id);
   const customerAppearance = { theme: "ivory", preferences: { ...defaultPreferences, text: "large" } };
   const patchCustomer = await send("/api/customer/profile", { method: "PATCH", cookie: customer.cookie, body: customerAppearance });
   assert.equal(patchCustomer.status, 200);
@@ -227,14 +259,22 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   assert.equal(archivedAnalysis.status, 200);
   assert.equal(archivedAnalysis.data.sourceEdition.checksum, archivedEpk.checksum);
   assert.doesNotMatch(JSON.parse(modelContext).sources, /Устав ЦПД/u);
+  const structuredBody = { format: "structured", mode: "evidence", caseData: {
+    description: "Проверка документов сотрудником CPD, fixture-case-marker"
+  } };
+  const structured = await send("/api/attorney-assist", { method: "POST", cookie: customerAgain.cookie, body: structuredBody });
+  assert.equal(structured.status, 200);
+  assert.ok(structured.data.citations[0].source.text);
+  assert.deepEqual(structured.data.citations.map(item => item.status), ["Подтверждено", "Не найдено"]);
+  assert.equal((await send("/api/attorney-assist", { method: "POST", cookie, body: { ...structuredBody, mode: "toString" } })).status, 400);
   assert.equal((await send("/api/attorney-assist", { method: "POST", cookie, body: { revisionId: "unknown" } })).status, 422);
   assert.equal((await send("/api/attorney-assist", { method: "POST", cookie, body: { caseData: [] } })).status, 400);
   assert.equal((await send("/api/attorney-assist", {
     method: "POST", cookie, body: {}, headers: [["Sec-Fetch-Site", "cross-site"]]
   })).status, 403);
   let limited;
-  for (let index = 0; index < 20; index++) {
-    limited = await send("/api/attorney-assist", { method: "POST", cookie, body: { caseData: [] } });
+  for (let index = 0; index <= 20; index++) {
+    limited = await send("/api/attorney-assist", { method: "POST", cookie: other.cookie, body: { caseData: [] } });
     if (limited.status === 429) break;
     assert.equal(limited.status, 400);
   }
@@ -342,26 +382,35 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
     const plans = (await send(catalogUrl)).data.plans;
     assert.deepEqual(plans.map(plan => [plan.duration_days, plan.amount]),
       [[1, 60000], [3, 150000], [7, 300000], [14, 750000], [30, 2000000], [60, 3600000], [90, 5000000], [180, 9000000]]);
+    assert.deepEqual(plans.map(plan => plan.name), ["Пробный", "Старт", "Недельный", "Стандарт", "Месячный", "Премиум", "Квартальный", "Полугодовой"]);
     assert.equal((await send(ownerUrl, { cookie })).status, 403);
     assert.equal((await send(ownerUrl, { method: "POST", cookie: customerAgain.cookie, body: plans[0] })).status, 403);
+    const commissionRate = 7.5;
+    const { rows: [partner] } = await query(`INSERT INTO rpm_partners (promo_code,status,commission_rate)
+      VALUES ('WORKSPACEPARTNER','active',$1) RETURNING id`, [commissionRate]);
+    await query(`INSERT INTO rpm_referrals (user_id,partner_id,promo_code)
+      SELECT id,$1,'WORKSPACEPARTNER' FROM rpm_users WHERE username='workspace-customer'`, [partner.id]);
     const confirm = (orderId, as = owner.cookie) => send(`/api/admin/orders/${orderId}/confirm`, { method: "POST", cookie: as, body: {} });
     let expiry = +legacyLicense.expires_at;
     for (const plan of plans) {
       const renewal = await send(renewalUrl, { method: "POST", cookie: customerAgain.cookie,
-        body: { plan_code: plan.code, duration_days: 3650, amount: 1 } });
+        body: { plan_code: plan.code === "1_days" ? "1_day" : plan.code, duration_days: 3650, amount: 1 } });
       assert.equal(renewal.status, 201, JSON.stringify(renewal.data));
       const { order } = renewal.data;
+      assert.equal(order.plan_code, plan.code);
       assert.equal(order.duration_days, plan.duration_days);
       assert.equal(Number(order.amount), plan.amount);
       assert.equal(order.status, "pending");
       assert.equal((await confirm(order.id, cookie)).status, 403);
       const result = await confirm(order.id);
       assert.equal(result.status, 200, JSON.stringify(result.data));
+      assert.deepEqual(result.data.commission, { rate: commissionRate, amount: Math.round(plan.amount * commissionRate / 100) });
       assert.equal(+new Date(result.data.license.starts_at), expiry);
       expiry += plan.duration_days * 86_400_000;
       assert.equal(+new Date(result.data.license.expires_at), expiry);
       assert.equal((await confirm(order.id)).status, 409);
       assert.equal((await query("SELECT count(*)::int AS count FROM rpm_licenses WHERE order_id=$1", [order.id])).rows[0].count, 1);
+      assert.equal((await query("SELECT count(*)::int AS count FROM rpm_commissions WHERE order_id=$1", [order.id])).rows[0].count, 1);
     }
     assert.deepEqual((await query("SELECT * FROM rpm_licenses WHERE id=$1", [legacyLicense.id])).rows, [legacyLicense]);
     assert.deepEqual((await query("SELECT * FROM rpm_orders WHERE id=$1", [legacyOrder.id])).rows, [legacyOrder]);
@@ -398,6 +447,36 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
     assert.ok(start >= before - 100 && start <= Date.now());
     assert.equal(+new Date(confirmed.data.license.expires_at) - start, 5 * 86_400_000);
     assert.equal((await send(catalogUrl)).data.plans.length, 8);
+
+    const newOrder = await send("/api/admin/orders", { method: "POST", cookie: owner.cookie,
+      body: { buyer_rp_nickname: "Клиент регистрации", plan_code: "1_day", promo_code: "WORKSPACEPARTNER" } });
+    assert.equal(newOrder.status, 201, JSON.stringify(newOrder.data));
+    const newOrderId = newOrder.data.order.id;
+    const invitation = await confirm(newOrderId);
+    assert.equal(invitation.status, 200);
+    assert.equal((await confirm(newOrderId)).status, 409);
+    const register = body => send("/api/customer/register", { method: "POST", body });
+    const registration = { username: "workspace-new-customer", rpNickname: "Клиент регистрации",
+      password, confirmation: password, inviteCode: invitation.data.invite_code };
+    assert.equal((await send("/api/customer/register", { method: "POST", body: registration,
+      headers: [["Sec-Fetch-Site", "cross-site"]] })).status, 403);
+    assert.equal((await register({ ...registration, confirmation: "different" })).status, 400);
+    const registered = await register(registration);
+    assert.equal(registered.status, 200, JSON.stringify(registered.data));
+    assert.ok(registered.cookie);
+    assert.equal((await register({ ...registration, username: "workspace-reuse" })).status, 400);
+    assert.equal((await query("SELECT count(*)::int AS count FROM rpm_licenses WHERE order_id=$1", [newOrderId])).rows[0].count, 1);
+    assert.equal((await query("SELECT count(*)::int AS count FROM rpm_commissions WHERE order_id=$1", [newOrderId])).rows[0].count, 1);
+
+    const expiredOrder = await send("/api/admin/orders", { method: "POST", cookie: owner.cookie,
+      body: { buyer_rp_nickname: "Клиент с истёкшим кодом", plan_code: "3_days" } });
+    assert.equal(expiredOrder.status, 201);
+    const expiredInvite = await confirm(expiredOrder.data.order.id);
+    assert.equal(expiredInvite.status, 200);
+    await query("UPDATE rpm_invites SET expires_at=now()-INTERVAL '1 minute' WHERE order_id=$1", [expiredOrder.data.order.id]);
+    const expiredRegistration = { ...registration, username: "workspace-expired", inviteCode: expiredInvite.data.invite_code };
+    for (let attempt = 0; attempt < 2; attempt++) assert.equal((await register(expiredRegistration)).status, 400);
+    assert.equal((await query("SELECT count(*)::int AS count FROM rpm_licenses WHERE order_id=$1", [expiredOrder.data.order.id])).rows[0].count, 0);
   });
 
   await t.test("mobile viewport, keyboard toggle and safe profile rendering", { skip: !process.env.WORKSPACE_TEST_BROWSER }, async () => {
@@ -422,7 +501,7 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       assert.match(await page.locator("#publicPlanCards .subscription-card").first().textContent(), /1 день/);
       await page.getByRole("button", { name: "Регистрация", exact: true }).click();
       await page.getByRole("button", { name: "Создать аккаунт" }).waitFor();
-      await page.getByRole("button", { name: "Показать пароль" }).click();
+      await page.locator("#registerPassword + button").click();
       assert.equal(await page.locator("#registerPassword").getAttribute("type"), "text");
       await page.goto(origin + "/admin-login");
       const input = page.locator('[name="password"]');
@@ -458,6 +537,18 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       const cabinetStyles = await themeStyles();
       await page.goto(origin + "/");
       await page.locator(".rpm-metrics .rpm-metric").last().waitFor();
+      await page.evaluate(() => window.rpmNavigate("/?tab=analysis"));
+      await page.locator("#caseDescription").fill("Проверка документов сотрудником CPD");
+      await page.locator("#structuredMode").selectOption("evidence");
+      await page.locator("#structuredAnalysisButton").click();
+      await page.locator("#analysisResult").getByText("Сводка", { exact: true }).waitFor();
+      assert.match(await page.locator("#analysisResult").textContent(), /Вымышленная норма · Не найдено/);
+      await page.evaluate(() => window.rpmNavigate("/?tab=clients"));
+      await page.getByRole("button", { name: "Добавить клиента" }).click();
+      await page.locator("#clientEditor [name=rp_name]").fill("Клиент <em>браузерной проверки</em>");
+      await page.getByRole("button", { name: "Сохранить клиента" }).click();
+      await page.locator("#clientList").getByRole("heading", { name: "Клиент <em>браузерной проверки</em>" }).waitFor();
+      assert.equal(await page.locator("#clientList em").count(), 0);
       for (const width of [360, 390, 768, 1024, 1440, 1920]) {
         await page.setViewportSize({ width, height: 900 });
         for (const tab of ["dashboard", "calendar", "favorites"]) {

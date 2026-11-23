@@ -1,6 +1,15 @@
 import { randomUUID } from "node:crypto";
 
 const fields = "code, duration_days, amount, sort_order, active";
+const planNames = new Map([
+  ["1_days", "Пробный"], ["3_days", "Старт"], ["7_days", "Недельный"], ["14_days", "Стандарт"],
+  ["30_days", "Месячный"], ["60_days", "Премиум"], ["90_days", "Квартальный"], ["180_days", "Полугодовой"]
+]);
+
+export function normalizePlanCode(value) {
+  const code = typeof value === "string" ? value.trim() : "";
+  return code === "1_day" ? "1_days" : code;
+}
 
 function planValues(body) {
   if (!body) return null;
@@ -16,7 +25,8 @@ export function registerSubscriptionCatalog(app, pool) {
     try {
       const { rows } = await pool.query(`SELECT ${fields} FROM rpm_subscription_plans
         WHERE active ORDER BY sort_order, duration_days, code`);
-      res.set("Cache-Control", "no-store").json({ success: true, plans: rows });
+      const plans = rows.map(plan => ({ ...plan, name: planNames.get(plan.code) || null }));
+      res.set("Cache-Control", "no-store").json({ success: true, plans });
     } catch (error) { next(error); }
   });
 }
