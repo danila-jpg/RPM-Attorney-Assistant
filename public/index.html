@@ -4811,48 +4811,74 @@
 </script>
 <dialog id="liveDialog" aria-labelledby="liveTitle">
   <header class="live-header">
-    <h2 id="liveTitle">Live Assistant</h2>
-    <label><input type="checkbox" id="liveCompact"> Компактно</label>
+    <h2 id="liveTitle"><span class="live-logo" aria-hidden="true">✦</span> Live Assistant</h2>
+    <span id="liveActivity" class="live-activity">Готов</span>
+    <button type="button" id="liveSettingsOpen" aria-haspopup="dialog">Настройки</button>
+    <label class="live-switch"><input type="checkbox" id="liveCompact"> Компактно</label>
     <button type="button" class="secondary" id="liveClose" aria-label="Закрыть Live Assistant">✕</button>
   </header>
   <div class="live-grid">
     <section class="live-card">
-      <div class="live-actions">
-        <button type="button" id="liveMic">Начать диктовку</button>
-        <button type="button" class="secondary" id="liveStop" disabled>Остановить</button>
-        <label>Язык <select id="liveLanguage"><option value="ru-RU">Русский</option><option value="en-US">English</option></select></label>
+      <div class="live-capture">
+        <button type="button" id="liveMic" aria-label="Начать диктовку" title="Начать диктовку"><span data-icon="microphone" aria-hidden="true"></span></button>
+        <button type="button" id="liveStop" disabled hidden aria-label="Остановить диктовку" title="Остановить диктовку">■</button>
+        <canvas id="liveWave" width="360" height="48" aria-hidden="true"></canvas>
+        <p id="liveSpeech" role="status">Микрофон выключен</p>
+        <button type="button" id="liveDiagnostics" hidden>Диагностика</button>
       </div>
-      <p id="liveSpeech" role="status">Микрофон выключен</p>
-      <p class="live-note">Браузер может отправлять звук в облачный сервис распознавания. Приложение не сохраняет аудио.</p>
-      <label for="liveText">Ситуация</label>
-      <textarea id="liveText" rows="5" maxlength="1200" autofocus placeholder="Опишите, что произошло"></textarea>
-      <div class="live-actions">
+      <label class="live-extra" for="liveText">Текст ситуации</label>
+      <textarea id="liveText" aria-label="Текст ситуации" rows="3" maxlength="1200" autofocus placeholder="Опишите, что произошло"></textarea>
+      <div class="live-actions live-extra">
         <label>Тип записи <select id="liveKind"><option>Факт</option><option>Реплика</option><option>Предположение</option></select></label>
         <button type="button" class="secondary" id="liveAdd">Добавить запись</button>
         <button type="button" class="secondary" id="liveClear">Очистить текст</button>
       </div>
-      <div class="live-actions">
-        <label>Режим <select id="liveMode"><option value="instant">Мгновенная подсказка</option><option value="brief" selected>Краткий анализ</option><option value="full">Полный анализ</option></select></label>
-        <button type="button" id="liveAnalyze" aria-keyshortcuts="Control+Enter">Анализировать</button>
-        <button type="button" class="secondary" id="liveCancel" disabled>Отменить запрос</button>
+      <div class="live-extra"><p id="liveCategories">Быстрые категории</p><div class="live-actions" id="liveTemplates" aria-labelledby="liveCategories"></div></div>
+      <div class="live-actions live-submit">
+        <label class="live-extra">Режим анализа <select id="liveMode"><option value="instant">Мгновенная подсказка</option><option value="brief" selected>Краткий анализ</option><option value="full">Полный анализ</option></select></label>
+        <button type="button" id="liveAnalyze" aria-keyshortcuts="Control+Enter">Получить подсказку</button>
+        <button type="button" id="liveCancel" disabled>Отменить запрос</button>
       </div>
-      <details open class="live-extra"><summary>Быстрые действия</summary><div class="live-actions" id="liveTemplates"></div></details>
       <details class="live-extra"><summary>RP-фразы</summary><div id="livePhrases"></div></details>
     </section>
-    <section class="live-card">
+    <section class="live-card live-result">
       <div class="live-actions">
-        <h3>Подсказка ИИ</h3>
+        <h3>Подсказка для RP</h3>
         <button type="button" class="secondary" id="liveCopy" disabled>Копировать ответ</button>
       </div>
       <p id="liveStatus" role="status"></p>
-      <div id="liveAnswer"></div>
-      <details open id="liveHistoryPanel"><summary>История ситуации</summary><ol id="liveHistory"></ol></details>
-      <div class="live-actions">
+      <div id="liveAnswer"><p class="live-note">Опишите ситуацию и запросите подсказку.</p></div>
+      <details class="live-extra" id="liveHistoryPanel"><summary>История ситуации</summary><ol id="liveHistory"></ol></details>
+      <div class="live-actions live-extra">
         <button type="button" class="secondary" id="liveSave" disabled>Сохранить в дело</button>
         <button type="button" class="secondary" id="liveReset">Завершить сессию</button>
       </div>
     </section>
   </div>
+</dialog>
+<dialog id="liveSettings" aria-labelledby="liveSettingsTitle">
+  <header class="live-header">
+    <h2 id="liveSettingsTitle">Настройки микрофона</h2>
+    <button type="button" id="liveSettingsClose" aria-label="Закрыть настройки">✕</button>
+  </header>
+  <dl class="live-diagnostics">
+    <dt>Подключение</dt><dd id="liveSecure"></dd>
+    <dt>Разрешение</dt><dd id="livePermission"></dd>
+    <dt>Распознавание</dt><dd id="liveRecognition"></dd>
+  </dl>
+  <label for="liveLanguage">Язык распознавания</label>
+  <select id="liveLanguage"><option value="ru-RU">Русский (ru-RU)</option><option value="en-US">English (en-US)</option></select>
+  <p>Устройства ввода</p>
+  <ul id="liveDevices"></ul>
+  <p class="live-note">Распознавание использует микрофон по умолчанию в браузере или системе. Изменить его можно в настройках браузера или ОС.</p>
+  <label for="liveLevel">Уровень входного сигнала</label>
+  <meter id="liveLevel" min="0" max="1" value="0"></meter>
+  <p id="liveTestStatus" role="status"></p>
+  <div class="live-actions">
+    <button type="button" id="liveTest">Проверить микрофон</button>
+    <button type="button" id="liveRecheck">Повторить проверку</button>
+  </div>
+  <p class="live-note">RPM не сохраняет аудио. При диктовке браузер может отправлять звук в свой сервис распознавания.</p>
 </dialog>
 </body>
 </html>

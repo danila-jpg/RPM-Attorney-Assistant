@@ -543,16 +543,44 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await context.addInitScript(() => {
         const mode = new URL(location.href).searchParams.get("speech");
         window.nativeSpeechAvailable = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+        let permission = mode === "blocked" ? "denied" : "prompt";
+        navigator.permissions.query = async () => ({ state: permission });
+        navigator.mediaDevices.enumerateDevices = async () => [
+          { kind: "audioinput", label: "Synthetic test input" }
+        ];
+        navigator.mediaDevices.getUserMedia = async constraints => {
+          window.captureRequests = (window.captureRequests || 0) + 1;
+          if (!constraints.audio) throw new Error("Expected audio capture");
+          if (mode === "denied") throw new DOMException("", "NotAllowedError");
+          if (mode === "missing") throw new DOMException("", "NotFoundError");
+          if (mode === "busy") throw new DOMException("", "NotReadableError");
+          permission = "granted";
+          const audio = new AudioContext();
+          const tone = audio.createOscillator();
+          const output = audio.createMediaStreamDestination();
+          tone.connect(output);
+          tone.start();
+          await audio.resume();
+          const [track] = output.stream.getAudioTracks();
+          const stop = track.stop.bind(track);
+          track.stop = () => { stop(); void audio.close(); };
+          window.testTrack = track;
+          return output.stream;
+        };
         window.webkitSpeechRecognition = undefined;
         window.SpeechRecognition = mode ? class {
-          start() {
+          start(track) {
+            window.recognitionUsesCapture = track === window.testTrack && track?.readyState === "live";
             window.testSpeechLanguage = this.lang;
             this.onstart();
             queueMicrotask(() => {
-              if (mode === "denied") {
-                this.onerror({ error: "not-allowed" });
+              if (mode === "network" || mode === "no-speech" || mode === "service-not-allowed") {
+                this.onerror({ error: mode });
                 this.onend();
-              } else this.onresult({ results: [Object.assign([{ transcript: "Задержание сотрудником СиПиДи" }], { isFinal: true })] });
+              } else this.onresult({ results: [
+                Object.assign([{ transcript: "Задержание сотрудником СиПиДи" }], { isFinal: true }),
+                Object.assign([{ transcript: "промежуточный фрагмент" }], { isFinal: false })
+              ] });
             });
           }
           stop() { this.onend(); }
@@ -562,6 +590,9 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       const page = await context.newPage();
       const errors = [];
       page.on("pageerror", error => errors.push(error.message));
+      page.on("console", message => {
+        if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) errors.push(message.text());
+      });
       await page.goto(origin);
       console.log("Live browser:", browser.version(), await page.evaluate(() => ({ ua: navigator.userAgent, speech: window.nativeSpeechAvailable })));
       await page.locator("#openSidebar").click();
@@ -575,6 +606,32 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.locator("#liveText").fill("Задержание сотрудником CPD");
       await page.keyboard.press("Control+Enter");
       await page.locator("#liveAnswer dt").first().waitFor();
+      assert.equal(await page.locator("#liveMic svg").count(), 1);
+      for (const theme of themes) {
+        await page.evaluate(async id => (await import("/appearance.js")).applyAppearance({ theme: id }), theme.id);
+        assert.equal(await page.locator("#liveAnalyze").evaluate(node => getComputedStyle(node).backgroundColor), "rgb(109, 59, 188)");
+        assert.equal(await page.locator("#liveDialog").evaluate(node => node.scrollWidth <= node.clientWidth), true);
+        for (const [foreground, background] of [["#liveTitle", ".live-header"], ["#liveAnalyze", "#liveAnalyze"], ["#liveSpeech", ".live-capture"]]) {
+          const ratio = await page.evaluate(([foreground, background]) => {
+            const luminance = color => {
+              const rgb = color.match(/\d+/g).slice(0, 3).map(value => Number(value) / 255);
+              const linear = rgb.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+              return linear[0] * .2126 + linear[1] * .7152 + linear[2] * .0722;
+            };
+            const ink = luminance(getComputedStyle(document.querySelector(foreground)).color);
+            const fill = luminance(background === ".live-capture" ? "rgb(61, 35, 93)"
+              : getComputedStyle(document.querySelector(background)).backgroundColor);
+            return (Math.max(ink, fill) + .05) / (Math.min(ink, fill) + .05);
+          }, [foreground, background]);
+          assert.ok(ratio >= 4.5, `${theme.id} ${foreground} contrast ${ratio}`);
+        }
+      }
+      if (process.env.WORKSPACE_TEST_SCREENSHOTS) {
+        await page.screenshot({ path: ".workspace-test/live-mobile.png", animations: "disabled" });
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.screenshot({ path: ".workspace-test/live-desktop.png", animations: "disabled" });
+        await page.setViewportSize({ width: 375, height: 812 });
+      }
       const timing = await page.locator("#liveStatus").textContent();
       console.log("Live mock browser timing:", timing);
       assert.match(timing, /Ответ получен за \d+ мс/);
@@ -585,24 +642,60 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.keyboard.press("Escape");
       assert.equal(await page.locator("#liveDialog").evaluate(node => node.open), false);
       assert.equal(await page.locator("#openSidebar").evaluate(node => node === document.activeElement), true);
-      await page.goto(origin + "/?speech=denied");
-      await page.keyboard.press("Control+Shift+L");
-      await page.locator("#liveMic").click();
-      await page.getByText(/Доступ к микрофону отклонён/).waitFor();
-      assert.equal(await page.locator("#liveText").isEditable(), true);
+      for (const [mode, message] of [
+        ["denied", /Доступ к микрофону отклонён/], ["blocked", /Микрофон заблокирован/],
+        ["missing", /Микрофон не найден/], ["busy", /Микрофон занят/],
+        ["network", /Сетевая ошибка/], ["no-speech", /Речь не обнаружена/],
+        ["service-not-allowed", /Сервис распознавания недоступен/]
+      ]) {
+        await page.goto(origin + "/?speech=" + mode + "#live");
+        await page.locator("#liveMic").click();
+        await page.getByText(message).waitFor();
+        assert.equal(await page.locator("#liveText").isEditable(), true);
+        if (mode === "blocked") assert.equal(await page.evaluate(() => window.captureRequests), undefined);
+      }
       await page.goto(origin + "/?speech=ok#live");
       await page.locator("#liveDialog[open]").waitFor();
+      await page.locator("#liveSettingsOpen").click();
+      assert.equal(await page.locator("#liveLanguage").inputValue(), "ru-RU");
+      await page.locator("#liveTest").click();
+      await page.waitForFunction(() => document.getElementById("liveLevel").value > 0.1);
+      await page.getByText("Synthetic test input").waitFor();
+      assert.equal(await page.evaluate(() => window.captureRequests), 1);
+      if (process.env.WORKSPACE_TEST_SCREENSHOTS) await page.screenshot({ path: ".workspace-test/live-microphone.png" });
       await page.locator("#liveLanguage").selectOption("en-US");
+      await page.locator("#liveSettingsClose").click();
+      await page.waitForFunction(() => window.testTrack.readyState === "ended");
       await page.locator("#liveMic").click();
+      await page.waitForFunction(() => window.testSpeechLanguage);
       assert.equal(await page.evaluate(() => window.testSpeechLanguage), "en-US");
+      assert.equal(await page.evaluate(() => window.recognitionUsesCapture), true);
+      assert.equal(await page.evaluate(() => window.captureRequests), 2);
       assert.match(await page.locator("#liveText").inputValue(), /СиПиДи/);
+      assert.match(await page.locator("#liveText").inputValue(), /промежуточный фрагмент/);
       assert.equal(await page.locator("#liveAnalyze").isDisabled(), true);
       await page.locator("#liveStop").click();
+      assert.doesNotMatch(await page.locator("#liveText").inputValue(), /промежуточный фрагмент/);
+      assert.equal(await page.evaluate(() => window.testTrack.readyState), "ended");
       await page.locator("#liveText").fill("Задержание сотрудником CPD");
       await page.locator("#liveAdd").click();
       assert.match(await page.locator("#liveHistory").textContent(), /CPD/);
       await page.locator("#liveCompact").check();
       assert.equal(await page.locator("#liveTemplates").isVisible(), false);
+      await page.setViewportSize({ width: 1300, height: 850 });
+      const handle = page.locator("#liveTitle");
+      const before = await handle.boundingBox();
+      await handle.press("ArrowLeft");
+      assert.ok((await handle.boundingBox()).x < before.x);
+      const grip = await handle.boundingBox();
+      await page.mouse.move(grip.x + 20, grip.y + 15);
+      await page.mouse.down();
+      await page.mouse.move(grip.x + 140, grip.y + 45, { steps: 5 });
+      await page.mouse.up();
+      assert.ok((await handle.boundingBox()).x > grip.x + 80);
+      await page.locator("#liveAnalyze").click();
+      await page.locator("#liveAnswer dd").first().waitFor();
+      if (process.env.WORKSPACE_TEST_SCREENSHOTS) await page.screenshot({ path: ".workspace-test/live-compact.png" });
       assert.deepEqual(errors, []);
     } finally { await browser.close(); }
   });
