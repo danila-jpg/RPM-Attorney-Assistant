@@ -91,7 +91,8 @@
 #liveSettings .live-diagnostics { display: grid; grid-template-columns: auto 1fr; gap: .45rem .8rem; padding: .65rem; border-radius: .6rem; background: var(--live-card); }
 .live-diagnostics dt { color: var(--live-muted); }
 .live-diagnostics dd { margin: 0; }
-#liveDevices { padding-left: 1.25rem; }
+#liveSettings select { display: block; }
+#liveRecordingTime { font-variant-numeric: tabular-nums; color: #e4ccff; }
 #liveLevel { display: block; width: 100%; height: 1rem; }
 #liveLevel::-webkit-meter-optimum-value { background: #b985ff; }
 #liveDialog.live-compact { position: fixed; z-index: 90; inset: var(--live-y, 1rem) auto auto var(--live-x, 0px); margin: 0; width: min(23rem, calc(100% - 1rem)); padding: .65rem; }

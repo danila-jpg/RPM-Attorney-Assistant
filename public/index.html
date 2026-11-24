@@ -4822,8 +4822,12 @@
       <div class="live-capture">
         <button type="button" id="liveMic" aria-label="Начать диктовку" title="Начать диктовку"><span data-icon="microphone" aria-hidden="true"></span></button>
         <button type="button" id="liveStop" disabled hidden aria-label="Остановить диктовку" title="Остановить диктовку">■</button>
+        <span id="liveRecordingTime" hidden aria-label="Длительность записи">00:00</span>
+        <button type="button" id="liveDiscard" hidden>Отменить диктовку</button>
         <canvas id="liveWave" width="360" height="48" aria-hidden="true"></canvas>
         <p id="liveSpeech" role="status">Микрофон выключен</p>
+        <p id="liveAudioNotice" class="live-note">Нажмите микрофон для записи. После остановки или через 30 секунд звук отправится в Google Gemini для расшифровки.</p>
+        <button type="button" id="liveUseServer" hidden>Использовать Gemini</button>
         <button type="button" id="liveDiagnostics" hidden>Диагностика</button>
       </div>
       <label class="live-extra" for="liveText">Текст ситуации</label>
@@ -4868,9 +4872,11 @@
   </dl>
   <label for="liveLanguage">Язык распознавания</label>
   <select id="liveLanguage"><option value="ru-RU">Русский (ru-RU)</option><option value="en-US">English (en-US)</option></select>
-  <p>Устройства ввода</p>
-  <ul id="liveDevices"></ul>
-  <p class="live-note">Распознавание использует микрофон по умолчанию в браузере или системе. Изменить его можно в настройках браузера или ОС.</p>
+  <label for="liveEngine">Способ распознавания</label>
+  <select id="liveEngine"><option value="auto">Автоматический выбор</option><option value="server">Серверное распознавание Gemini</option><option value="browser">Браузерное распознавание</option></select>
+  <label for="liveDevices">Микрофон</label>
+  <select id="liveDevices"><option value="">Системный микрофон</option></select>
+  <p id="liveDeviceNote" class="live-note"></p>
   <label for="liveLevel">Уровень входного сигнала</label>
   <meter id="liveLevel" min="0" max="1" value="0"></meter>
   <p id="liveTestStatus" role="status"></p>
@@ -4878,7 +4884,7 @@
     <button type="button" id="liveTest">Проверить микрофон</button>
     <button type="button" id="liveRecheck">Повторить проверку</button>
   </div>
-  <p class="live-note">RPM не сохраняет аудио. При диктовке браузер может отправлять звук в свой сервис распознавания.</p>
+  <p class="live-note">RPM не сохраняет аудио. В автоматическом режиме используется Gemini, если браузер может записывать звук. При браузерной диктовке звук может обрабатываться сервисом браузера.</p>
 </dialog>
 </body>
 </html>

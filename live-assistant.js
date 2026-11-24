@@ -1,5 +1,6 @@
 import { runLegalAnalysis, verifyLegalCitation } from "./legal-engine.js";
 import { requestLimit } from "./request-limits.js";
+import { registerLiveTranscription } from "./live-transcription.js";
 
 const modes = ["instant", "brief", "full"];
 const kinds = ["Факт", "Реплика", "Предположение"];
@@ -70,6 +71,7 @@ export function registerLiveAssistant(app, { pool, client, model, search, requir
     if (req.userId && (req.adminSessionVerified || req.isCustomer)) return next();
     res.status(401).json({ error: "Войдите в рабочее пространство с активным доступом." });
   };
+  registerLiveTranscription(app, authenticated);
   const json = (req, res, next) => {
     if (req.is("application/json") && req.get("Sec-Fetch-Site") !== "cross-site") return next();
     res.status(403).json({ error: "Недопустимый запрос." });

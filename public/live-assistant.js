@@ -1,3 +1,5 @@
+import { maxSeconds, maxRecordedBytes, recordingToWav } from "./live-recording.js";
+
 const $ = id => document.getElementById("live" + id);
 const dialog = $("Dialog");
 const draft = $("Text");
@@ -12,6 +14,28 @@ const captureIssue = !isSecureContext ? "Для микрофона открой�
 let capture;
 let pending = false;
 let granted = false;
+const recordingFormat = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"]
+  .find(type => window.MediaRecorder?.isTypeSupported?.(type));
+const canRecord = !!recordingFormat && !!window.OfflineAudioContext;
+const engine = $("Engine");
+try {
+  const saved = localStorage.getItem("rpm.live.engine");
+  if (["auto", "server", "browser"].includes(saved)) engine.value = saved;
+} catch { /* Storage is optional. */ }
+const serverMode = () => engine.value === "server" || (engine.value === "auto" && canRecord);
+
+function syncEngine() {
+  $("AudioNotice").textContent = serverMode()
+    ? "После остановки или через 30 секунд звук отправится в Google Gemini для расшифровки."
+    : "Звук может обрабатываться службой распознавания вашего браузера.";
+  $("DeviceNote").textContent = serverMode()
+    ? "Список устройств появится после разрешения на доступ к микрофону."
+    : "Браузерный режим использует системный микрофон.";
+  $("Devices").disabled = !serverMode();
+  $("Recognition").textContent = serverMode()
+    ? (canRecord ? "Запись поддерживается. Обработка на сервере Gemini." : "Запись аудио недоступна.")
+    : (Recognition ? "API браузера доступен." : "API браузера отсутствует.");
+}
 
 async function readPermission() {
   return navigator.permissions?.query({ name: "microphone" }).catch(() => undefined);
@@ -24,13 +48,18 @@ async function diagnose() {
   $("Permission").textContent = { granted: "Разрешено", denied: "Заблокировано", prompt: "Ожидает разрешения" }[state]
     || (granted ? "Доступ подтверждён" : "Браузер не раскрывает статус");
   $("Secure").textContent = captureIssue || (location.protocol === "https:" ? "HTTPS" : "Защищённый локальный контекст");
-  $("Recognition").textContent = Recognition ? "API доступен. Сервис проверяется при диктовке." : "API отсутствует";
+  syncEngine();
   const devices = granted || state === "granted"
     ? await media?.enumerateDevices?.().catch(() => undefined) : undefined;
   const inputs = devices?.filter(device => device.kind === "audioinput");
-  $("Devices").replaceChildren(...(inputs?.length
-    ? inputs.map((device, i) => element("li", device.label || `Микрофон ${i + 1}`))
-    : [element("li", inputs ? "Микрофоны не найдены" : "Список доступен после разрешения")]));
+  const select = $("Devices");
+  const selected = select.value;
+  select.replaceChildren(new Option("Системный микрофон", ""), ...(inputs || [])
+    .filter(device => device.deviceId && device.deviceId !== "default")
+    .map((device, i) => new Option(device.label || `Микрофон ${i + 1}`, device.deviceId)));
+  if (Array.from(select.options).some(option => option.value === selected)) select.value = selected;
+  if (serverMode() && inputs) $("DeviceNote").textContent = inputs.length
+    ? "Выбранный микрофон используется при записи и проверке." : "Микрофоны не найдены.";
 }
 
 function releaseCapture() {
@@ -81,12 +110,12 @@ function showSignal(current) {
   }
 }
 
-async function acquire() {
+async function acquire(deviceId = "") {
   if (captureIssue) throw new Error(captureIssue);
   const before = await readPermission();
   if (before?.state === "denied") throw new Error(blocked);
   try {
-    const stream = await media.getUserMedia({ audio: true });
+    const stream = await media.getUserMedia({ audio: deviceId ? { deviceId: { exact: deviceId } } : true });
     granted = true;
     if (stream.getAudioTracks().some(track => track.readyState === "live")) return stream;
     stream.getTracks().forEach(track => track.stop());
@@ -98,6 +127,7 @@ async function acquire() {
     }
     const messages = {
       NotFoundError: "Микрофон не найден. Подключите устройство ввода.",
+      OverconstrainedError: "Выбранный микрофон недоступен. Выберите другое устройство в настройках.",
       NotReadableError: "Микрофон занят или недоступен системе. Закройте другие приложения и проверьте настройки ОС.",
       AbortError: "Браузер прервал подключение микрофона. Повторите проверку.",
       SecurityError: blocked
@@ -177,27 +207,29 @@ function syncControls() {
   $("Cancel").disabled = !activeRequest || activeRequest.signal.aborted;
   $("Save").disabled = locked || !!recording || !session?.entries.length;
   $("Reset").disabled = saving;
-  $("Mic").disabled = !Recognition || !!captureIssue || pending || !!capture || !!recording || locked;
+  $("Mic").disabled = (serverMode() ? !canRecord : !Recognition) || !!captureIssue || pending || !!capture || !!recording || locked;
   $("Mic").hidden = !!recording;
-  $("Stop").hidden = !recording;
+  $("Stop").hidden = !recording || !!recording.processing;
   $("Stop").disabled = !!recording?.stopping;
   if (recording && document.activeElement === document.body && dialog.open && !settings.open) $("Stop").focus();
   $("Language").disabled = !!recording;
+  $("Discard").hidden = !recording;
+  $("RecordingTime").hidden = !recording?.recorder || !!recording.processing;
   $("Test").disabled = $("Recheck").disabled = pending || !!recording;
   $("Test").textContent = capture?.test ? "Остановить проверку" : "Проверить микрофон";
   $("Cancel").hidden = !activeRequest;
-  $("Activity").textContent = recording ? "Диктовка" : locked ? "В работе" : "Готов";
+  $("Activity").textContent = recording?.processing ? "Обработка аудио" : recording ? "Диктовка" : locked ? "В работе" : "Готов";
   for (const control of $("History").querySelectorAll("button")) control.disabled = locked || !!recording;
   for (const control of $("Templates").querySelectorAll("button")) control.disabled = draft.readOnly;
 }
 
 const speechErrors = {
   "not-allowed": ["permission", "Браузер отклонил доступ сервиса распознавания. " + blocked],
-  "service-not-allowed": ["other", "Сервис распознавания недоступен. Проверьте диктовку в Chrome или введите текст вручную."],
+  "service-not-allowed": ["other", "Сервис распознавания недоступен. Используйте серверное распознавание Gemini."],
   "audio-capture": ["microphone", "Микрофон недоступен. Проверьте подключение."],
   "no-speech": ["no-speech", "Речь не обнаружена. Проверьте входной сигнал и микрофон по умолчанию в диагностике."],
   aborted: ["aborted", "Распознавание прервано."],
-  network: ["network", "Сетевая ошибка сервиса распознавания. Проверьте соединение. Если ошибка повторяется в Opera GX или Edge, проверьте диктовку в Chrome."],
+  network: ["network", "Браузерный сервис распознавания не ответил. Используйте серверное распознавание Gemini."],
   "language-not-supported": ["other", "Выбранный язык недоступен в этом браузере."]
 };
 
@@ -205,21 +237,102 @@ function speechError(code) {
   const [group, message] = speechErrors[code] || ["other", "Ошибка сервиса распознавания. Попробуйте снова или введите текст вручную."];
   speech.textContent = "Ошибка. " + message;
   $("Diagnostics").hidden = false;
+  if (canRecord && !serverMode() && ["network", "service-not-allowed", "language-not-supported", "other"].includes(code)) {
+    $("UseServer").hidden = false;
+  }
   metric("speech_error", group);
+}
+
+function startRecording(current, stream) {
+  const recorder = current.recorder = new MediaRecorder(stream, { mimeType: recordingFormat, audioBitsPerSecond: 64000 });
+  const chunks = current.chunks = [];
+  let totalBytes = 0;
+  recorder.ondataavailable = ({ data }) => {
+    if (recording !== current || !data.size) return;
+    totalBytes += data.size;
+    if (totalBytes > maxRecordedBytes) {
+      stopSpeech(true);
+      speech.textContent = "Запись слишком большая. Попробуйте записать более короткий фрагмент.";
+    } else chunks.push(data);
+  };
+  recorder.onerror = () => {
+    if (recording !== current) return;
+    stopSpeech(true);
+    speech.textContent = "Не удалось записать звук. Проверьте доступ к микрофону.";
+  };
+  recorder.onstop = async () => {
+    if (recording !== current) return;
+    if (!current.stopping) {
+      stopSpeech(true);
+      speech.textContent = "Запись прервалась. Проверьте микрофон.";
+      return;
+    }
+    const blob = new Blob(chunks, { type: recorder.mimeType });
+    chunks.length = 0;
+    try {
+      if (!blob.size) throw new Error("Запись пуста. Попробуйте ещё раз.");
+      const wav = await recordingToWav(blob).catch(() => { throw new Error("Не удалось прочитать запись. Попробуйте ещё раз."); });
+      if (recording !== current) return;
+      const response = await fetch("/api/live/transcribe", {
+        method: "POST", body: wav,
+        headers: { "Content-Type": "audio/wav", "X-RPM-Speech-Language": current.language },
+        signal: AbortSignal.any([current.upload.signal, AbortSignal.timeout(28000)])
+      });
+      const result = await response.json().catch(() => ({}));
+      if (recording !== current) return;
+      if (!response.ok) throw new Error(result.error || "Сервер не принял запись.");
+      if (result.transcript) {
+        draft.value = [current.base, result.transcript].filter(Boolean).join(" ").slice(0, draft.maxLength);
+        speech.textContent = "Диктовка готова. Текст можно исправить.";
+      } else speech.textContent = "Речь не обнаружена. Проверьте уровень сигнала и повторите диктовку.";
+    } catch (error) {
+      if (recording === current) speech.textContent = error.name === "TimeoutError" ? "Истекло время обработки записи."
+        : error instanceof TypeError ? "Не удалось отправить запись. Проверьте соединение." : error.message;
+    } finally {
+      if (recording === current) {
+        recording = null;
+        syncControls();
+      }
+    }
+  };
+  current.upload = new AbortController();
+  recorder.start(250);
+  const started = performance.now();
+  $("RecordingTime").textContent = "00:00";
+  current.clock = setInterval(() => {
+    const seconds = Math.min(maxSeconds, Math.floor((performance.now() - started) / 1000));
+    $("RecordingTime").textContent = "00:" + String(seconds).padStart(2, "0");
+  }, 250);
+  current.timer = setTimeout(() => stopSpeech(), maxSeconds * 1000);
+  dialog.classList.add("live-listening");
+  speech.textContent = "Идёт запись…";
 }
 
 function stopSpeech(discard = false) {
   if (!recording) return;
   const current = recording;
-  if (discard || !current.api) {
+  if (current.recorder && !discard && !current.stopping) {
+    current.stopping = true;
+    current.processing = true;
+    clearTimeout(current.timer);
+    clearInterval(current.clock);
+    if (current.recorder.state !== "inactive") current.recorder.stop();
+    releaseCapture();
+    dialog.classList.remove("live-listening");
+    speech.textContent = "Gemini расшифровывает запись…";
+  } else if (discard || (!current.api && !current.recorder)) {
     recording = null;
     clearTimeout(current.timer);
+    clearInterval(current.clock);
+    current.upload?.abort();
+    if (current.chunks) current.chunks.length = 0;
+    if (current.recorder && current.recorder.state !== "inactive") current.recorder.stop();
     releaseCapture();
     dialog.classList.remove("live-listening");
     draft.value = current.final || current.base;
     speech.textContent = "Микрофон выключен";
     try { current.api?.abort(); } catch { /* Recognition may already have ended. */ }
-  } else {
+  } else if (current.api && !current.stopping) {
     current.stopping = true;
     speech.textContent = "Распознавание…";
     dialog.classList.remove("live-listening");
@@ -240,14 +353,16 @@ function stopSpeech(discard = false) {
 
 async function startSpeech() {
   if ($("Mic").disabled) return;
-  const current = { base: draft.value, final: "", error: false, stopping: false };
+  const useServer = serverMode();
+  const current = { base: draft.value, final: "", error: false, stopping: false, language: $("Language").value };
   recording = current;
   pending = true;
   $("Diagnostics").hidden = true;
+  $("UseServer").hidden = true;
   speech.textContent = "Запрос разрешения…";
   syncControls();
   try {
-    const stream = await acquire();
+    const stream = await acquire(useServer ? $("Devices").value : "");
     if (recording !== current) {
       stream.getTracks().forEach(track => track.stop());
       return;
@@ -259,8 +374,12 @@ async function startSpeech() {
       stopSpeech(true);
       speechError("audio-capture");
     }));
+    if (useServer) {
+      startRecording(current, stream);
+      return;
+    }
     const api = current.api = new Recognition();
-    api.lang = $("Language").value;
+    api.lang = current.language;
     api.interimResults = true;
     api.continuous = true;
     speech.textContent = "Подключение сервиса распознавания…";
@@ -336,7 +455,7 @@ async function startSpeech() {
       stopSpeech(true);
       if (current.api) speechError(error.name === "NotAllowedError" ? "not-allowed" : "other");
       else {
-        speech.textContent = error.message;
+        speech.textContent = current.recorder ? "Не удалось запустить запись. Проверьте микрофон." : error.message;
         $("Diagnostics").hidden = false;
         metric("speech_error", "microphone");
       }
@@ -495,7 +614,8 @@ function openLive() {
   if ($("Compact").checked) dialog.show();
   else dialog.showModal();
   metric("opened");
-  if (!Recognition || captureIssue) {
+  syncEngine();
+  if ((serverMode() ? !canRecord : !Recognition) || captureIssue) {
     speech.textContent = captureIssue || "В этом браузере диктовка недоступна. Микрофон можно проверить в настройках.";
     $("Diagnostics").hidden = false;
     metric("speech_error", "unsupported");
@@ -571,7 +691,7 @@ async function testMicrophone() {
   syncControls();
   $("TestStatus").textContent = "Подключение микрофона…";
   try {
-    const stream = await acquire();
+    const stream = await acquire(serverMode() ? $("Devices").value : "");
     if (!settings.open) {
       stream.getTracks().forEach(track => track.stop());
       return;
@@ -605,6 +725,32 @@ media?.addEventListener("devicechange", diagnose);
 window.addEventListener("pagehide", () => { stopSpeech(true); releaseCapture(); });
 $("Mic").addEventListener("click", startSpeech);
 $("Stop").addEventListener("click", () => stopSpeech());
+$("Discard").addEventListener("click", () => {
+  stopSpeech(true);
+  speech.textContent = "Диктовка отменена.";
+});
+function changeEngine() {
+  releaseCapture();
+  $("TestStatus").textContent = "";
+  $("UseServer").hidden = true;
+  if (!captureIssue) speech.textContent = "Микрофон выключен";
+  try { localStorage.setItem("rpm.live.engine", engine.value); } catch { /* Storage is optional. */ }
+  syncEngine();
+  syncControls();
+  void diagnose();
+}
+engine.addEventListener("change", changeEngine);
+$("Devices").addEventListener("change", () => {
+  if (capture?.test) {
+    releaseCapture();
+    $("TestStatus").textContent = "Устройство изменено. Запустите проверку.";
+    syncControls();
+  }
+});
+$("UseServer").addEventListener("click", () => {
+  engine.value = "server";
+  changeEngine();
+});
 $("Clear").addEventListener("click", clearDraft);
 $("Add").addEventListener("click", saveDraft);
 $("Analyze").addEventListener("click", analyze);

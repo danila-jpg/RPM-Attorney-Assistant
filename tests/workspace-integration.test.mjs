@@ -84,9 +84,21 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   assert.deepEqual((await query("SELECT * FROM rpm_licenses")).rows, [legacyLicense]);
   const realFetch = globalThis.fetch;
   let modelContext = "";
+  const transcript = "CPD, FBI, ФИБ, ЕПК, УК, АК. Alex_Vail назвал статью 12.3.";
+  let audioCalls = 0;
   t.mock.method(globalThis, "fetch", async (url, options) => {
     if (!String(url).startsWith("https://generativelanguage.googleapis.com/")) return realFetch(url, options);
     const payload = JSON.parse(options.body);
+    if (String(url).endsWith("/models/gemini-3.5-flash-lite:generateContent")) {
+      audioCalls++;
+      assert.equal(options.headers["x-goog-api-key"], "fixture-model");
+      const [language, { inlineData }] = payload.contents[0].parts;
+      assert.match(language.text, /ru-RU|en-US/);
+      assert.equal(inlineData.mimeType, "audio/wav");
+      assert.equal(Buffer.from(inlineData.data, "base64").toString("ascii", 0, 4), "RIFF");
+      return Response.json({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: transcript }] } }],
+        usageMetadata: { totalTokenCount: 200 } });
+    }
     const { messages } = payload;
     assert.ok(!messages[0].content.includes("fixture-case-marker"));
     modelContext = messages[1].content;
@@ -390,6 +402,39 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
     assert.equal(metrics.data.metrics.filter(item => item.event === "ai_success").length, 3);
     assert.doesNotMatch(JSON.stringify(metrics.data), /ориентировке|Личная фраза/);
   });
+  await t.test("Live transcription checks licenses, origin, WAV framing and request limits", async () => {
+    const wav = Buffer.alloc(44 + 3200);
+    wav.write("RIFF", 0);
+    wav.write("WAVEfmt ", 8);
+    wav.write("data", 36);
+    for (const [offset, value] of [[4, wav.length - 8], [16, 16], [24, 16000], [28, 32000], [40, 3200]]) wav.writeUInt32LE(value, offset);
+    for (const [offset, value] of [[20, 1], [22, 1], [32, 2], [34, 16]]) wav.writeUInt16LE(value, offset);
+    const upload = (auth, body = wav, headers = {}) => realFetch(origin + "/api/live/transcribe", {
+      method: "POST", body, headers: { Cookie: auth, "Content-Type": "audio/wav", "X-RPM-Speech-Language": "ru-RU", ...headers }
+    });
+    assert.equal((await upload("")).status, 401);
+    const customerId = (await query("SELECT id FROM rpm_users WHERE username = 'workspace-customer'")).rows[0].id;
+    await query("UPDATE rpm_licenses SET status = 'expired' WHERE user_id = $1 AND status = 'active'", [customerId]);
+    try {
+      assert.equal((await upload(customerAgain.cookie)).status, 401);
+    } finally {
+      await query("UPDATE rpm_licenses SET status = 'active' WHERE user_id = $1 AND status = 'expired' AND expires_at > now()", [customerId]);
+    }
+    assert.equal((await upload(cookie, wav, { Origin: "https://example.test" })).status, 403);
+    assert.equal((await upload(cookie, wav, { "Content-Type": "audio/webm" })).status, 415);
+    assert.equal((await upload(cookie, wav, { "X-RPM-Speech-Language": "de-DE" })).status, 400);
+    assert.equal((await upload(other.cookie, Buffer.alloc(960045))).status, 413);
+    assert.equal((await upload(other.cookie, Buffer.alloc(100))).status, 400);
+    assert.equal(audioCalls, 0);
+    const response = await upload(customerAgain.cookie, wav, { Origin: origin, "X-RPM-Speech-Language": "en-US" });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.transcript, transcript);
+    assert.ok(result.elapsedMs >= 0);
+    for (let i = 0; i < 4; i++) assert.equal((await upload(other.cookie)).status, 200);
+    assert.equal((await upload(other.cookie)).status, 429);
+    assert.equal(audioCalls, 5);
+  });
   const inbox = (await send("/api/workspace/notifications", { cookie: customerAgain.cookie })).data.filter(item => item.id.startsWith("subscription:"));
   assert.equal(inbox.length, 1);
   const read = "/api/workspace/notifications/read";
@@ -542,14 +587,16 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       }));
       await context.addInitScript(() => {
         const mode = new URL(location.href).searchParams.get("speech");
+        localStorage.setItem("rpm.live.engine", mode === "server" ? "auto" : "browser");
         window.nativeSpeechAvailable = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
         let permission = mode === "blocked" ? "denied" : "prompt";
         navigator.permissions.query = async () => ({ state: permission });
         navigator.mediaDevices.enumerateDevices = async () => [
-          { kind: "audioinput", label: "Synthetic test input" }
+          { kind: "audioinput", label: "Synthetic test input", deviceId: "synthetic" }
         ];
         navigator.mediaDevices.getUserMedia = async constraints => {
           window.captureRequests = (window.captureRequests || 0) + 1;
+          window.testDevice = constraints.audio?.deviceId?.exact;
           if (!constraints.audio) throw new Error("Expected audio capture");
           if (mode === "denied") throw new DOMException("", "NotAllowedError");
           if (mode === "missing") throw new DOMException("", "NotFoundError");
@@ -645,7 +692,7 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       for (const [mode, message] of [
         ["denied", /Доступ к микрофону отклонён/], ["blocked", /Микрофон заблокирован/],
         ["missing", /Микрофон не найден/], ["busy", /Микрофон занят/],
-        ["network", /Сетевая ошибка/], ["no-speech", /Речь не обнаружена/],
+        ["network", /Браузерный сервис распознавания не ответил/], ["no-speech", /Речь не обнаружена/],
         ["service-not-allowed", /Сервис распознавания недоступен/]
       ]) {
         await page.goto(origin + "/?speech=" + mode + "#live");
@@ -653,6 +700,10 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
         await page.getByText(message).waitFor();
         assert.equal(await page.locator("#liveText").isEditable(), true);
         if (mode === "blocked") assert.equal(await page.evaluate(() => window.captureRequests), undefined);
+        if (mode === "network") {
+          await page.locator("#liveUseServer").click();
+          assert.equal(await page.evaluate(() => localStorage.getItem("rpm.live.engine")), "server");
+        }
       }
       await page.goto(origin + "/?speech=ok#live");
       await page.locator("#liveDialog[open]").waitFor();
@@ -660,7 +711,7 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       assert.equal(await page.locator("#liveLanguage").inputValue(), "ru-RU");
       await page.locator("#liveTest").click();
       await page.waitForFunction(() => document.getElementById("liveLevel").value > 0.1);
-      await page.getByText("Synthetic test input").waitFor();
+      await page.locator('#liveDevices option[value="synthetic"]').waitFor({ state: "attached" });
       assert.equal(await page.evaluate(() => window.captureRequests), 1);
       if (process.env.WORKSPACE_TEST_SCREENSHOTS) await page.screenshot({ path: ".workspace-test/live-microphone.png" });
       await page.locator("#liveLanguage").selectOption("en-US");
@@ -696,6 +747,31 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       await page.locator("#liveAnalyze").click();
       await page.locator("#liveAnswer dd").first().waitFor();
       if (process.env.WORKSPACE_TEST_SCREENSHOTS) await page.screenshot({ path: ".workspace-test/live-compact.png" });
+      await page.goto(origin + "/?speech=server#live");
+      const requestsBefore = audioCalls;
+      await page.locator("#liveSettingsOpen").click();
+      await page.locator("#liveTest").click();
+      await page.locator('#liveDevices option[value="synthetic"]').waitFor({ state: "attached" });
+      await page.locator("#liveDevices").selectOption("synthetic");
+      await page.locator("#liveSettingsClose").click();
+      await page.locator("#liveMic").click();
+      await page.getByText("Идёт запись…").waitFor();
+      await page.waitForFunction(() => document.getElementById("liveRecordingTime").textContent === "00:01");
+      assert.equal(await page.evaluate(() => window.testDevice), "synthetic");
+      await page.locator("#liveDiscard").click();
+      await page.waitForFunction(() => window.testTrack.readyState === "ended");
+      assert.equal(audioCalls, requestsBefore);
+      await page.locator("#liveText").fill("Черновик.");
+      await page.locator("#liveMic").click();
+      await page.waitForFunction(() => document.getElementById("liveRecordingTime").textContent === "00:01");
+      if (process.env.WORKSPACE_TEST_SCREENSHOTS) await page.screenshot({ path: ".workspace-test/live-server-recording.png", animations: "disabled" });
+      const started = performance.now();
+      await page.locator("#liveStop").click();
+      await page.getByText("Диктовка готова. Текст можно исправить.").waitFor();
+      console.log("Live recording -> transcript (mock provider), ms:", Math.round(performance.now() - started));
+      assert.equal(await page.locator("#liveText").inputValue(), "Черновик. " + transcript);
+      assert.equal(audioCalls, requestsBefore + 1);
+      assert.equal(await page.locator("#liveText").isEditable(), true);
       assert.deepEqual(errors, []);
     } finally { await browser.close(); }
   });
