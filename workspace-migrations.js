@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-const migrations = ["002_workspace.sql", "003_appearance.sql", "004_workspace_personal.sql", "005_subscription_plans.sql", "006_calendar_details.sql", "007_crm_clients.sql", "008_live_assistant.sql"];
+const migrations = ["002_workspace.sql", "003_appearance.sql", "004_workspace_personal.sql", "005_subscription_plans.sql", "006_calendar_details.sql", "007_crm_clients.sql", "008_live_assistant.sql", "009_help_center.sql"];
 const migrationLock = 59047;
 
 export async function migrateWorkspace(pool) {

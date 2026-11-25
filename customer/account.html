@@ -90,7 +90,17 @@ main :is(form,section,input)[id]{scroll-margin-top:16px}
   <a class="workspace-link" href="#accountLicense">Подписка</a>
   <a class="workspace-link" href="#casesSection">Мои дела</a>
   <a class="workspace-link" href="#supportSection">Поддержка</a>
+  <a class="workspace-link" href="/?tab=help">Помощь</a>
 </nav>
+
+<section class="account-license" id="accountHelpOffer" hidden>
+  <h2>Познакомьтесь с помощником</h2>
+  <p>За пять шагов узнайте, где разбирать дела, открывать Live Assistant и искать нормы RPM.</p>
+  <a class="workspace-link" href="/?tab=help&amp;tour=1">Начать обучение</a>
+  <button type="button" class="secondary">Пропустить</button>
+  <p role="status"></p>
+</section>
+<script type="module" src="/account-help.js"></script>
 
 <section class="support-section"><h2>Мой профиль и оформление</h2><form id="profileForm" class="profile-form">
 <label>Логин<input id="profileLogin" name="username" minlength="3" maxlength="32" required></label>

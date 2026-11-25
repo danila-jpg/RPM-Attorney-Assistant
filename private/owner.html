@@ -119,6 +119,14 @@
 <section class="section"><h2>История выплат</h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Партнёр</th><th>Промокод</th><th>Игровой счёт</th><th>Сумма</th><th>Примечание</th></tr></thead><tbody id="payouts"><tr><td colspan="6" class="empty">Загрузка…</td></tr></tbody></table></div></section>
 <section class="section"><h2>Журнал действий владельца</h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Действие</th><th>Объект</th><th>ID</th><th>Подробности</th></tr></thead><tbody id="audit"><tr><td colspan="5" class="empty">Загрузка…</td></tr></tbody></table></div></section>
 <div class="notice" id="globalMessage"></div>
+<details class="card" id="ownerHelpMetrics">
+  <summary>Статистика центра помощи</summary>
+  <p>Оценки статей и темы поиска. Поиск учитывается по разделам справки.</p>
+  <button type="button" class="secondary">Обновить</button>
+  <p role="status"></p>
+  <div data-help-totals></div>
+</details>
+<script type="module" src="/owner-help.js"></script>
 <details class="card" id="ownerLiveMetrics">
   <summary>Live Assistant · статистика за 30 дней</summary>
   <ul aria-live="polite"></ul>

@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="/password-visibility.css">
   <script defer src="/password-visibility.js"></script>
   <script type="module" src="/workspace-router.js"></script>
+  <script type="module" src="/help.js"></script>
+  <link rel="stylesheet" href="/help.css">
   <script type="module" src="/live-assistant.js"></script>
   <link rel="stylesheet" href="/live-assistant.css">
   <script type="module" src="/workspace-personal.js"></script>
@@ -763,6 +765,9 @@
       <a class="nav-tab" href="/charters?type=charter" data-section="charters" data-tab="charters" aria-label="Уставы" title="Уставы"><span data-icon="book"></span><span class="rpm-nav-label">Уставы</span></a>
       <a class="nav-tab" href="/charters?view=history" data-section="revisions" aria-label="История редакций" title="История редакций"><span data-icon="history"></span><span class="rpm-nav-label">История редакций</span></a>
     </div>
+    <div class="rpm-nav-group"><p>Обучение</p>
+      <button type="button" data-tab="help" aria-label="Помощь" title="Помощь"><span class="help-nav-icon" aria-hidden="true">?</span><span class="rpm-nav-label">Помощь</span></button>
+    </div>
     <div class="rpm-nav-group" id="rpmManagement" hidden><p>Управление</p>
       <a class="nav-tab" href="/owner" data-section="owner" data-role="owner" hidden aria-label="Панель владельца" title="Панель владельца"><span data-icon="scale"></span><span class="rpm-nav-label">Панель владельца</span></a>
       <a class="nav-tab" href="/admin" data-section="admin" data-tab="admin" id="adminWorkspaceLink" data-role="admin" hidden aria-label="Кабинет администратора" title="Кабинет администратора"><span data-icon="shield"></span><span class="rpm-nav-label">Кабинет администратора</span></a>
@@ -803,6 +808,26 @@
 
 
   <section id="dashboard" class="tab active"><div id="personalDashboard"></div></section>
+  <section id="help" class="tab">
+    <div class="help-hero">
+      <h1>Помощь и обучение</h1>
+      <form id="helpSearchForm" role="search" aria-label="Поиск по центру помощи">
+        <label for="helpSearch">Поиск по инструкциям</label>
+        <input id="helpSearch" type="search" maxlength="120" autocomplete="off" placeholder="Например, микрофон или сохранение дела">
+      </form>
+      <div class="help-actions">
+        <button id="helpTour" type="button" class="primary">Пройти обучение</button>
+        <a href="/?tab=help&amp;article=faq">Частые вопросы</a>
+      </div>
+    </div>
+    <div class="help-layout">
+      <details class="help-nav" open><summary>Категории</summary><nav id="helpCategories" aria-label="Категории помощи"></nav></details>
+      <div>
+        <p id="helpSearchStatus" role="status"></p>
+        <div id="helpResults"></div>
+      </div>
+    </div>
+  </section>
   <section id="calendar" class="tab"><h1>Календарь</h1><div id="personalCalendar"></div></section>
   <section id="favorites" class="tab"><h1>Избранное</h1><div id="personalFavorites"></div></section>
   <section id="clients" class="tab">
@@ -4809,6 +4834,17 @@
   init();
 
 </script>
+<dialog id="helpDialog" class="help-dialog" aria-labelledby="helpDialogTitle" aria-describedby="helpDialogText">
+  <h2 id="helpDialogTitle"></h2>
+  <p id="helpDialogText"></p>
+  <p id="helpDialogStatus" role="status"></p>
+  <div id="helpDialogActions" class="help-actions"></div>
+</dialog>
+<dialog id="helpQuick" class="help-dialog" aria-labelledby="helpQuickTitle">
+  <h2 id="helpQuickTitle"></h2>
+  <p></p>
+  <div class="help-actions"><a href="/?tab=help">Полная инструкция</a><button type="button" class="secondary">Закрыть</button></div>
+</dialog>
 <dialog id="liveDialog" aria-labelledby="liveTitle">
   <header class="live-header">
     <h2 id="liveTitle"><span class="live-logo" aria-hidden="true">✦</span> Live Assistant</h2>

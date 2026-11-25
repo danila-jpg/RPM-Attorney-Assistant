@@ -16,6 +16,7 @@ import registerWorkspace from "./workspace-routes.js";
 import { appearanceRevision } from "./appearance.js";
 import { migrateWorkspace } from "./workspace-migrations.js";
 import { registerLiveAssistant } from "./live-assistant.js";
+import { registerHelp } from "./help-routes.js";
 import { normalizePlanCode, registerSubscriptionCatalog, registerPlanManagement } from "./subscription-plans.js";
 import { revisionInfo, compareRevisions, selectRevision } from "./law-revisions.js";
 import { requestLimit } from "./request-limits.js";
@@ -316,7 +317,7 @@ async function requireAuth(req, res, next) {
 
   // Существующий Basic Auth остаётся резервным способом входа.
   if (/^\/admin\/?$/i.test(req.path)) return res.redirect("/admin-login");
-  if (/^\/api\/(?:admin\/self|documents|training|workspace|live|owner\/live-metrics)(?:\/|$)/i.test(req.path)) {
+  if (/^\/api\/(?:admin\/self|documents|training|workspace|live|owner\/(?:live|help)-metrics)(?:\/|$)/i.test(req.path)) {
     return res.status(401).json({ error: "Для доступа войдите в аккаунт через форму входа." });
   }
   if (!APP_USER || !APP_PASSWORD) {
@@ -1547,6 +1548,7 @@ function getSearchCorpus(documents) {
 }
 
 registerWorkspace(app, { pool, requireAdmin, loadLaws, getDocuments, sendWorkspace });
+registerHelp(app, { pool, requireOwner });
 registerLiveAssistant(app, {
   pool, client, model: MODEL, requireOwner,
   async search(query, limit) {
