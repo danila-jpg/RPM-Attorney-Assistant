@@ -255,6 +255,17 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
   } finally {
     await db.exec("ALTER TABLE rpm_admin_activity_fixture RENAME TO rpm_admin_activity");
   }
+  const library = await send("/api/laws", { cookie });
+  assert.equal(library.status, 200);
+  assert.equal(library.data.articleIndex.epk.length, 51);
+  assert.equal(library.data.archivedDocuments.find(doc => doc.id === "epk-archive-1").articles.length, 53);
+  const removedEpk = await send("/api/laws", { method: "PUT", cookie: owner.cookie,
+    body: { documents: library.data.documents.filter(doc => doc.id !== "epk") } });
+  assert.equal(removedEpk.status, 400);
+  const epkSearch = await send("/api/laws/search?" + new URLSearchParams({ q: "ЕПК, глава III, статья 3, пункт 3.4" }), { cookie });
+  assert.equal(epkSearch.data.totalArticles, 508);
+  assert.equal(epkSearch.data.exact.matches[0]?.documentId, "epk");
+  assert.ok(epkSearch.data.results.some(article => article.documentId === "epk" && article.anchor));
   const exact = await send("/api/documents/resolve?q=" + encodeURIComponent("ЕПК, глава III, статья 3, пункт 3.4"), { cookie });
   assert.equal(exact.data.status, "confirmed");
   assert.equal((await send("/api/documents/epk", { cookie })).data.history[0].revision, "2026-10-09");
@@ -834,6 +845,12 @@ test("workspace HTTP, PostgreSQL migration, role gates and mobile UI", { skip: !
       const cabinetStyles = await themeStyles();
       await page.goto(origin + "/");
       await page.locator(".rpm-metrics .rpm-metric").last().waitFor();
+      await page.evaluate(() => window.rpmNavigate("/?tab=laws"));
+      const epk = page.locator("#lawsList > details").filter({ hasText: "ЕДИНЫЙ ПРОЦЕССУАЛЬНЫЙ КОДЕКС ШТАТА RPM" });
+      await epk.waitFor();
+      assert.equal(await page.locator("#lawsList > details").count(), 14);
+      assert.equal(await epk.locator(".article").count(), 51);
+      assert.match(await page.locator("#lawStats").textContent(), /508/);
       await page.evaluate(() => window.rpmNavigate("/?tab=analysis"));
       await page.locator("#caseDescription").fill("Проверка документов сотрудником CPD");
       await page.locator("#structuredMode").selectOption("evidence");

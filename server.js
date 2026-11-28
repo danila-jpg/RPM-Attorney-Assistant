@@ -10,7 +10,7 @@ import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { timingSafeEqual, randomBytes, createHash, randomUUID } from "node:crypto";
 import registerCustomerAuth from "./customer-auth-routes.js";
-import { citation, resolveNorm, searchableEntries } from "./documents.js";
+import { citation, lawArticles, resolveNorm, searchableEntries } from "./documents.js";
 import { legalModes, runLegalAnalysis } from "./legal-engine.js";
 import registerWorkspace from "./workspace-routes.js";
 import { appearanceRevision } from "./appearance.js";
@@ -1525,25 +1525,32 @@ function getDocuments(laws) {
   return Array.isArray(documents) ? documents.filter(doc => doc && !["archived", "draft"].includes(doc.status)) : [];
 }
 
+function countLawArticles(documents) {
+  return documents.filter(doc => !doc.type || doc.type === "law")
+    .reduce((count, doc) => count + lawArticles(doc).length, 0);
+}
+
 async function loadLaws() {
-  return await readJson(LAWS_FILE, {
-    documents: []
-  });
+  return JSON.parse(await fs.readFile(LAWS_FILE, "utf8"));
 }
 
 function getSearchCorpus(documents) {
   return [
-    ...extractArticles(documents.filter(doc => !doc.structure || doc.type === "law")),
-    ...documents.filter(doc => doc.structure).flatMap(doc => searchableEntries(doc)
-      .filter(entry => doc.type !== "law" || ["point", "subpoint", "note"].includes(entry.kind))
-      .map(entry => ({
+    ...extractArticles(documents.filter(doc => !doc.structure)),
+    ...documents.filter(doc => doc.structure).flatMap(doc => {
+      const entries = searchableEntries(doc);
+      const searchable = doc.type === "law"
+        ? [...lawArticles(doc, entries), ...entries.filter(entry => ["point", "subpoint", "note"].includes(entry.kind))]
+        : entries;
+      return searchable.map(entry => ({
         documentId: doc.id, anchor: entry.id, document: doc.name, kind: entry.kind, type: doc.type,
         organization: doc.organization, revision: doc.revision, source: doc.source,
         chapter: entry.chapter ? `глава ${entry.chapter}` : "",
         section: entry.section ? `раздел ${entry.section}` : "",
         number: entry.number, title: entry.kind === "document" ? doc.name : entry.title,
         text: entry.text, reference: citation(doc, entry)
-      })))
+      }));
+    })
   ];
 }
 
@@ -1581,7 +1588,12 @@ app.get("/api/law-revisions", async (req, res) => {
 
 app.get("/api/laws", async (req, res) => {
   try {
-    res.json(await loadLaws());
+    const laws = await loadLaws();
+    const documents = getDocuments(laws);
+    const articleIndex = Object.fromEntries(documents
+      .filter(doc => doc.structure && doc.type === "law")
+      .map(doc => [doc.id, lawArticles(doc)]));
+    res.json({ ...(Array.isArray(laws) ? {} : laws), documents: Array.isArray(laws) ? laws : laws.documents, articleIndex });
   } catch (error) {
     console.error("Load laws error:", error);
 
@@ -1608,6 +1620,12 @@ app.put("/api/laws", async (req, res) => {
     const previous = await loadLaws();
     const documents = [...incoming, ...getDocuments(previous).filter(doc => doc.type && doc.type !== "law" &&
       !incoming.some(item => item.id === doc.id))];
+    const previousLaws = getDocuments(previous).filter(doc => !doc.type || doc.type === "law");
+    const invalid = previousLaws.find(old => {
+      const replacement = getDocuments(documents).find(doc => doc.id === old.id && (!doc.type || doc.type === "law"));
+      return !replacement || !lawArticles(replacement).length;
+    });
+    if (invalid) return res.status(400).json({ error: "Обновление оставляет библиотеку без статей документа: " + invalid.name });
     const archive = [...(previous.archivedDocuments || [])];
     const activeEpk = getDocuments(previous).find(doc => doc.id === "epk");
     const updatedEpk = documents.find(doc => doc.id === "epk");
@@ -1615,6 +1633,7 @@ app.put("/api/laws", async (req, res) => {
       archive.push({ ...activeEpk, id: `epk-archive-${randomUUID()}`, documentId: "epk", status: "archived", archivedAt: new Date().toISOString() });
     }
     const next = { ...previous, ...(Array.isArray(req.body) ? {} : req.body), documents, archivedDocuments: archive };
+    delete next.articleIndex;
     const temporary = `${LAWS_FILE}.${randomUUID()}.tmp`;
     await writeJson(temporary, next);
     await fs.rename(temporary, LAWS_FILE);
@@ -2232,11 +2251,12 @@ app.get("/api/laws/search", async (req, res) => {
       query,
       exact,
       totalDocuments: documents.length,
-      totalArticles: allArticles.length,
+      totalArticles: countLawArticles(documents),
       found: results.length,
 
       results: results.map(article => ({
         documentId: article.documentId,
+        anchor: article.anchor,
         document: article.document,
         type: article.type || "law",
         organization: article.organization || null,
@@ -3529,7 +3549,7 @@ app.get("/api/health", async (req, res) => {
   try {
     const laws = await loadLaws();
     const documents = getDocuments(laws);
-    const articles = extractArticles(documents);
+
 
     res.json({
       status: "ok",
@@ -3538,8 +3558,8 @@ app.get("/api/health", async (req, res) => {
       model: MODEL,
 
       laws: {
-        documents: documents.length,
-        articles: articles.length
+        documents: documents.filter(doc => !doc.type || doc.type === "law").length,
+        articles: countLawArticles(documents)
       }
     });
   } catch (error) {

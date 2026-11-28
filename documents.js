@@ -86,6 +86,28 @@ export function searchableEntries(doc) {
   return entries;
 }
 
+export function lawArticles(doc, entries = doc.structure ? searchableEntries(doc) : null) {
+  if (!entries) return Array.isArray(doc.articles) ? doc.articles : [];
+  const articles = [];
+  let current, chapterTitle, sectionTitle;
+  for (const entry of entries) {
+    if (entry.kind === "chapter") {
+      chapterTitle = entry.title;
+      sectionTitle = null;
+    }
+    if (entry.kind === "section") sectionTitle = entry.title;
+    if (entry.kind === "article") {
+      current = { ...entry, chapterTitle, sectionTitle };
+      articles.push(current);
+    } else if (entry.kind === "chapter" || entry.kind === "section") {
+      current = null;
+    } else if (current && entry.text) {
+      current.text += "\n" + entry.text;
+    }
+  }
+  return articles;
+}
+
 export function citation(doc, entry) {
   const parts = [doc.name];
   if (entry.chapter) parts.push(`глава ${entry.chapter}`);

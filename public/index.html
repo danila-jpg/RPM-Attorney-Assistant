@@ -1623,11 +1623,13 @@
   /* БИБЛИОТЕКА ЗАКОНОВ И УЛУЧШЕННЫЙ ПОИСК */
 
   function getDocuments(){
-    if(Array.isArray(lawsData)) return lawsData.filter(doc => !doc.type || doc.type === "law");
-    if(lawsData && Array.isArray(lawsData.documents)) {
-      return lawsData.documents.filter(doc => !doc.type || doc.type === "law");
-    }
-    return [];
+    const documents = Array.isArray(lawsData) ? lawsData : lawsData?.documents;
+    return (documents || []).filter(doc => doc && (!doc.type || doc.type === "law") &&
+      !["archived", "draft"].includes(doc.status));
+  }
+
+  function getLibraryArticles(doc){
+    return lawsData?.articleIndex?.[doc.id] ?? (Array.isArray(doc.articles) ? doc.articles : []);
   }
 
   function getArticleText(article){
@@ -1658,7 +1660,8 @@
 
       const editor = $("lawsEditor");
       if(editor){
-        editor.value = JSON.stringify(lawsData, null, 2);
+        const { articleIndex, ...editable } = lawsData;
+        editor.value = JSON.stringify(editable, null, 2);
       }
 
       renderLaws();
@@ -1679,6 +1682,8 @@
       doc.id,
       doc.category,
       article.number,
+      article.chapterTitle,
+      article.sectionTitle,
       article.title,
       article.status,
       getArticleText(article),
@@ -1743,7 +1748,7 @@
 
     let totalArticles = 0;
     documents.forEach(doc => {
-      totalArticles += Array.isArray(doc.articles) ? doc.articles.length : 0;
+      totalArticles += getLibraryArticles(doc).length;
     });
 
     const stats = $("lawStats");
@@ -1765,7 +1770,7 @@
     const filtered = documents.map(doc => {
       if(type !== "all" && getDocumentType(doc) !== type) return null;
 
-      const articles = Array.isArray(doc.articles) ? doc.articles : [];
+      const articles = getLibraryArticles(doc);
 
       const documentText = normalizeSearch([
         doc.name, doc.title, doc.id, doc.category
@@ -1784,7 +1789,7 @@
         matchingArticles = articles;
       }
 
-      if(!matchingArticles.length) return null;
+      if(searchWords.length && !documentMatches && !matchingArticles.length) return null;
       return {doc, articles: matchingArticles};
     }).filter(Boolean);
 
@@ -1820,12 +1825,22 @@
 
       const content = makeElement("div", "law-content");
 
+      let lastChapter, lastSection;
       articles.forEach(article => {
+        if (article.chapterTitle && article.chapterTitle !== lastChapter) {
+          content.appendChild(highlightedElement("h3", "", article.chapterTitle));
+          lastChapter = article.chapterTitle;
+          lastSection = undefined;
+        }
+        if (article.sectionTitle && article.sectionTitle !== lastSection) {
+          content.appendChild(highlightedElement("h4", "", article.sectionTitle));
+          lastSection = article.sectionTitle;
+        }
         const articleBox = makeElement("details", "article");
 
         const articleSummary = highlightedElement(
                 "summary", "",
-                "Статья " + (article.number ?? "—") +
+                article.kind === "article" ? article.title : "Статья " + (article.number ?? "—") +
                 ". " + (article.title || "Без названия")
         );
 
@@ -1885,8 +1900,7 @@
         body: JSON.stringify(parsed)
       });
 
-      lawsData = parsed;
-      renderLaws();
+      await loadLaws();
 
       toast("Законы сохранены.");
     }catch(error){
